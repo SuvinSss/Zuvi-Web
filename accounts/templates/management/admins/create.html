@@ -1,0 +1,18 @@
+{% extends "management/base.html" %}
+
+{% block title %}Create Admin{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="h4 mb-3">Create Admin</h1>
+        <form method="post" novalidate>
+            {% include "management/admins/_form.html" %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Admin</button>
+                <a href="{% url 'accounts:admin_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

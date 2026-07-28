@@ -1,0 +1,57 @@
+{% extends "management/base.html" %}
+
+{% block title %}Admin Details{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Admin Details</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'accounts:admin_edit' admin_user.pk %}" class="btn btn-primary">Edit</a>
+        <a href="{% url 'accounts:admin_list' %}" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Display Name</dt><dd class="col-sm-9">{{ admin_user.get_full_name|default:admin_user.username }}</dd>
+            <dt class="col-sm-3">Username</dt><dd class="col-sm-9">{{ admin_user.username }}</dd>
+            <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ admin_user.email }}</dd>
+            <dt class="col-sm-3">Phone Number</dt><dd class="col-sm-9">{{ admin_user.phone_number|default:"-" }}</dd>
+            <dt class="col-sm-3">Employee ID</dt><dd class="col-sm-9">{% if profile %}{{ profile.employee_id|default:"-" }}{% else %}-{% endif %}</dd>
+            <dt class="col-sm-3">Designation</dt><dd class="col-sm-9">{% if profile %}{{ profile.designation|default:"-" }}{% else %}-{% endif %}</dd>
+            <dt class="col-sm-3">Notes</dt><dd class="col-sm-9">{% if profile %}{{ profile.notes|default:"-" }}{% else %}-{% endif %}</dd>
+            <dt class="col-sm-3">Groups</dt>
+            <dd class="col-sm-9">
+                {% for group in admin_user.groups.all %}
+                    <span class="badge text-bg-secondary">{{ group.name }}</span>
+                {% empty %}
+                    -
+                {% endfor %}
+            </dd>
+            <dt class="col-sm-3">Active Status</dt>
+            <dd class="col-sm-9">
+                {% if admin_user.is_active %}
+                    <span class="badge text-bg-success">Active</span>
+                {% else %}
+                    <span class="badge text-bg-danger">Inactive</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h6">Change Active Status</h2>
+        <form method="post" action="{% url 'accounts:admin_toggle_status' admin_user.pk %}">
+            {% csrf_token %}
+            {% if admin_user.is_active %}
+                <button class="btn btn-warning" type="submit">Deactivate Account</button>
+            {% else %}
+                <button class="btn btn-success" type="submit">Activate Account</button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

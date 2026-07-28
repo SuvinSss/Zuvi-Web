@@ -124,6 +124,9 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
+LOGIN_URL = "/management/login/"
+LOGIN_REDIRECT_URL = "/management/dashboard/"
+LOGOUT_REDIRECT_URL = "/management/login/"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

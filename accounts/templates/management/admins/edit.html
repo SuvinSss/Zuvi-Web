@@ -1,0 +1,24 @@
+{% extends "management/base.html" %}
+
+{% block title %}Edit Admin{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h1 class="h4 mb-1">Edit Admin</h1>
+                <p class="text-muted mb-0">Password is managed separately and is not shown here.</p>
+            </div>
+            <a href="{% url 'accounts:admin_detail' admin_user.pk %}" class="btn btn-outline-secondary btn-sm">Back</a>
+        </div>
+        <form method="post" novalidate>
+            {% include "management/admins/_form.html" %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a href="{% url 'accounts:admin_detail' admin_user.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

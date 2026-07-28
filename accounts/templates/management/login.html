@@ -1,0 +1,54 @@
+{% extends "management/base.html" %}
+
+{% block title %}Management Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 mb-3">Management Login</h1>
+                <p class="text-muted">Sign in with a Super Admin or Admin account.</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if request.GET.next %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+                    {% endif %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+                        <input
+                            class="form-control"
+                            id="{{ form.username.id_for_label }}"
+                            type="text"
+                            name="{{ form.username.html_name }}"
+                            value="{{ form.username.value|default_if_none:'' }}"
+                            required
+                            autofocus
+                        >
+                        {% for error in form.username.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+                        <input
+                            class="form-control"
+                            id="{{ form.password.id_for_label }}"
+                            type="password"
+                            name="{{ form.password.html_name }}"
+                            required
+                        >
+                        {% for error in form.password.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
