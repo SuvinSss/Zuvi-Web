@@ -218,7 +218,10 @@ class ManagementPortalAccessTests(TestCase):
         self.login_url = reverse("accounts:management_login")
         self.dashboard_url = reverse("accounts:management_dashboard")
         self.logout_url = reverse("accounts:management_logout")
-        self.stores_permission = Permission.objects.get(codename="access_stores_module")
+        self.stores_permission = Permission.objects.get(
+            codename="view_store",
+            content_type__app_label="stores",
+        )
         self.orders_permission = Permission.objects.get(codename="access_orders_module")
 
     def test_super_admin_access(self):
@@ -316,6 +319,138 @@ class ManagementPortalAccessTests(TestCase):
         self.assertNotContains(response, "Customers")
         self.assertNotContains(response, "Orders")
         self.assertNotContains(response, "Delivery")
+
+
+class ManagementDashboardStoreCardTests(TestCase):
+    def setUp(self):
+        from decimal import Decimal
+
+        from locations.models import Address
+        from stores.models import Store, StoreCategory, StoreStatus, StoreType
+
+        self.Store = Store
+        self.StoreStatus = StoreStatus
+
+        self.super_admin = User.objects.create_user(
+            username="dash-super",
+            email="dash-super@example.com",
+            password="secure-password-123",
+            role=Role.SUPER_ADMIN,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.admin = User.objects.create_user(
+            username="dash-admin",
+            email="dash-admin@example.com",
+            password="secure-password-123",
+            role=Role.ADMIN,
+            is_staff=True,
+        )
+        self.view_store = Permission.objects.get(
+            codename="view_store",
+            content_type__app_label="stores",
+        )
+        self.dashboard_url = reverse("accounts:management_dashboard")
+        self.stores_url = reverse("stores:store_list")
+
+        category = StoreCategory.objects.create(name="Dashboard Cat")
+
+        def make_store(name, status):
+            address = Address.objects.create(
+                line1=f"{name} Street",
+                city="Bengaluru",
+                state="Karnataka",
+                postal_code="560001",
+                latitude=Decimal("12.971600"),
+                longitude=Decimal("77.594600"),
+            )
+            return Store.objects.create(
+                name=name,
+                store_type=StoreType.OWN_STORE,
+                status=status,
+                category=category,
+                address=address,
+                commission_percentage=Decimal("5.00"),
+            )
+
+        make_store("Pending One", StoreStatus.PENDING)
+        make_store("Pending Two", StoreStatus.PENDING)
+        make_store("Active One", StoreStatus.ACTIVE)
+        make_store("Active Two", StoreStatus.ACTIVE)
+        make_store("Active Three", StoreStatus.ACTIVE)
+        make_store("Suspended One", StoreStatus.SUSPENDED)
+        make_store("Rejected One", StoreStatus.REJECTED)
+
+    def _assert_store_card_counts(self, response):
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Stores")
+        self.assertContains(response, f'href="{self.stores_url}"')
+        self.assertContains(response, "Total Stores:")
+        self.assertContains(response, "Pending Stores:")
+        self.assertContains(response, "Active Stores:")
+        self.assertContains(response, "Suspended Stores:")
+        stats = response.context["store_stats"]
+        self.assertEqual(stats["total"], 7)
+        self.assertEqual(stats["pending"], 2)
+        self.assertEqual(stats["active"], 3)
+        self.assertEqual(stats["suspended"], 1)
+        self.assertContains(response, f"<strong>Total Stores:</strong> {stats['total']}")
+        self.assertContains(
+            response, f"<strong>Pending Stores:</strong> {stats['pending']}"
+        )
+        self.assertContains(
+            response, f"<strong>Active Stores:</strong> {stats['active']}"
+        )
+        self.assertContains(
+            response, f"<strong>Suspended Stores:</strong> {stats['suspended']}"
+        )
+
+    def test_store_card_hidden_for_admin_without_view_store(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.client.login(username="dash-admin", password="secure-password-123")
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["store_stats"])
+        self.assertNotContains(response, "Stores")
+        self.assertNotContains(response, "Total Stores")
+        self.assertNotContains(response, "Pending Stores")
+        store_table_queries = [
+            query["sql"]
+            for query in ctx.captured_queries
+            if "stores_store" in query["sql"].lower()
+        ]
+        self.assertEqual(store_table_queries, [])
+
+    def test_store_card_visible_with_counts_for_admin_with_view_store(self):
+        self.admin.user_permissions.add(self.view_store)
+        self.client.login(username="dash-admin", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self._assert_store_card_counts(response)
+
+    def test_store_card_visible_with_counts_for_super_admin(self):
+        self.client.login(username="dash-super", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self._assert_store_card_counts(response)
+
+    def test_store_dashboard_stats_uses_single_aggregate_query(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from stores.services import get_store_dashboard_stats
+
+        with CaptureQueriesContext(connection) as ctx:
+            stats = get_store_dashboard_stats()
+
+        self.assertEqual(stats["total"], 7)
+        self.assertEqual(stats["pending"], 2)
+        self.assertEqual(stats["active"], 3)
+        self.assertEqual(stats["suspended"], 1)
+        self.assertEqual(len(ctx.captured_queries), 1)
+        self.assertIn("COUNT", ctx.captured_queries[0]["sql"].upper())
 
 
 class SuperAdminAdminManagementTests(TestCase):

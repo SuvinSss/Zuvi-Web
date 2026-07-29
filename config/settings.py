@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'accounts',
+    'locations',
+    'stores',
 ]
 
 MIDDLEWARE = [
@@ -118,6 +120,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (store images, etc.). Served by Django only when DEBUG=True.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -127,6 +133,7 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = "/management/login/"
 LOGIN_REDIRECT_URL = "/management/dashboard/"
 LOGOUT_REDIRECT_URL = "/management/login/"
+STORE_LOGIN_URL = "/store/login/"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

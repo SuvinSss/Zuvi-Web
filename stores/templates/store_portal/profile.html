@@ -1,0 +1,41 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Store Profile{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Store profile</h1>
+    <a href="{% url 'stores:store_portal_dashboard' %}" class="btn btn-outline-secondary">Back to dashboard</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <h2 class="h6">Read-only store details</h2>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Store code</dt><dd class="col-sm-9">{{ store.store_code }}</dd>
+            <dt class="col-sm-3">Store type</dt><dd class="col-sm-9">{{ store.get_store_type_display }}</dd>
+            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ store.get_status_display }}</dd>
+            <dt class="col-sm-3">Category</dt><dd class="col-sm-9">{{ store.category.name }}</dd>
+            <dt class="col-sm-3">Commission</dt><dd class="col-sm-9">{{ store.commission_percentage }}%</dd>
+            <dt class="col-sm-3">Address</dt><dd class="col-sm-9">{{ store.address }}</dd>
+        </dl>
+    </div>
+</div>
+
+<form method="post" class="card card-body shadow-sm">
+    {% csrf_token %}
+    <h2 class="h6 mb-3">Editable contact and profile fields</h2>
+    <div class="row g-3">
+        {% for field in form %}
+            <div class="col-md-6 {% if field.name == 'description' %}col-12{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+    </div>
+</form>
+{% endblock %}

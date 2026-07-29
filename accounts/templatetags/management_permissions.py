@@ -1,6 +1,7 @@
 from django import template
 
 from accounts.models import Role
+from stores.decorators import user_has_store_permission
 
 register = template.Library()
 
@@ -10,42 +11,49 @@ MANAGEMENT_MODULES = {
         "description": "Manage administrator accounts, access, and status.",
         "permission": None,
         "super_admin_only": True,
+        "url_name": "accounts:admin_list",
     },
     "stores": {
         "title": "Stores",
-        "description": "Store management tools are coming soon.",
-        "permission": "accounts.access_stores_module",
+        "description": "Manage stores, store users, and store status.",
+        "permission": "stores.view_store",
         "super_admin_only": False,
+        "url_name": "stores:store_list",
     },
     "products": {
         "title": "Products",
         "description": "Product management tools are coming soon.",
         "permission": "accounts.access_products_module",
         "super_admin_only": False,
+        "url_name": None,
     },
     "inventory": {
         "title": "Inventory",
         "description": "Inventory management tools are coming soon.",
         "permission": "accounts.access_inventory_module",
         "super_admin_only": False,
+        "url_name": None,
     },
     "customers": {
         "title": "Customers",
         "description": "Customer management tools are coming soon.",
         "permission": "accounts.access_customers_module",
         "super_admin_only": False,
+        "url_name": None,
     },
     "orders": {
         "title": "Orders",
         "description": "Order management tools are coming soon.",
         "permission": "accounts.access_orders_module",
         "super_admin_only": False,
+        "url_name": None,
     },
     "delivery": {
         "title": "Delivery",
         "description": "Delivery management tools are coming soon.",
         "permission": "accounts.access_delivery_module",
         "super_admin_only": False,
+        "url_name": None,
     },
 }
 
@@ -66,3 +74,9 @@ def can_access_module(user, module_key):
         return False
     permission = module.get("permission")
     return bool(permission and user.has_perm(permission))
+
+
+@register.filter
+def has_store_perm(user, permission):
+    """Template helper: Super Admin bypasses; Admin needs the Django permission."""
+    return user_has_store_permission(user, permission)

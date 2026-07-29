@@ -7,6 +7,9 @@ from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from stores.decorators import user_has_store_permission
+from stores.services import get_store_dashboard_stats
+
 from .decorators import (
     MANAGEMENT_ALLOWED_ROLES,
     can_access_management_portal,
@@ -53,12 +56,17 @@ def management_login_view(request):
 
 @management_portal_required
 def management_dashboard_view(request):
+    store_stats = None
+    if user_has_store_permission(request.user, "stores.view_store"):
+        store_stats = get_store_dashboard_stats()
+
     return render(
         request,
         "management/dashboard.html",
         {
             "management_modules": MANAGEMENT_MODULES,
             "assigned_groups": request.user.groups.all(),
+            "store_stats": store_stats,
         },
     )
 

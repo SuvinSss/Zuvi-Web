@@ -81,6 +81,13 @@ class AdminAuditLog(models.Model):
         GROUP_REMOVED = "GROUP_REMOVED", "Group Removed"
         PERMISSION_ASSIGNED = "PERMISSION_ASSIGNED", "Permission Assigned"
         PERMISSION_REMOVED = "PERMISSION_REMOVED", "Permission Removed"
+        STORE_CREATED = "STORE_CREATED", "Store Created"
+        STORE_UPDATED = "STORE_UPDATED", "Store Updated"
+        STORE_STATUS_CHANGED = "STORE_STATUS_CHANGED", "Store Status Changed"
+        STORE_USER_CREATED = "STORE_USER_CREATED", "Store User Created"
+        STORE_USER_UPDATED = "STORE_USER_UPDATED", "Store User Updated"
+        STORE_USER_ACTIVATED = "STORE_USER_ACTIVATED", "Store User Activated"
+        STORE_USER_DEACTIVATED = "STORE_USER_DEACTIVATED", "Store User Deactivated"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

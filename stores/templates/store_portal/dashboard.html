@@ -1,0 +1,76 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Store Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h1 class="h4 mb-3">{{ store.name }}</h1>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Store code</dt><dd class="col-sm-8">{{ store.store_code }}</dd>
+                    <dt class="col-sm-4">Store type</dt><dd class="col-sm-8">{{ store.get_store_type_display }}</dd>
+                    <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{{ store.get_status_display }}</dd>
+                    <dt class="col-sm-4">Category</dt><dd class="col-sm-8">{{ store.category.name }}</dd>
+                    <dt class="col-sm-4">Contact</dt>
+                    <dd class="col-sm-8">
+                        {{ store.contact_phone|default:"-" }}
+                        {% if store.email %}<div class="small text-muted">{{ store.email }}</div>{% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Address</dt><dd class="col-sm-8">{{ store.address }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Signed in</h2>
+                <p class="mb-1"><strong>Name:</strong> {{ membership.user.get_full_name|default:membership.user.username }}</p>
+                <p class="mb-3"><strong>Designation:</strong> {{ membership.designation|default:"-" }}</p>
+                <a href="{% url 'stores:store_portal_profile' %}" class="btn btn-outline-primary btn-sm">Edit profile</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h2 class="h5 mb-0">Products</h2>
+                    <span class="badge text-bg-warning">Coming Soon</span>
+                </div>
+                <p class="text-muted flex-grow-1">Product tools for this store will appear here.</p>
+                <button type="button" class="btn btn-outline-secondary" disabled>Coming Soon</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h2 class="h5 mb-0">Inventory</h2>
+                    <span class="badge text-bg-warning">Coming Soon</span>
+                </div>
+                <p class="text-muted flex-grow-1">Inventory tools for this store will appear here.</p>
+                <button type="button" class="btn btn-outline-secondary" disabled>Coming Soon</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h2 class="h5 mb-0">Orders</h2>
+                    <span class="badge text-bg-warning">Coming Soon</span>
+                </div>
+                <p class="text-muted flex-grow-1">Order tools for this store will appear here.</p>
+                <button type="button" class="btn btn-outline-secondary" disabled>Coming Soon</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

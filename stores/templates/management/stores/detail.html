@@ -1,0 +1,98 @@
+{% extends "management/base.html" %}
+
+{% block title %}{{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">{{ store.name }} ({{ store.store_code }})</h1>
+    <div class="d-flex gap-2">
+        {% if can_change_store %}
+            <a href="{% url 'stores:store_edit' store.pk %}" class="btn btn-primary">Edit</a>
+        {% endif %}
+        {% if can_view_store_users %}
+            <a href="{% url 'stores:store_user_list' store.pk %}" class="btn btn-outline-dark">Store Users</a>
+        {% endif %}
+        <a href="{% url 'stores:store_list' %}" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ store.get_status_display }}</dd>
+            <dt class="col-sm-3">Active</dt>
+            <dd class="col-sm-9">
+                {% if store.is_active %}
+                    <span class="badge text-bg-success">Active</span>
+                {% else %}
+                    <span class="badge text-bg-secondary">Inactive</span>
+                {% endif %}
+            </dd>
+            <dt class="col-sm-3">Type</dt><dd class="col-sm-9">{{ store.get_store_type_display }}</dd>
+            <dt class="col-sm-3">Category</dt><dd class="col-sm-9">{{ store.category.name }}</dd>
+            <dt class="col-sm-3">Contact</dt><dd class="col-sm-9">{{ store.contact_phone|default:"-" }}</dd>
+            <dt class="col-sm-3">Alternative phone</dt><dd class="col-sm-9">{{ store.alternative_phone|default:"-" }}</dd>
+            <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ store.email|default:"-" }}</dd>
+            <dt class="col-sm-3">Commission</dt><dd class="col-sm-9">{{ store.commission_percentage }}%</dd>
+            <dt class="col-sm-3">Primary user</dt>
+            <dd class="col-sm-9">
+                {% if primary_user %}{{ primary_user.user.get_full_name|default:primary_user.user.username }}{% else %}-{% endif %}
+            </dd>
+            <dt class="col-sm-3">Address</dt><dd class="col-sm-9">{{ store.address }}</dd>
+            <dt class="col-sm-3">Coordinates</dt>
+            <dd class="col-sm-9">{{ store.address.latitude }}, {{ store.address.longitude }}</dd>
+            <dt class="col-sm-3">Description</dt><dd class="col-sm-9">{{ store.description|default:"-" }}</dd>
+            <dt class="col-sm-3">Created</dt><dd class="col-sm-9">{{ store.created_at|date:"Y-m-d H:i" }}</dd>
+        </dl>
+    </div>
+</div>
+
+{% if can_change_status %}
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <h2 class="h6">Change status</h2>
+        <form method="post" action="{% url 'stores:store_change_status' store.pk %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-md-4">
+                <label class="form-label" for="{{ status_form.new_status.id_for_label }}">New status</label>
+                {{ status_form.new_status }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ status_form.reason.id_for_label }}">Reason</label>
+                {{ status_form.reason }}
+                <div class="form-text">Required when rejecting or suspending.</div>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-warning" type="submit">Update status</button>
+            </div>
+        </form>
+        <p class="small text-muted mb-0 mt-2">
+            Allowed next statuses:
+            {% for value in available_transitions %}
+                <span class="badge text-bg-light border">{{ value }}</span>
+            {% empty %}
+                none
+            {% endfor %}
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h6">Status history</h2>
+        <ul class="list-group list-group-flush">
+            {% for entry in store.status_history.all %}
+                <li class="list-group-item px-0">
+                    {{ entry.old_status|default:"—" }} → {{ entry.new_status }}
+                    by {{ entry.changed_by.username }}
+                    at {{ entry.created_at|date:"Y-m-d H:i" }}
+                    {% if entry.reason %}<div class="small text-muted">{{ entry.reason }}</div>{% endif %}
+                </li>
+            {% empty %}
+                <li class="list-group-item px-0 text-muted">No status history.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

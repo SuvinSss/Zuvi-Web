@@ -1,0 +1,30 @@
+{% extends "management/base.html" %}
+
+{% block title %}Add Store User{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Add Store User — {{ store.store_code }}</h1>
+<form method="post" class="card card-body shadow-sm">
+    {% csrf_token %}
+    <div class="row g-3 mb-3">
+        {% for field in form %}
+            <div class="col-md-6 {% if field.name == 'is_primary' %}col-12{% endif %}">
+                {% if field.name == 'is_primary' %}
+                    <div class="form-check">
+                        {{ field }}
+                        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    </div>
+                {% else %}
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                {% endif %}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Create</button>
+        <a href="{% url 'stores:store_user_list' store.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
