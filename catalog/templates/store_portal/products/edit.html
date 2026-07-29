@@ -1,0 +1,30 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Edit {{ product.name }}{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Edit {{ product.product_code }}</h1>
+{% if product.status == "APPROVED" %}
+    <div class="alert alert-warning">
+        Changing name, SKU, category, brand, description, unit, store price, tags,
+        or manufacturing/expiry details will return this approved product to PENDING
+        for admin review.
+        Stock quantity and low-stock threshold updates do not require reapproval.
+    </div>
+{% endif %}
+<form method="post" class="card card-body shadow-sm">
+    {% csrf_token %}
+    {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+    {% endfor %}
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'catalog:store_product_detail' product.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

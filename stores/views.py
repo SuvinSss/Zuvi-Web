@@ -7,6 +7,7 @@ from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import AdminAuditLog
+from catalog.services import get_store_product_dashboard_stats
 
 from .decorators import (
     get_portal_store_or_404,
@@ -491,12 +492,14 @@ def store_portal_logout_view(request):
 @store_portal_required
 def store_portal_dashboard_view(request):
     store = get_portal_store_or_404(request.user)
+    product_stats = get_store_product_dashboard_stats(store)
     return render(
         request,
         "store_portal/dashboard.html",
         {
             "store": store,
             "membership": request.store_membership,
+            "product_stats": product_stats,
         },
     )
 

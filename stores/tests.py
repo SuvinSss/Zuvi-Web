@@ -1273,7 +1273,15 @@ class StorePortalAccessTests(StoreModelTestMixin, TestCase):
         self.assertContains(dashboard, "Products")
         self.assertContains(dashboard, "Inventory")
         self.assertContains(dashboard, "Orders")
+        self.assertContains(dashboard, "Total Store Products:")
+        self.assertContains(dashboard, "Draft Products:")
+        self.assertContains(dashboard, "Pending Products:")
+        self.assertContains(dashboard, "Approved Products:")
+        self.assertContains(dashboard, "Rejected Products:")
+        self.assertContains(dashboard, "Low-stock Products:")
         self.assertContains(dashboard, "Coming Soon")
+        self.assertContains(dashboard, "Open Products")
+        self.assertEqual(dashboard.context["product_stats"]["total"], 0)
 
     def test_non_store_user_roles_cannot_login(self):
         User.objects.create_user(
@@ -1803,3 +1811,117 @@ class StoreIsolationTests(StoreModelTestMixin, TestCase):
         self.assertEqual(restore.status_code, 302)
         self.store_a.refresh_from_db()
         self.assertEqual(self.store_a.status, StoreStatus.ACTIVE)
+
+
+class StorePortalProductDashboardStatsTests(StoreModelTestMixin, TestCase):
+    def setUp(self):
+        from django.urls import reverse
+
+        from catalog.models import Product, ProductCategory, ProductStatus
+
+        self.category = self.create_category(name="Portal Prod Cat")
+        self.store_a = self.create_store(
+            name="Portal Prod A",
+            category=self.category,
+            status=StoreStatus.ACTIVE,
+            is_active=True,
+        )
+        self.store_b = self.create_store(
+            name="Portal Prod B",
+            category=self.category,
+            status=StoreStatus.ACTIVE,
+            is_active=True,
+        )
+        self.user_a = self.create_store_user_account(username="portal-prod-a")
+        self.user_b = self.create_store_user_account(username="portal-prod-b")
+        StoreUser.objects.create(
+            store=self.store_a,
+            user=self.user_a,
+            is_primary=True,
+            is_active=True,
+        )
+        StoreUser.objects.create(
+            store=self.store_b,
+            user=self.user_b,
+            is_primary=True,
+            is_active=True,
+        )
+        product_category = ProductCategory.objects.create(name="Portal Prod Products")
+
+        def make_product(store, sku, status, stock, threshold):
+            return Product.objects.create(
+                store=store,
+                name=f"{sku} name",
+                sku=sku,
+                category=product_category,
+                store_price=Decimal("25.00"),
+                status=status,
+                stock_quantity=stock,
+                low_stock_threshold=threshold,
+            )
+
+        make_product(
+            self.store_a, "A-D", ProductStatus.DRAFT, Decimal("5"), Decimal("1")
+        )
+        make_product(
+            self.store_a, "A-P1", ProductStatus.PENDING, Decimal("5"), Decimal("1")
+        )
+        make_product(
+            self.store_a, "A-P2", ProductStatus.PENDING, Decimal("1"), Decimal("2")
+        )
+        make_product(
+            self.store_a, "A-A", ProductStatus.APPROVED, Decimal("8"), Decimal("1")
+        )
+        make_product(
+            self.store_a, "A-R", ProductStatus.REJECTED, Decimal("0"), Decimal("1")
+        )
+        make_product(
+            self.store_b, "B-A1", ProductStatus.APPROVED, Decimal("10"), Decimal("1")
+        )
+        make_product(
+            self.store_b, "B-A2", ProductStatus.APPROVED, Decimal("1"), Decimal("3")
+        )
+
+        self.dashboard_url = reverse("stores:store_portal_dashboard")
+
+    def test_store_a_dashboard_counts_only_own_products(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from catalog.services import get_store_product_dashboard_stats
+
+        with CaptureQueriesContext(connection) as ctx:
+            stats = get_store_product_dashboard_stats(self.store_a)
+        self.assertEqual(len(ctx.captured_queries), 1)
+        self.assertEqual(stats["total"], 5)
+        self.assertEqual(stats["draft"], 1)
+        self.assertEqual(stats["pending"], 2)
+        self.assertEqual(stats["approved"], 1)
+        self.assertEqual(stats["rejected"], 1)
+        self.assertEqual(stats["low_stock"], 1)
+
+        self.client.login(username="portal-prod-a", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["product_stats"]["total"], 5)
+        self.assertEqual(response.context["product_stats"]["approved"], 1)
+        self.assertContains(response, "<strong>Total Store Products:</strong> 5")
+        self.assertContains(response, "<strong>Draft Products:</strong> 1")
+        self.assertContains(response, "<strong>Pending Products:</strong> 2")
+        self.assertContains(response, "<strong>Approved Products:</strong> 1")
+        self.assertContains(response, "<strong>Rejected Products:</strong> 1")
+        self.assertContains(response, "<strong>Low-stock Products:</strong> 1")
+
+    def test_store_b_dashboard_isolated_from_store_a(self):
+        self.client.login(username="portal-prod-b", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, 200)
+        stats = response.context["product_stats"]
+        self.assertEqual(stats["total"], 2)
+        self.assertEqual(stats["draft"], 0)
+        self.assertEqual(stats["pending"], 0)
+        self.assertEqual(stats["approved"], 2)
+        self.assertEqual(stats["rejected"], 0)
+        self.assertEqual(stats["low_stock"], 1)
+        self.assertContains(response, "<strong>Total Store Products:</strong> 2")
+        self.assertNotContains(response, "<strong>Total Store Products:</strong> 5")

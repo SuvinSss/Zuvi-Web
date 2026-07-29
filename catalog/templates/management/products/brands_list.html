@@ -1,0 +1,27 @@
+{% extends "management/base.html" %}
+
+{% block title %}Brands{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Brands</h1>
+    <div class="d-flex gap-2">
+        {% if can_add %}<a href="{% url 'catalog:brand_create' %}" class="btn btn-primary btn-sm">Create</a>{% endif %}
+        <a href="{% url 'catalog:product_list' %}" class="btn btn-outline-secondary btn-sm">Products</a>
+    </div>
+</div>
+<table class="table table-bordered table-striped">
+    <thead class="table-light"><tr><th>Name</th><th>Active</th><th></th></tr></thead>
+    <tbody>
+        {% for brand in brands %}
+            <tr>
+                <td>{{ brand.name }}</td>
+                <td>{% if brand.is_active %}Yes{% else %}No{% endif %}</td>
+                <td>{% if can_change %}<a href="{% url 'catalog:brand_edit' brand.pk %}">Edit</a>{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="3" class="text-muted">No brands.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

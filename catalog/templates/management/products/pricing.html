@@ -1,0 +1,120 @@
+{% extends "management/base.html" %}
+
+{% block title %}Pricing — {{ product.product_code }}{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Set pricing for {{ product.name }}</h1>
+<p class="text-muted mb-3">{{ product.product_code }} · {{ product.store.name }}</p>
+
+<form method="post" class="card card-body shadow-sm" id="pricing-form"
+      data-store-price="{{ product.store_price }}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="mb-3">
+        <label class="form-label" for="id_store_price_display">Store price</label>
+        <input type="text" id="id_store_price_display" class="form-control" value="{{ product.store_price }}" readonly disabled>
+        <div class="form-text">Entered by the store. Management cannot change it here.</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.profit_margin_type.id_for_label }}">{{ form.profit_margin_type.label }}</label>
+        {{ form.profit_margin_type }}
+        {% for error in form.profit_margin_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.profit_margin.id_for_label }}">{{ form.profit_margin.label }}</label>
+        {{ form.profit_margin }}
+        {% for error in form.profit_margin.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="id_selling_price_preview">Calculated selling price preview</label>
+        <input type="text" id="id_selling_price_preview" class="form-control" value="{% if selling_price_preview %}{{ selling_price_preview }}{% endif %}" readonly disabled>
+        <div class="form-text">Preview only. The backend recalculates and saves the official selling price.</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.discount_type.id_for_label }}">{{ form.discount_type.label }}</label>
+        {{ form.discount_type }}
+        {% for error in form.discount_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.discount_value.id_for_label }}">{{ form.discount_value.label }}</label>
+        {{ form.discount_value }}
+        {% for error in form.discount_value.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="id_final_price_preview">Calculated final price preview</label>
+        <input type="text" id="id_final_price_preview" class="form-control" value="{% if final_price_preview %}{{ final_price_preview }}{% endif %}" readonly disabled>
+        <div class="form-text">Preview only. Submitted selling/final values are ignored.</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="{{ form.reason.id_for_label }}">{{ form.reason.label }}</label>
+        {{ form.reason }}
+        {% for error in form.reason.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Calculate &amp; save</button>
+        <a href="{% url 'catalog:product_detail' product.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const form = document.getElementById("pricing-form");
+    if (!form) return;
+    const storePrice = Number(form.dataset.storePrice);
+    const marginType = document.getElementById("id_profit_margin_type");
+    const margin = document.getElementById("id_profit_margin");
+    const discountType = document.getElementById("id_discount_type");
+    const discountValue = document.getElementById("id_discount_value");
+    const sellingPreview = document.getElementById("id_selling_price_preview");
+    const finalPreview = document.getElementById("id_final_price_preview");
+
+    function money(value) {
+        if (!Number.isFinite(value)) return "";
+        return (Math.round(value * 100) / 100).toFixed(2);
+    }
+
+    function refreshPreview() {
+        const mType = marginType.value;
+        const mVal = Number(margin.value);
+        let selling = NaN;
+        if (Number.isFinite(storePrice) && Number.isFinite(mVal) && mVal >= 0) {
+            if (mType === "FIXED") selling = storePrice + mVal;
+            else if (mType === "PERCENTAGE" && mVal <= 100) selling = storePrice * (1 + mVal / 100);
+        }
+        sellingPreview.value = money(selling);
+
+        const dType = discountType.value;
+        const dVal = Number(discountValue.value || 0);
+        let final = selling;
+        if (Number.isFinite(selling)) {
+            if (dType === "FIXED") {
+                final = dVal > selling ? NaN : selling - dVal;
+            } else if (dType === "PERCENTAGE") {
+                final = dVal > 100 ? NaN : selling * (1 - dVal / 100);
+            }
+        }
+        finalPreview.value = money(final);
+    }
+
+    ["change", "input"].forEach(function (evt) {
+        [marginType, margin, discountType, discountValue].forEach(function (el) {
+            if (el) el.addEventListener(evt, refreshPreview);
+        });
+    });
+    refreshPreview();
+})();
+</script>
+{% endblock %}

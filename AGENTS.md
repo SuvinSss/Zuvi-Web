@@ -33,3 +33,27 @@
 - Store images must be validated by file type and size.
 - Store latitude and longitude must be collected for future radius validation.
 - Never expose temporary passwords through logs or URL parameters.
+
+## Product catalogue rules
+
+- Every Product must belong to one Store.
+- Only active Store Users belonging to the Product's Store can manage it.
+- Store Users must never access another Store's Products.
+- Store Users can enter Store Price but cannot approve Products.
+- Admin or Super Admin controls profit margin, discount and final price.
+- Product prices must use DecimalField.
+- Never use FloatField for prices.
+- Price calculations must happen on the backend.
+- final_price must never be accepted directly from Store User input.
+- Store Users must not change management pricing fields.
+- New Products submitted by Store Users default to PENDING.
+- Only approved and active Products will later be displayed to Customers.
+- Save multiple images through ProductImage.
+- Validate image type and file size.
+- Product category supports parent and child categories.
+- Product SKU must be unique within a Store.
+- Product code must be globally unique and generated on the backend.
+- Product status changes must be recorded.
+- Important pricing changes must be recorded.
+- Use queryset filtering for Store isolation.
+- Do not implement cart, checkout or ordering in this phase.

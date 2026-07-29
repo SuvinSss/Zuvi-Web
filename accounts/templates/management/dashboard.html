@@ -52,7 +52,7 @@
                                 <span class="badge text-bg-warning">Coming Soon</span>
                             {% endif %}
                         </div>
-                        <p class="text-muted{% if module_key != 'stores' or not store_stats %} flex-grow-1{% endif %}">{{ module.description }}</p>
+                        <p class="text-muted{% if module_key != 'stores' or not store_stats %}{% if module_key != 'products' or not product_stats %} flex-grow-1{% endif %}{% endif %}">{{ module.description }}</p>
                         {% if module_key == "stores" and store_stats %}
                             <ul class="list-unstyled small mb-3">
                                 <li><strong>Total Stores:</strong> {{ store_stats.total }}</li>
@@ -61,6 +61,15 @@
                                 <li><strong>Suspended Stores:</strong> {{ store_stats.suspended }}</li>
                             </ul>
                             <a href="{% url 'stores:store_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
+                        {% elif module_key == "products" and product_stats %}
+                            <ul class="list-unstyled small mb-3">
+                                <li><strong>Total Products:</strong> {{ product_stats.total }}</li>
+                                <li><strong>Pending Products:</strong> {{ product_stats.pending }}</li>
+                                <li><strong>Approved Products:</strong> {{ product_stats.approved }}</li>
+                                <li><strong>Rejected Products:</strong> {{ product_stats.rejected }}</li>
+                                <li><strong>Low-stock Products:</strong> {{ product_stats.low_stock }}</li>
+                            </ul>
+                            <a href="{% url 'catalog:product_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% elif module.url_name %}
                             <a href="{% url module.url_name %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% else %}

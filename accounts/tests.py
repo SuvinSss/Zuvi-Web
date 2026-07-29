@@ -453,6 +453,159 @@ class ManagementDashboardStoreCardTests(TestCase):
         self.assertIn("COUNT", ctx.captured_queries[0]["sql"].upper())
 
 
+class ManagementDashboardProductCardTests(TestCase):
+    def setUp(self):
+        from decimal import Decimal
+
+        from catalog.models import Product, ProductCategory, ProductStatus
+        from locations.models import Address
+        from stores.models import Store, StoreCategory, StoreStatus, StoreType
+
+        self.Product = Product
+        self.ProductStatus = ProductStatus
+
+        self.super_admin = User.objects.create_user(
+            username="prod-dash-super",
+            email="prod-dash-super@example.com",
+            password="secure-password-123",
+            role=Role.SUPER_ADMIN,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.admin = User.objects.create_user(
+            username="prod-dash-admin",
+            email="prod-dash-admin@example.com",
+            password="secure-password-123",
+            role=Role.ADMIN,
+            is_staff=True,
+        )
+        self.view_product = Permission.objects.get(
+            codename="view_product",
+            content_type__app_label="catalog",
+        )
+        self.dashboard_url = reverse("accounts:management_dashboard")
+        self.products_url = reverse("catalog:product_list")
+
+        store_category = StoreCategory.objects.create(name="Prod Dash Store Cat")
+        address = Address.objects.create(
+            line1="Dash Street",
+            city="Bengaluru",
+            state="Karnataka",
+            postal_code="560001",
+            latitude=Decimal("12.971600"),
+            longitude=Decimal("77.594600"),
+        )
+        self.store = Store.objects.create(
+            name="Prod Dash Store",
+            store_type=StoreType.OWN_STORE,
+            status=StoreStatus.ACTIVE,
+            category=store_category,
+            address=address,
+            commission_percentage=Decimal("5.00"),
+        )
+        category = ProductCategory.objects.create(name="Prod Dash Cat")
+
+        def make_product(sku, status, stock, threshold):
+            return Product.objects.create(
+                store=self.store,
+                name=f"Product {sku}",
+                sku=sku,
+                category=category,
+                store_price=Decimal("10.00"),
+                status=status,
+                stock_quantity=stock,
+                low_stock_threshold=threshold,
+            )
+
+        make_product("D1", ProductStatus.DRAFT, Decimal("5"), Decimal("2"))
+        make_product("P1", ProductStatus.PENDING, Decimal("5"), Decimal("2"))
+        make_product("P2", ProductStatus.PENDING, Decimal("1"), Decimal("2"))  # low stock
+        make_product("A1", ProductStatus.APPROVED, Decimal("10"), Decimal("2"))
+        make_product("A2", ProductStatus.APPROVED, Decimal("1"), Decimal("3"))  # low stock
+        make_product("R1", ProductStatus.REJECTED, Decimal("0"), Decimal("2"))  # not low (0)
+
+    def _assert_product_card_counts(self, response):
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Products")
+        self.assertContains(response, f'href="{self.products_url}"')
+        self.assertContains(response, "Total Products:")
+        self.assertContains(response, "Pending Products:")
+        self.assertContains(response, "Approved Products:")
+        self.assertContains(response, "Rejected Products:")
+        self.assertContains(response, "Low-stock Products:")
+        stats = response.context["product_stats"]
+        self.assertEqual(stats["total"], 6)
+        self.assertEqual(stats["pending"], 2)
+        self.assertEqual(stats["approved"], 2)
+        self.assertEqual(stats["rejected"], 1)
+        self.assertEqual(stats["low_stock"], 2)
+        self.assertContains(
+            response, f"<strong>Total Products:</strong> {stats['total']}"
+        )
+        self.assertContains(
+            response, f"<strong>Pending Products:</strong> {stats['pending']}"
+        )
+        self.assertContains(
+            response, f"<strong>Approved Products:</strong> {stats['approved']}"
+        )
+        self.assertContains(
+            response, f"<strong>Rejected Products:</strong> {stats['rejected']}"
+        )
+        self.assertContains(
+            response, f"<strong>Low-stock Products:</strong> {stats['low_stock']}"
+        )
+
+    def test_product_card_hidden_for_admin_without_view_product(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.client.login(username="prod-dash-admin", password="secure-password-123")
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(self.dashboard_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["product_stats"])
+        self.assertNotContains(response, "Total Products")
+        self.assertNotContains(response, "Pending Products")
+        self.assertNotContains(response, "Low-stock Products")
+        product_table_queries = [
+            query["sql"]
+            for query in ctx.captured_queries
+            if "catalog_product" in query["sql"].lower()
+            and "COUNT" in query["sql"].upper()
+        ]
+        self.assertEqual(product_table_queries, [])
+
+    def test_product_card_visible_with_counts_for_admin_with_view_product(self):
+        self.admin.user_permissions.add(self.view_product)
+        self.client.login(username="prod-dash-admin", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self._assert_product_card_counts(response)
+
+    def test_product_card_visible_with_counts_for_super_admin(self):
+        self.client.login(username="prod-dash-super", password="secure-password-123")
+        response = self.client.get(self.dashboard_url)
+        self._assert_product_card_counts(response)
+
+    def test_product_dashboard_stats_uses_single_aggregate_query(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from catalog.services import get_product_dashboard_stats
+
+        with CaptureQueriesContext(connection) as ctx:
+            stats = get_product_dashboard_stats()
+
+        self.assertEqual(stats["total"], 6)
+        self.assertEqual(stats["draft"], 1)
+        self.assertEqual(stats["pending"], 2)
+        self.assertEqual(stats["approved"], 2)
+        self.assertEqual(stats["rejected"], 1)
+        self.assertEqual(stats["low_stock"], 2)
+        self.assertEqual(len(ctx.captured_queries), 1)
+        self.assertIn("COUNT", ctx.captured_queries[0]["sql"].upper())
+
+
 class SuperAdminAdminManagementTests(TestCase):
     def setUp(self):
         self.super_admin = User.objects.create_user(

@@ -88,6 +88,10 @@ class AdminAuditLog(models.Model):
         STORE_USER_UPDATED = "STORE_USER_UPDATED", "Store User Updated"
         STORE_USER_ACTIVATED = "STORE_USER_ACTIVATED", "Store User Activated"
         STORE_USER_DEACTIVATED = "STORE_USER_DEACTIVATED", "Store User Deactivated"
+        PRODUCT_CREATED = "PRODUCT_CREATED", "Product Created"
+        PRODUCT_UPDATED = "PRODUCT_UPDATED", "Product Updated"
+        PRODUCT_STATUS_CHANGED = "PRODUCT_STATUS_CHANGED", "Product Status Changed"
+        PRODUCT_PRICING_CHANGED = "PRODUCT_PRICING_CHANGED", "Product Pricing Changed"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

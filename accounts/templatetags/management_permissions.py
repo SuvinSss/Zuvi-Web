@@ -22,10 +22,10 @@ MANAGEMENT_MODULES = {
     },
     "products": {
         "title": "Products",
-        "description": "Product management tools are coming soon.",
-        "permission": "accounts.access_products_module",
+        "description": "Manage product catalogue, pricing, and approvals.",
+        "permission": "catalog.view_product",
         "super_admin_only": False,
-        "url_name": None,
+        "url_name": "catalog:product_list",
     },
     "inventory": {
         "title": "Inventory",

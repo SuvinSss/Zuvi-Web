@@ -1,0 +1,124 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Products</h1>
+    <a href="{% url 'catalog:store_product_create' %}" class="btn btn-primary btn-sm">Add product</a>
+</div>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-md-3">
+            <input type="text" name="q" class="form-control" placeholder="Name, SKU or code" value="{{ search_query }}">
+        </div>
+        <div class="col-md-2">
+            <select name="category" class="form-select">
+                <option value="">All categories</option>
+                {% for category in categories %}
+                    <option value="{{ category.pk }}" {% if category_filter == category.pk|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="brand" class="form-select">
+                <option value="">All brands</option>
+                {% for brand in brands %}
+                    <option value="{{ brand.pk }}" {% if brand_filter == brand.pk|stringformat:"s" %}selected{% endif %}>{{ brand.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="status" class="form-select">
+                <option value="">All statuses</option>
+                {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="stock" class="form-select">
+                <option value="">All stock</option>
+                <option value="in_stock" {% if stock_filter == "in_stock" %}selected{% endif %}>In stock</option>
+                <option value="out_of_stock" {% if stock_filter == "out_of_stock" %}selected{% endif %}>Out of stock</option>
+                <option value="low_stock" {% if stock_filter == "low_stock" %}selected{% endif %}>Low stock</option>
+            </select>
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-outline-primary" type="submit">Apply</button>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Image</th>
+                <th>Code</th>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Brand</th>
+                <th>Store price</th>
+                <th>Final price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th>Rejection</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in page_obj %}
+                <tr>
+                    <td style="width:56px">
+                        {% with primary=product.primary_image_list.0 %}
+                            {% if primary %}
+                                <img src="{{ primary.image.url }}" alt="" class="rounded" style="width:40px;height:40px;object-fit:cover">
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>{{ product.product_code }}</td>
+                    <td>{{ product.sku }}</td>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.category.name }}</td>
+                    <td>{{ product.brand.name|default:"—" }}</td>
+                    <td>{{ product.store_price }}</td>
+                    <td>{{ product.final_price|default:"—" }}</td>
+                    <td>{{ product.stock_quantity }}</td>
+                    <td>{{ product.get_status_display }}</td>
+                    <td class="small text-danger">{{ product.rejection_reason|default:"—" }}</td>
+                    <td>{{ product.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ product.updated_at|date:"Y-m-d" }}</td>
+                    <td><a href="{% url 'catalog:store_product_detail' product.pk %}" class="btn btn-sm btn-outline-primary">View</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="14" class="text-muted">No products yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&status={{ status_filter }}&category={{ category_filter }}&brand={{ brand_filter }}&stock={{ stock_filter }}">Previous</a>
+            </li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&status={{ status_filter }}&category={{ category_filter }}&brand={{ brand_filter }}&stock={{ stock_filter }}">Next</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

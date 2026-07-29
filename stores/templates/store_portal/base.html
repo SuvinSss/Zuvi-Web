@@ -18,6 +18,7 @@
         <a class="navbar-brand" href="{% url 'stores:store_portal_dashboard' %}">Store Portal</a>
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{% url 'stores:store_portal_dashboard' %}" class="btn btn-outline-light btn-sm">Dashboard</a>
+            <a href="{% url 'catalog:store_product_list' %}" class="btn btn-outline-light btn-sm">Products</a>
             <a href="{% url 'stores:store_portal_profile' %}" class="btn btn-outline-light btn-sm">Profile</a>
             <form method="post" action="{% url 'stores:store_portal_logout' %}" class="d-inline">
                 {% csrf_token %}

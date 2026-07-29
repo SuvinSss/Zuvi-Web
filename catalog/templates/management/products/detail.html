@@ -1,0 +1,203 @@
+{% extends "management/base.html" %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h4 mb-0">{{ product.name }} ({{ product.product_code }})</h1>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if can_change_product %}
+            <a href="{% url 'catalog:product_edit' product.pk %}" class="btn btn-primary btn-sm">Edit</a>
+            <a href="{% url 'catalog:product_images' product.pk %}" class="btn btn-outline-dark btn-sm">Images</a>
+        {% endif %}
+        {% if can_set_pricing %}
+            <a href="{% url 'catalog:product_pricing' product.pk %}" class="btn btn-outline-primary btn-sm">Pricing</a>
+        {% endif %}
+        <a href="{% url 'catalog:product_list' %}" class="btn btn-outline-secondary btn-sm">Back to list</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>General information</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Name</dt><dd class="col-sm-8">{{ product.name }}</dd>
+                    <dt class="col-sm-4">Slug</dt><dd class="col-sm-8">{{ product.slug }}</dd>
+                    <dt class="col-sm-4">SKU</dt><dd class="col-sm-8">{{ product.sku }}</dd>
+                    <dt class="col-sm-4">Product code</dt><dd class="col-sm-8">{{ product.product_code }}</dd>
+                    <dt class="col-sm-4">Category</dt><dd class="col-sm-8">{{ product.category }}</dd>
+                    <dt class="col-sm-4">Brand</dt><dd class="col-sm-8">{{ product.brand|default:"—" }}</dd>
+                    <dt class="col-sm-4">Tags</dt>
+                    <dd class="col-sm-8">
+                        {% for tag in product.tags.all %}
+                            <span class="badge text-bg-secondary">{{ tag.name }}</span>
+                        {% empty %}—
+                        {% endfor %}
+                    </dd>
+                    <dt class="col-sm-4">Unit</dt><dd class="col-sm-8">{{ product.get_unit_display }}</dd>
+                    <dt class="col-sm-4">Stock</dt><dd class="col-sm-8">{{ product.stock_quantity }}</dd>
+                    <dt class="col-sm-4">Description</dt><dd class="col-sm-8">{{ product.description|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Store information</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Store</dt>
+                    <dd class="col-sm-8">{{ product.store.name }} ({{ product.store.store_code }})</dd>
+                    <dt class="col-sm-4">Store status</dt><dd class="col-sm-8">{{ product.store.get_status_display }}</dd>
+                    <dt class="col-sm-4">Store type</dt><dd class="col-sm-8">{{ product.store.get_store_type_display }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Pricing breakdown</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Store price</dt><dd class="col-sm-8">{{ product.store_price }}</dd>
+                    <dt class="col-sm-4">Margin</dt>
+                    <dd class="col-sm-8">
+                        {% if product.profit_margin_type %}
+                            {{ product.get_profit_margin_type_display }} / {{ product.profit_margin }}
+                        {% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Selling price</dt><dd class="col-sm-8">{{ product.selling_price|default:"—" }}</dd>
+                    <dt class="col-sm-4">Discount</dt>
+                    <dd class="col-sm-8">
+                        {% if product.discount_type %}
+                            {{ product.get_discount_type_display }} / {{ product.discount_value }}
+                        {% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Final price</dt><dd class="col-sm-8"><strong>{{ product.final_price|default:"—" }}</strong></dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Dates</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Manufacturing</dt><dd class="col-sm-8">{{ product.manufacturing_date|default:"—" }}</dd>
+                    <dt class="col-sm-4">Expiry</dt><dd class="col-sm-8">{{ product.expiry_date|default:"—" }}</dd>
+                    <dt class="col-sm-4">Created</dt><dd class="col-sm-8">{{ product.created_at|date:"Y-m-d H:i" }}</dd>
+                    <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{{ product.updated_at|date:"Y-m-d H:i" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Approval information</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{{ product.get_status_display }}</dd>
+                    <dt class="col-sm-4">Active</dt>
+                    <dd class="col-sm-8">
+                        {% if product.is_active %}
+                            <span class="badge text-bg-success">Active</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">Inactive</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Created by</dt>
+                    <dd class="col-sm-8">{{ product.created_by.username|default:"—" }}</dd>
+                    <dt class="col-sm-4">Updated by</dt>
+                    <dd class="col-sm-8">{{ product.updated_by.username|default:"—" }}</dd>
+                    <dt class="col-sm-4">Approved by</dt>
+                    <dd class="col-sm-8">{{ product.approved_by.username|default:"—" }}</dd>
+                    <dt class="col-sm-4">Approved at</dt>
+                    <dd class="col-sm-8">{% if product.approved_at %}{{ product.approved_at|date:"Y-m-d H:i" }}{% else %}—{% endif %}</dd>
+                    {% if product.rejection_reason %}
+                        <dt class="col-sm-4">Rejection reason</dt>
+                        <dd class="col-sm-8 text-danger">{{ product.rejection_reason }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        {% if can_change_status %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Change status</strong></div>
+            <div class="card-body">
+                <form method="post" action="{% url 'catalog:product_change_status' product.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                        <label class="form-label" for="{{ status_form.new_status.id_for_label }}">New status</label>
+                        {{ status_form.new_status }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="{{ status_form.reason.id_for_label }}">Reason</label>
+                        {{ status_form.reason }}
+                        <div class="form-text">Required when rejecting.</div>
+                    </div>
+                    <button class="btn btn-warning" type="submit">Update status</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>Images</strong>
+                {% if can_manage_images %}
+                    <a href="{% url 'catalog:product_images' product.pk %}" class="btn btn-sm btn-outline-primary">Manage</a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    {% for image in product.images.all %}
+                        <div class="col-6">
+                            <img src="{{ image.image.url }}" alt="{{ image.alt_text }}" class="img-fluid border rounded mb-1">
+                            {% if image.is_primary %}<span class="badge text-bg-primary">Primary</span>{% endif %}
+                        </div>
+                    {% empty %}
+                        <p class="text-muted small mb-0">No images.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Status history</strong></div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for entry in product.status_history.all %}
+                        <li class="list-group-item px-0">
+                            {{ entry.old_status|default:"—" }} → {{ entry.new_status }}
+                            by {{ entry.changed_by.username }}
+                            at {{ entry.created_at|date:"Y-m-d H:i" }}
+                            {% if entry.reason %}<div class="small text-muted">{{ entry.reason }}</div>{% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item px-0 text-muted">No status history.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><strong>Price history</strong></div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for entry in product.price_history.all %}
+                        <li class="list-group-item px-0">
+                            Store {{ entry.store_price }} → Final {{ entry.final_price|default:"—" }}
+                            by {{ entry.changed_by.username }}
+                            at {{ entry.created_at|date:"Y-m-d H:i" }}
+                            {% if entry.reason %}<div class="small text-muted">{{ entry.reason }}</div>{% endif %}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item px-0 text-muted">No price history.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

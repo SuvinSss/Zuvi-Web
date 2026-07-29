@@ -41,10 +41,20 @@
             <div class="card-body d-flex flex-column">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <h2 class="h5 mb-0">Products</h2>
-                    <span class="badge text-bg-warning">Coming Soon</span>
+                    <span class="badge text-bg-success">Available</span>
                 </div>
-                <p class="text-muted flex-grow-1">Product tools for this store will appear here.</p>
-                <button type="button" class="btn btn-outline-secondary" disabled>Coming Soon</button>
+                <p class="text-muted mb-3">Catalogue status for this store only.</p>
+                {% if product_stats %}
+                    <ul class="list-unstyled small mb-3">
+                        <li><strong>Total Store Products:</strong> {{ product_stats.total }}</li>
+                        <li><strong>Draft Products:</strong> {{ product_stats.draft }}</li>
+                        <li><strong>Pending Products:</strong> {{ product_stats.pending }}</li>
+                        <li><strong>Approved Products:</strong> {{ product_stats.approved }}</li>
+                        <li><strong>Rejected Products:</strong> {{ product_stats.rejected }}</li>
+                        <li><strong>Low-stock Products:</strong> {{ product_stats.low_stock }}</li>
+                    </ul>
+                {% endif %}
+                <a href="{% url 'catalog:store_product_list' %}" class="btn btn-outline-primary mt-auto">Open Products</a>
             </div>
         </div>
     </div>
