@@ -92,6 +92,12 @@ class AdminAuditLog(models.Model):
         PRODUCT_UPDATED = "PRODUCT_UPDATED", "Product Updated"
         PRODUCT_STATUS_CHANGED = "PRODUCT_STATUS_CHANGED", "Product Status Changed"
         PRODUCT_PRICING_CHANGED = "PRODUCT_PRICING_CHANGED", "Product Pricing Changed"
+        INVENTORY_STOCK_IN = "INVENTORY_STOCK_IN", "Inventory Stock In"
+        INVENTORY_STOCK_OUT = "INVENTORY_STOCK_OUT", "Inventory Stock Out"
+        INVENTORY_ADJUSTED = "INVENTORY_ADJUSTED", "Inventory Adjusted"
+        INVENTORY_DAMAGE_RECORDED = "INVENTORY_DAMAGE_RECORDED", "Inventory Damage Recorded"
+        INVENTORY_EXPIRY_RECORDED = "INVENTORY_EXPIRY_RECORDED", "Inventory Expiry Recorded"
+        PURCHASE_ENTRY_CONFIRMED = "PURCHASE_ENTRY_CONFIRMED", "Purchase Entry Confirmed"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

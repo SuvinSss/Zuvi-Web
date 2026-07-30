@@ -137,10 +137,11 @@ class ProductAdmin(admin.ModelAdmin):
         "approved_by",
     )
     filter_horizontal = ("tags",)
-    # Workflow and computed prices must go through management portal services.
+    # Workflow, computed prices, and stock balance must go through services.
     readonly_fields = (
         "product_code",
         "status",
+        "stock_quantity",
         "store_price",
         "profit_margin_type",
         "profit_margin",

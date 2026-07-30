@@ -19,6 +19,8 @@
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{% url 'stores:store_portal_dashboard' %}" class="btn btn-outline-light btn-sm">Dashboard</a>
             <a href="{% url 'catalog:store_product_list' %}" class="btn btn-outline-light btn-sm">Products</a>
+            <a href="{% url 'inventory:store_inventory_list' %}" class="btn btn-outline-light btn-sm">Inventory</a>
+            <a href="{% url 'inventory:store_purchase_list' %}" class="btn btn-outline-light btn-sm">Purchases</a>
             <a href="{% url 'stores:store_portal_profile' %}" class="btn btn-outline-light btn-sm">Profile</a>
             <form method="post" action="{% url 'stores:store_portal_logout' %}" class="d-inline">
                 {% csrf_token %}

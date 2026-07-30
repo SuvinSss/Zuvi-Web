@@ -1,0 +1,122 @@
+from django.urls import path
+
+from . import views
+
+app_name = "inventory"
+
+urlpatterns = [
+    # Management — inventory
+    path(
+        "management/inventory/",
+        views.management_inventory_list_view,
+        name="management_inventory_list",
+    ),
+    path(
+        "management/inventory/export/",
+        views.management_inventory_export_view,
+        name="management_inventory_export",
+    ),
+    path(
+        "management/inventory/<int:product_id>/",
+        views.management_product_inventory_view,
+        name="management_product_inventory",
+    ),
+    path(
+        "management/inventory/<int:product_id>/stock-in/",
+        views.management_product_stock_in_view,
+        name="management_product_stock_in",
+    ),
+    path(
+        "management/inventory/<int:product_id>/stock-out/",
+        views.management_product_stock_out_view,
+        name="management_product_stock_out",
+    ),
+    path(
+        "management/inventory/<int:product_id>/adjust/",
+        views.management_product_adjust_view,
+        name="management_product_adjust",
+    ),
+    path(
+        "management/inventory/<int:product_id>/damage/",
+        views.management_product_damage_view,
+        name="management_product_damage",
+    ),
+    path(
+        "management/inventory/<int:product_id>/expire/",
+        views.management_product_expire_view,
+        name="management_product_expire",
+    ),
+    # Management — purchases
+    path(
+        "management/purchases/",
+        views.management_purchase_list_view,
+        name="management_purchase_list",
+    ),
+    path(
+        "management/purchases/create/",
+        views.management_purchase_create_view,
+        name="management_purchase_create",
+    ),
+    path(
+        "management/purchases/<int:pk>/",
+        views.management_purchase_detail_view,
+        name="management_purchase_detail",
+    ),
+    # Store portal — inventory
+    path(
+        "store/inventory/",
+        views.store_inventory_list_view,
+        name="store_inventory_list",
+    ),
+    path(
+        "store/inventory/export/",
+        views.store_inventory_export_view,
+        name="store_inventory_export",
+    ),
+    path(
+        "store/inventory/<int:product_id>/",
+        views.store_product_inventory_view,
+        name="store_product_inventory",
+    ),
+    path(
+        "store/inventory/<int:product_id>/stock-in/",
+        views.store_product_stock_in_view,
+        name="store_product_stock_in",
+    ),
+    path(
+        "store/inventory/<int:product_id>/stock-out/",
+        views.store_product_stock_out_view,
+        name="store_product_stock_out",
+    ),
+    path(
+        "store/inventory/<int:product_id>/adjust/",
+        views.store_product_adjust_view,
+        name="store_product_adjust",
+    ),
+    path(
+        "store/inventory/<int:product_id>/damage/",
+        views.store_product_damage_view,
+        name="store_product_damage",
+    ),
+    path(
+        "store/inventory/<int:product_id>/expire/",
+        views.store_product_expire_view,
+        name="store_product_expire",
+    ),
+    # Store portal — purchases
+    path(
+        "store/purchases/",
+        views.store_purchase_list_view,
+        name="store_purchase_list",
+    ),
+    path(
+        "store/purchases/create/",
+        views.store_purchase_create_view,
+        name="store_purchase_create",
+    ),
+    path(
+        "store/purchases/<int:pk>/",
+        views.store_purchase_detail_view,
+        name="store_purchase_detail",
+    ),
+]

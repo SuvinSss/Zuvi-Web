@@ -59,13 +59,28 @@ FIELDS_REQUIRING_REAPPROVAL = frozenset(
     }
 )
 
-# Inventory tweaks that must not force reapproval.
+# Inventory balance is never catalogue-editable; only low-stock threshold is.
 FIELDS_EXEMPT_FROM_REAPPROVAL = frozenset(
     {
-        "stock_quantity",
         "low_stock_threshold",
     }
 )
+
+
+def _strip_direct_stock_quantity(product_data):
+    """
+    Drop stock_quantity from catalogue write payloads.
+
+    Opening / purchase / adjustment stock must go through inventory.services so
+    every change creates an immutable InventoryTransaction.
+    """
+    if not isinstance(product_data, dict):
+        return product_data
+    if "stock_quantity" not in product_data:
+        return product_data
+    cleaned = dict(product_data)
+    cleaned.pop("stock_quantity", None)
+    return cleaned
 
 
 def _low_stock_q():
@@ -320,6 +335,7 @@ def create_product(
     initial_status=ProductStatus.DRAFT,
     request=None,
 ):
+    product_data = _strip_direct_stock_quantity(product_data)
     cleaned = {
         key: value
         for key, value in product_data.items()
@@ -338,15 +354,18 @@ def create_product(
             "approved_by",
             "approved_at",
             "rejection_reason",
+            "stock_quantity",
         }
     }
     # Management create may set is_featured via cleaned data; store portal must not.
     # is_active defaults on the model unless explicitly provided by management.
+    # stock_quantity always starts at 0; use inventory services for stock-in.
     product = Product(
         store=store,
         created_by=created_by,
         updated_by=created_by,
         status=initial_status,
+        stock_quantity=Decimal("0.000"),
         **cleaned,
     )
     apply_calculated_prices(product)
@@ -401,13 +420,14 @@ def update_product(
 
     Store users cannot change management pricing or approval fields.
     Review-sensitive edits to an APPROVED product return it to PENDING while
-    preserving prior admin pricing. Stock / low-stock changes alone do not
-    require reapproval and leave the product publicly available when APPROVED.
+    preserving prior admin pricing. Low-stock threshold changes alone do not
+    require reapproval. stock_quantity is ignored here — use inventory services.
 
     Reloads the product from the database first so callers that pass a
     ModelForm-mutated instance still get correct change detection and
     preserved pricing.
     """
+    product_data = _strip_direct_stock_quantity(product_data)
     forbidden_for_store = {
         "profit_margin_type",
         "profit_margin",
@@ -421,6 +441,7 @@ def update_product(
         "is_featured",
         "is_active",
         "rejection_reason",
+        "stock_quantity",
     }
     if not product.pk:
         raise ValidationError("Cannot update a product that has not been saved.")
@@ -459,7 +480,7 @@ def update_product(
     }
 
     for key, value in product_data.items():
-        if key in {"tags", "store", "product_code", "status"}:
+        if key in {"tags", "store", "product_code", "status", "stock_quantity"}:
             continue
         if actor_is_store_user and key in forbidden_for_store:
             continue

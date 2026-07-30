@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import AdminAuditLog
 from catalog.services import get_store_product_dashboard_stats
+from inventory.status import get_store_inventory_dashboard_stats
 
 from .decorators import (
     get_portal_store_or_404,
@@ -322,6 +323,9 @@ def store_user_create_view(request, pk):
             "phone_number": form.cleaned_data.get("phone_number"),
             "password": form.cleaned_data["password"],
             "designation": form.cleaned_data.get("designation", ""),
+            "can_manage_inventory": bool(
+                form.cleaned_data.get("can_manage_inventory")
+            ),
         }
         try:
             membership, user = create_additional_store_user(
@@ -380,6 +384,9 @@ def store_user_edit_view(request, pk, user_id):
                 user.full_clean()
                 user.save()
                 membership.designation = form.cleaned_data.get("designation", "")
+                membership.can_manage_inventory = bool(
+                    form.cleaned_data.get("can_manage_inventory")
+                )
                 if form.cleaned_data.get("is_primary"):
                     transfer_store_user_primary(store=store, membership=membership)
                 else:
@@ -493,6 +500,7 @@ def store_portal_logout_view(request):
 def store_portal_dashboard_view(request):
     store = get_portal_store_or_404(request.user)
     product_stats = get_store_product_dashboard_stats(store)
+    inventory_stats = get_store_inventory_dashboard_stats(store)
     return render(
         request,
         "store_portal/dashboard.html",
@@ -500,6 +508,7 @@ def store_portal_dashboard_view(request):
             "store": store,
             "membership": request.store_membership,
             "product_stats": product_stats,
+            "inventory_stats": inventory_stats,
         },
     )
 

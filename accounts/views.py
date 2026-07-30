@@ -12,6 +12,8 @@ from stores.services import get_store_dashboard_stats
 
 from catalog.decorators import user_has_catalog_permission
 from catalog.services import get_product_dashboard_stats
+from inventory.decorators import user_can_view_management_inventory
+from inventory.status import get_inventory_dashboard_stats
 
 from .decorators import (
     MANAGEMENT_ALLOWED_ROLES,
@@ -67,6 +69,10 @@ def management_dashboard_view(request):
     if user_has_catalog_permission(request.user, "catalog.view_product"):
         product_stats = get_product_dashboard_stats()
 
+    inventory_stats = None
+    if user_can_view_management_inventory(request.user):
+        inventory_stats = get_inventory_dashboard_stats()
+
     return render(
         request,
         "management/dashboard.html",
@@ -75,6 +81,7 @@ def management_dashboard_view(request):
             "assigned_groups": request.user.groups.all(),
             "store_stats": store_stats,
             "product_stats": product_stats,
+            "inventory_stats": inventory_stats,
         },
     )
 

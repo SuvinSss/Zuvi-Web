@@ -1306,23 +1306,26 @@ class ProductResubmissionTests(CatalogTestMixin, TestCase):
         self._assert_returned_to_pending(expected_fields=["expiry_date"])
         self.assertEqual(self.product.expiry_date, date(2028, 1, 1))
 
-    def test_stock_quantity_alone_stays_approved(self):
+    def test_stock_quantity_ignored_on_catalogue_update(self):
+        """Catalogue updates must not change stock; inventory service owns balances."""
+        before = self.product.stock_quantity
         self._store_edit(stock_quantity=Decimal("25.000"))
         self._assert_stays_approved()
-        self.assertEqual(self.product.stock_quantity, Decimal("25.000"))
+        self.assertEqual(self.product.stock_quantity, before)
 
     def test_low_stock_threshold_alone_stays_approved(self):
         self._store_edit(low_stock_threshold=Decimal("5.000"))
         self._assert_stays_approved()
         self.assertEqual(self.product.low_stock_threshold, Decimal("5.000"))
 
-    def test_stock_and_threshold_together_stay_approved(self):
+    def test_threshold_update_does_not_change_stock(self):
+        before = self.product.stock_quantity
         self._store_edit(
             stock_quantity=Decimal("8.000"),
             low_stock_threshold=Decimal("4.000"),
         )
         self._assert_stays_approved()
-        self.assertEqual(self.product.stock_quantity, Decimal("8.000"))
+        self.assertEqual(self.product.stock_quantity, before)
         self.assertEqual(self.product.low_stock_threshold, Decimal("4.000"))
 
     def test_unchanged_review_fields_do_not_force_pending(self):
@@ -1342,21 +1345,23 @@ class ProductResubmissionTests(CatalogTestMixin, TestCase):
                 },
             )
         )
+        before = self.product.stock_quantity
         self._store_edit(
             name=self.product.name,
             store_price=self.product.store_price,
             stock_quantity=Decimal("11.000"),
         )
         self._assert_stays_approved()
-        self.assertEqual(self.product.stock_quantity, Decimal("11.000"))
+        self.assertEqual(self.product.stock_quantity, before)
 
-    def test_mixed_stock_and_name_change_returns_pending(self):
+    def test_mixed_ignored_stock_and_name_change_returns_pending(self):
+        before = self.product.stock_quantity
         self._store_edit(
             name="Mixed Edit",
             stock_quantity=Decimal("50.000"),
         )
         self._assert_returned_to_pending(expected_fields=["name"])
-        self.assertEqual(self.product.stock_quantity, Decimal("50.000"))
+        self.assertEqual(self.product.stock_quantity, before)
 
     def test_pending_product_not_publicly_available(self):
         self.assertTrue(product_is_publicly_available(self.product))
@@ -1927,6 +1932,7 @@ class ManagementProductPermissionTests(CatalogTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         product = Product.objects.get(sku="CREATE-1")
         self.assertEqual(product.status, ProductStatus.PENDING)
+        self.assertEqual(product.stock_quantity, Decimal("0.000"))
         self.assertTrue(
             AdminAuditLog.objects.filter(
                 action=AdminAuditLog.Action.PRODUCT_CREATED,
@@ -1941,6 +1947,7 @@ class ManagementProductPermissionTests(CatalogTestMixin, TestCase):
         self.assertIn("selling_price", ProductAdmin.readonly_fields)
         self.assertIn("final_price", ProductAdmin.readonly_fields)
         self.assertIn("product_code", ProductAdmin.readonly_fields)
+        self.assertIn("stock_quantity", ProductAdmin.readonly_fields)
 
 
 class StorePortalProductIsolationTests(CatalogTestMixin, TestCase):
@@ -2052,6 +2059,7 @@ class StorePortalProductIsolationTests(CatalogTestMixin, TestCase):
         self.assertFalse(product.profit_margin_type)
         self.assertEqual(product.unit_value, Decimal("1.500"))
         self.assertEqual(product.low_stock_threshold, Decimal("2.000"))
+        self.assertEqual(product.stock_quantity, Decimal("0.000"))
 
     def test_create_as_draft(self):
         self.client.login(username="portal-a", password="secure-password-123")

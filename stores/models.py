@@ -165,6 +165,10 @@ class StoreUser(models.Model):
     )
     is_primary = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    can_manage_inventory = models.BooleanField(
+        default=True,
+        help_text="When True, this store user may change inventory for their store.",
+    )
     designation = models.CharField(max_length=100, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

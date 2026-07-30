@@ -52,7 +52,7 @@
                                 <span class="badge text-bg-warning">Coming Soon</span>
                             {% endif %}
                         </div>
-                        <p class="text-muted{% if module_key != 'stores' or not store_stats %}{% if module_key != 'products' or not product_stats %} flex-grow-1{% endif %}{% endif %}">{{ module.description }}</p>
+                        <p class="text-muted{% if module_key != 'stores' or not store_stats %}{% if module_key != 'products' or not product_stats %}{% if module_key != 'inventory' or not inventory_stats %} flex-grow-1{% endif %}{% endif %}{% endif %}">{{ module.description }}</p>
                         {% if module_key == "stores" and store_stats %}
                             <ul class="list-unstyled small mb-3">
                                 <li><strong>Total Stores:</strong> {{ store_stats.total }}</li>
@@ -70,6 +70,16 @@
                                 <li><strong>Low-stock Products:</strong> {{ product_stats.low_stock }}</li>
                             </ul>
                             <a href="{% url 'catalog:product_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
+                        {% elif module_key == "inventory" and inventory_stats %}
+                            <ul class="list-unstyled small mb-3">
+                                <li><strong>Total inventory Products:</strong> {{ inventory_stats.total }}</li>
+                                <li><strong>In-stock Products:</strong> {{ inventory_stats.in_stock }}</li>
+                                <li><strong>Low-stock Products:</strong> {{ inventory_stats.low_stock }}</li>
+                                <li><strong>Out-of-stock Products:</strong> {{ inventory_stats.out_of_stock }}</li>
+                                <li><strong>Expired Products:</strong> {{ inventory_stats.expired }}</li>
+                                <li><strong>Products expiring within 30 days:</strong> {{ inventory_stats.expiring_soon }}</li>
+                            </ul>
+                            <a href="{% url 'inventory:management_inventory_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% elif module.url_name %}
                             <a href="{% url module.url_name %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% else %}

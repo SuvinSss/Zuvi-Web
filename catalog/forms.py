@@ -86,7 +86,6 @@ class ManagementProductForm(forms.ModelForm):
             "tags",
             "unit",
             "unit_value",
-            "stock_quantity",
             "low_stock_threshold",
             "manufacturing_date",
             "expiry_date",
@@ -101,7 +100,6 @@ class ManagementProductForm(forms.ModelForm):
         self.fields["slug"].help_text = "Leave blank to auto-generate from the name."
         self.fields["unit"].required = False
         self.fields["unit_value"].required = False
-        self.fields["stock_quantity"].required = False
         self.fields["low_stock_threshold"].required = False
         self.fields["manufacturing_date"].required = False
         self.fields["expiry_date"].required = False
@@ -139,10 +137,6 @@ class ManagementProductForm(forms.ModelForm):
         value = self.cleaned_data.get("unit_value")
         return value if value is not None else Decimal("1.000")
 
-    def clean_stock_quantity(self):
-        value = self.cleaned_data.get("stock_quantity")
-        return value if value is not None else Decimal("0.000")
-
     def clean_low_stock_threshold(self):
         value = self.cleaned_data.get("low_stock_threshold")
         return value if value is not None else Decimal("0.000")
@@ -164,7 +158,12 @@ class ManagementProductCreateForm(ManagementProductForm):
 
 
 class StoreProductForm(forms.ModelForm):
-    """Store portal form — catalog fields and store_price only."""
+    """
+    Store portal form — catalogue fields and store_price only.
+
+    stock_quantity is intentionally omitted; stock changes must go through
+    the inventory service so every movement creates an InventoryTransaction.
+    """
 
     class Meta:
         model = Product
@@ -178,13 +177,11 @@ class StoreProductForm(forms.ModelForm):
             "unit",
             "unit_value",
             "store_price",
-            "stock_quantity",
             "low_stock_threshold",
             "manufacturing_date",
             "expiry_date",
         )
         labels = {
-            "stock_quantity": "Stock quantity",
             "unit_value": "Unit value",
             "low_stock_threshold": "Low-stock threshold",
             "store_price": "Store price",
@@ -194,7 +191,6 @@ class StoreProductForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["unit"].required = False
         self.fields["unit_value"].required = False
-        self.fields["stock_quantity"].required = False
         self.fields["low_stock_threshold"].required = False
         self.fields["manufacturing_date"].required = False
         self.fields["expiry_date"].required = False
@@ -229,10 +225,6 @@ class StoreProductForm(forms.ModelForm):
         value = self.cleaned_data.get("unit_value")
         return value if value is not None else Decimal("1.000")
 
-    def clean_stock_quantity(self):
-        value = self.cleaned_data.get("stock_quantity")
-        return value if value is not None else Decimal("0.000")
-
     def clean_low_stock_threshold(self):
         value = self.cleaned_data.get("low_stock_threshold")
         return value if value is not None else Decimal("0.000")
@@ -254,12 +246,6 @@ class StoreProductCreateForm(StoreProductForm):
         label="Product images",
         help_text="Optional. You can select multiple images.",
     )
-
-    class Meta(StoreProductForm.Meta):
-        labels = {
-            **StoreProductForm.Meta.labels,
-            "stock_quantity": "Opening stock quantity",
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

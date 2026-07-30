@@ -1,6 +1,7 @@
 from django import template
 
 from accounts.models import Role
+from inventory.decorators import user_can_view_management_inventory
 from stores.decorators import user_has_store_permission
 
 register = template.Library()
@@ -29,10 +30,14 @@ MANAGEMENT_MODULES = {
     },
     "inventory": {
         "title": "Inventory",
-        "description": "Inventory management tools are coming soon.",
-        "permission": "accounts.access_inventory_module",
+        "description": "Stock balances, purchases, adjustments, and history.",
+        "permission": "inventory.view_inventorytransaction",
+        "permissions_any": (
+            "inventory.view_inventorytransaction",
+            "inventory.view_all_inventory",
+        ),
         "super_admin_only": False,
-        "url_name": None,
+        "url_name": "inventory:management_inventory_list",
     },
     "customers": {
         "title": "Customers",
@@ -72,6 +77,11 @@ def can_access_module(user, module_key):
         return True
     if module["super_admin_only"]:
         return False
+    if module_key == "inventory":
+        return user_can_view_management_inventory(user)
+    permissions_any = module.get("permissions_any")
+    if permissions_any:
+        return any(user.has_perm(permission) for permission in permissions_any)
     permission = module.get("permission")
     return bool(permission and user.has_perm(permission))
 
@@ -80,3 +90,10 @@ def can_access_module(user, module_key):
 def has_store_perm(user, permission):
     """Template helper: Super Admin bypasses; Admin needs the Django permission."""
     return user_has_store_permission(user, permission)
+
+
+@register.filter
+def has_inventory_perm(user, permission):
+    from inventory.decorators import user_has_inventory_permission
+
+    return user_has_inventory_permission(user, permission)

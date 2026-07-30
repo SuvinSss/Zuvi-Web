@@ -57,3 +57,40 @@
 - Important pricing changes must be recorded.
 - Use queryset filtering for Store isolation.
 - Do not implement cart, checkout or ordering in this phase.
+
+## MVP payment rules
+
+- The MVP supports Cash on Delivery only.
+- Checkout must not display online payment options.
+- Every new Order must use COD as its payment method.
+- New COD orders must have PENDING payment status.
+- Payment is marked COLLECTED only after successful delivery and cash collection.
+- Customers and Store Users cannot directly mark payment as COLLECTED.
+- Only Super Admin or an authorized Admin can update COD payment status.
+- Never store card, UPI or banking information.
+- Do not integrate a payment gateway in the MVP.
+- Keep payment method and payment status fields extensible for future payment methods.
+- Record payment-status changes in an audit history.
+- Orders must not depend on a Delivery Agent record.
+- Delivery Agent and radius validation are postponed features.
+
+## Inventory rules
+
+- Product.stock_quantity is the current available-stock balance.
+- Product.stock_quantity must never be edited directly from forms or views.
+- All stock changes must use the inventory service layer.
+- Every stock change must create an InventoryTransaction.
+- InventoryTransaction records are immutable.
+- Do not allow transaction records to be edited or deleted normally.
+- Stock quantity must never become negative.
+- Use transaction.atomic() and select_for_update() when updating stock.
+- Store Users may only manage inventory belonging to their Store.
+- Admin users require appropriate inventory permissions.
+- Quantities must use Decimal, never float.
+- Reject zero or negative movement quantities from user input.
+- Opening stock must only be recorded once unless explicitly corrected.
+- Damaged and expired quantities reduce sellable stock.
+- Manual adjustments require a reason.
+- Inventory history must preserve the actor, previous balance and new balance.
+- Future order stock changes will use the same inventory service.
+- Do not implement Cart, Order or Delivery Agent logic in this phase.

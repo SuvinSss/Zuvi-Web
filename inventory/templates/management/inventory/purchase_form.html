@@ -1,0 +1,41 @@
+{% extends "management/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">{{ title }}</h1>
+<form method="post" class="card card-body shadow-sm" id="purchase-create-form">
+    {% csrf_token %}
+    {{ form.submission_token }}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="row g-3">
+        {% for field in form %}
+            {% if field.name != "submission_token" %}
+            <div class="col-md-6">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary" id="purchase-submit-btn">Confirm purchase</button>
+        <a href="{% url 'inventory:management_purchase_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+<script>
+(function () {
+    var form = document.getElementById("purchase-create-form");
+    var btn = document.getElementById("purchase-submit-btn");
+    if (!form || !btn) return;
+    form.addEventListener("submit", function () {
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+    });
+})();
+</script>
+{% endblock %}
