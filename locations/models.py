@@ -7,7 +7,9 @@ from django.db import models
 class Address(models.Model):
     line1 = models.CharField(max_length=255)
     line2 = models.CharField(max_length=255, blank=True)
+    landmark = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100)
+    district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100)
     postal_code = models.CharField(max_length=20)
     country = models.CharField(max_length=100, default="India")
@@ -50,5 +52,10 @@ class Address(models.Model):
         parts = [self.line1]
         if self.line2:
             parts.append(self.line2)
-        parts.extend([self.city, self.state, self.postal_code, self.country])
+        if self.landmark:
+            parts.append(self.landmark)
+        parts.append(self.city)
+        if self.district:
+            parts.append(self.district)
+        parts.extend([self.state, self.postal_code, self.country])
         return ", ".join(parts)

@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404
 
+from accounts.audit_ip import get_client_ip
 from accounts.models import AdminAuditLog
 
 from .models import (
@@ -136,13 +137,6 @@ def generate_product_code(*, exclude_pk=None):
     raise RuntimeError(
         "Unable to generate a unique product code after multiple attempts."
     )
-
-
-def get_client_ip(request):
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
 
 
 def log_product_audit(

@@ -1,0 +1,64 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">My profile</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'customers:customer_portal_dashboard' %}" class="btn btn-outline-secondary">Back to dashboard</a>
+        <a href="{% url 'customers:customer_portal_profile_edit' %}" class="btn btn-primary">Edit profile</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Contact details</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">First name</dt>
+                    <dd class="col-sm-8">{{ customer.user.first_name|default:"-" }}</dd>
+                    <dt class="col-sm-4">Last name</dt>
+                    <dd class="col-sm-8">{{ customer.user.last_name|default:"-" }}</dd>
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">{{ customer.user.email }}</dd>
+                    <dt class="col-sm-4">Phone number</dt>
+                    <dd class="col-sm-8">{{ customer.user.phone_number|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Account details</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Username</dt>
+                    <dd class="col-sm-8">{{ customer.user.username }}</dd>
+                    <dt class="col-sm-4">Customer code</dt>
+                    <dd class="col-sm-8">{{ customer.customer_code }}</dd>
+                    <dt class="col-sm-4">Registration source</dt>
+                    <dd class="col-sm-8">{{ customer.get_registration_source_display }}</dd>
+                    <dt class="col-sm-4">Verification status</dt>
+                    <dd class="col-sm-8">{{ customer.get_verification_status_display }}</dd>
+                    <dt class="col-sm-4">Active status</dt>
+                    <dd class="col-sm-8">{% if customer.user.is_active %}Active{% else %}Inactive{% endif %}</dd>
+                    <dt class="col-sm-4">Role</dt>
+                    <dd class="col-sm-8">{{ customer.user.get_role_display }}</dd>
+                    <dt class="col-sm-4">Created by</dt>
+                    <dd class="col-sm-8">
+                        {% if customer.created_by %}
+                            {{ customer.created_by.get_full_name|default:customer.created_by.username }}
+                        {% else %}
+                            Self-registered
+                        {% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Created date</dt>
+                    <dd class="col-sm-8">{{ customer.created_at }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

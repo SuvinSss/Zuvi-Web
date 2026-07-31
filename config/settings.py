@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'stores',
     'catalog',
     'inventory',
+    'customers',
 ]
 
 MIDDLEWARE = [
@@ -136,6 +137,7 @@ LOGIN_URL = "/management/login/"
 LOGIN_REDIRECT_URL = "/management/dashboard/"
 LOGOUT_REDIRECT_URL = "/management/login/"
 STORE_LOGIN_URL = "/store/login/"
+CUSTOMER_LOGIN_URL = "/customer/login/"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

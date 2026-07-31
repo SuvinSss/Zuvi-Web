@@ -63,6 +63,83 @@ class UserModelTests(TestCase):
         )
         self.assertEqual(user.role, Role.CUSTOMER)
 
+    def test_customer_role_rejects_staff_or_superuser(self):
+        user = User(
+            username="staff-customer",
+            email="staff-customer@example.com",
+            role=Role.CUSTOMER,
+            is_staff=True,
+            is_superuser=False,
+        )
+        user.set_password("secure-password-123")
+        with self.assertRaises(ValidationError):
+            user.full_clean()
+
+        user.is_staff = False
+        user.is_superuser = True
+        with self.assertRaises(ValidationError):
+            user.full_clean()
+
+    def test_customer_profile_user_cannot_change_role(self):
+        from customers.models import RegistrationSource
+        from customers.services import create_customer_with_user
+
+        customer, user = create_customer_with_user(
+            user_data={
+                "username": "locked-customer",
+                "email": "locked-customer@example.com",
+                "first_name": "Lock",
+                "last_name": "Down",
+                "phone_number": "9000000099",
+                "password": "secure-password-123",
+            },
+            registration_source=RegistrationSource.WEBSITE,
+        )
+        user.role = Role.ADMIN
+        user.is_staff = True
+        with self.assertRaises(ValidationError):
+            user.full_clean()
+        self.assertEqual(customer.user_id, user.pk)
+
+
+class UserAdminCustomerInvariantTests(TestCase):
+    def test_user_admin_forces_customer_invariants(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from accounts.admin import UserAdmin
+        from customers.models import RegistrationSource
+        from customers.services import create_customer_with_user
+
+        customer, user = create_customer_with_user(
+            user_data={
+                "username": "admin-edit-customer",
+                "email": "admin-edit-customer@example.com",
+                "first_name": "Admin",
+                "last_name": "Edit",
+                "phone_number": "9000000088",
+                "password": "secure-password-123",
+            },
+            registration_source=RegistrationSource.WEBSITE,
+        )
+        request = type("Request", (), {"user": None})()
+        admin = UserAdmin(User, AdminSite())
+
+        user.role = Role.ADMIN
+        user.is_staff = True
+        user.is_superuser = True
+        admin.save_model(request, user, form=None, change=True)
+
+        user.refresh_from_db()
+        self.assertEqual(user.role, Role.CUSTOMER)
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertEqual(customer.user_id, user.pk)
+
+        readonly = admin.get_readonly_fields(request, obj=user)
+        self.assertIn("role", readonly)
+        self.assertIn("is_staff", readonly)
+        self.assertIn("is_superuser", readonly)
+
 
 class AdminProfileModelTests(TestCase):
     def setUp(self):
@@ -736,6 +813,34 @@ class SuperAdminAdminManagementTests(TestCase):
                 action=AdminAuditLog.Action.ADMIN_CREATED,
             ).exists()
         )
+
+    def test_audit_ip_ignores_spoofed_x_forwarded_for(self):
+        self._login_super_admin()
+        response = self.client.post(
+            self.create_url,
+            {
+                "first_name": "IP",
+                "last_name": "Spoof",
+                "username": "ip-spoof-admin",
+                "email": "ip-spoof-admin@example.com",
+                "phone_number": "999000222",
+                "employee_id": "EMP-IP001",
+                "designation": "Ops",
+                "notes": "",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!",
+            },
+            HTTP_X_FORWARDED_FOR="203.0.113.50, 198.51.100.1",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(response.status_code, 302)
+        created_user = User.objects.get(username="ip-spoof-admin")
+        audit = AdminAuditLog.objects.filter(
+            action=AdminAuditLog.Action.ADMIN_CREATED,
+            target_user=created_user,
+        ).latest("created_at")
+        self.assertEqual(audit.ip_address, "127.0.0.1")
+        self.assertNotEqual(audit.ip_address, "203.0.113.50")
 
     def test_create_admin_validates_unique_fields(self):
         self._login_super_admin()

@@ -12,9 +12,12 @@ from stores.services import get_store_dashboard_stats
 
 from catalog.decorators import user_has_catalog_permission
 from catalog.services import get_product_dashboard_stats
+from customers.decorators import user_has_customer_permission
+from customers.services import get_customer_dashboard_stats
 from inventory.decorators import user_can_view_management_inventory
 from inventory.status import get_inventory_dashboard_stats
 
+from .audit_ip import get_client_ip
 from .decorators import (
     MANAGEMENT_ALLOWED_ROLES,
     can_access_management_portal,
@@ -73,6 +76,10 @@ def management_dashboard_view(request):
     if user_can_view_management_inventory(request.user):
         inventory_stats = get_inventory_dashboard_stats()
 
+    customer_stats = None
+    if user_has_customer_permission(request.user, "customers.view_customer"):
+        customer_stats = get_customer_dashboard_stats()
+
     return render(
         request,
         "management/dashboard.html",
@@ -82,6 +89,7 @@ def management_dashboard_view(request):
             "store_stats": store_stats,
             "product_stats": product_stats,
             "inventory_stats": inventory_stats,
+            "customer_stats": customer_stats,
         },
     )
 
@@ -96,13 +104,6 @@ def management_logout_view(request):
 
 def management_permission_denied_view(request, exception):
     return render(request, "management/403.html", status=403)
-
-
-def _get_client_ip(request):
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
 
 
 def _get_admin_user_or_404(pk):
@@ -130,7 +131,7 @@ def _log_admin_audit(actor, action, description, request, target_user=None, meta
         target_user=target_user,
         description=description,
         metadata=metadata or {},
-        ip_address=_get_client_ip(request),
+        ip_address=get_client_ip(request),
     )
 
 

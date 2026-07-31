@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Q
 
+from accounts.audit_ip import get_client_ip
 from accounts.models import AdminAuditLog, Role
 from locations.models import Address
 
@@ -50,13 +51,6 @@ def generate_store_code(*, exclude_pk=None):
         if not queryset.exists():
             return code
     raise RuntimeError("Unable to generate a unique store code after multiple attempts.")
-
-
-def get_client_ip(request):
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
 
 
 def log_store_audit(

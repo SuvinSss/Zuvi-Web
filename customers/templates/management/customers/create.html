@@ -1,0 +1,54 @@
+{% extends "management/base.html" %}
+
+{% block title %}Create Customer{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Create Customer</h1>
+    <a href="{% url 'customers:customer_list' %}" class="btn btn-outline-secondary">Back to list</a>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <h2 class="h6 mb-3">Account details</h2>
+            {% for field in account_fields %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="text-danger small">{{ field.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <h2 class="h6 mb-3">Optional first delivery address</h2>
+            <p class="text-muted small">Leave blank to create the customer without an address.</p>
+            <div class="row g-3">
+                {% for field in address_fields %}
+                    <div class="col-md-6 {% if field.name == 'address_delivery_instructions' %}col-12{% endif %}">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="text-danger small">{{ field.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Customer</button>
+</form>
+{% endblock %}

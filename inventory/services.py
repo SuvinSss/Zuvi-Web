@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from accounts.audit_ip import get_client_ip
 from catalog.models import Product
 from catalog.pricing import quantize_money
 
@@ -77,15 +78,6 @@ def generate_purchase_entry_number(*, exclude_pk=None):
     raise RuntimeError(
         "Unable to generate a unique purchase entry number after multiple attempts."
     )
-
-
-def get_client_ip(request):
-    if request is None:
-        return None
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
 
 
 def log_inventory_audit(

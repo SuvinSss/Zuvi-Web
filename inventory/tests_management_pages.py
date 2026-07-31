@@ -198,6 +198,21 @@ class ManagementInventoryPagesTests(TestCase):
             ).exists()
         )
 
+    def test_audit_ip_ignores_spoofed_x_forwarded_for(self):
+        self.client.login(username="mgmt-inv-admin", password="secure-password-123")
+        response = self.client.post(
+            self.stock_in_url,
+            {"quantity": "1.000", "reason": "IP spoof check"},
+            HTTP_X_FORWARDED_FOR="203.0.113.50, 198.51.100.1",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(response.status_code, 302)
+        audit = AdminAuditLog.objects.filter(
+            action=AdminAuditLog.Action.INVENTORY_STOCK_IN,
+        ).latest("created_at")
+        self.assertEqual(audit.ip_address, "127.0.0.1")
+        self.assertNotEqual(audit.ip_address, "203.0.113.50")
+
     def test_stock_out_adjust_damage_expire_require_reason(self):
         self.client.login(username="mgmt-inv-admin", password="secure-password-123")
         for url in (self.stock_out_url, self.adjust_url, self.damage_url, self.expire_url):

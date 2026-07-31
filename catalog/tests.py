@@ -1877,6 +1877,22 @@ class ManagementProductPermissionTests(CatalogTestMixin, TestCase):
             ).exists()
         )
 
+    def test_audit_ip_ignores_spoofed_x_forwarded_for(self):
+        self.client.login(username="prod-super", password="secure-password-123")
+        self.prepare_product_for_approval(self.product, priced_by=self.super_admin)
+        response = self.client.post(
+            reverse("catalog:product_change_status", kwargs={"pk": self.product.pk}),
+            {"new_status": ProductStatus.APPROVED, "reason": "IP spoof check"},
+            HTTP_X_FORWARDED_FOR="203.0.113.50, 198.51.100.1",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(response.status_code, 302)
+        audit = AdminAuditLog.objects.filter(
+            action=AdminAuditLog.Action.PRODUCT_STATUS_CHANGED,
+        ).latest("created_at")
+        self.assertEqual(audit.ip_address, "127.0.0.1")
+        self.assertNotEqual(audit.ip_address, "203.0.113.50")
+
     def test_images_page_requires_change_permission(self):
         self.grant_catalog_perms(self.admin, "view_product")
         self.client.login(username="prod-admin", password="secure-password-123")

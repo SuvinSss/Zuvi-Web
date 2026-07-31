@@ -824,6 +824,27 @@ class StoreManagementPortalTests(StoreModelTestMixin, TestCase):
             ).exists()
         )
 
+    def test_audit_ip_ignores_spoofed_x_forwarded_for(self):
+        self.client.login(username="portal-store-admin", password="secure-password-123")
+        response = self.client.post(
+            self.reverse("stores:store_change_status", kwargs={"pk": self.store.pk}),
+            {"new_status": StoreStatus.ACTIVE, "reason": "IP spoof check"},
+            HTTP_X_FORWARDED_FOR="203.0.113.50, 198.51.100.1",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(response.status_code, 302)
+        audit = self.AdminAuditLog.objects.filter(
+            action=self.AdminAuditLog.Action.STORE_STATUS_CHANGED,
+            metadata__store_code=self.store.store_code,
+        ).latest("created_at")
+        self.assertEqual(audit.ip_address, "127.0.0.1")
+        self.assertNotEqual(audit.ip_address, "203.0.113.50")
+        history = self.store.status_history.filter(
+            new_status=StoreStatus.ACTIVE,
+            reason="IP spoof check",
+        ).latest("created_at")
+        self.assertEqual(history.ip_address, "127.0.0.1")
+
     def test_store_user_edit_and_toggle(self):
         self.client.login(username="portal-store-admin", password="secure-password-123")
         edit_url = self.reverse(

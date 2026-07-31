@@ -1,0 +1,62 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Edit profile</h1>
+    <a href="{% url 'customers:customer_portal_profile' %}" class="btn btn-outline-secondary">Back to profile</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <h2 class="h6">Read-only account details</h2>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Username</dt>
+            <dd class="col-sm-9">{{ customer.user.username }}</dd>
+            <dt class="col-sm-3">Customer code</dt>
+            <dd class="col-sm-9">{{ customer.customer_code }}</dd>
+            <dt class="col-sm-3">Registration source</dt>
+            <dd class="col-sm-9">{{ customer.get_registration_source_display }}</dd>
+            <dt class="col-sm-3">Verification status</dt>
+            <dd class="col-sm-9">{{ customer.get_verification_status_display }}</dd>
+            <dt class="col-sm-3">Active status</dt>
+            <dd class="col-sm-9">{% if customer.user.is_active %}Active{% else %}Inactive{% endif %}</dd>
+            <dt class="col-sm-3">Role</dt>
+            <dd class="col-sm-9">{{ customer.user.get_role_display }}</dd>
+            <dt class="col-sm-3">Created by</dt>
+            <dd class="col-sm-9">
+                {% if customer.created_by %}
+                    {{ customer.created_by.get_full_name|default:customer.created_by.username }}
+                {% else %}
+                    Self-registered
+                {% endif %}
+            </dd>
+            <dt class="col-sm-3">Created date</dt>
+            <dd class="col-sm-9">{{ customer.created_at }}</dd>
+        </dl>
+    </div>
+</div>
+
+<form method="post" class="card card-body shadow-sm" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+    {% endif %}
+    <h2 class="h6 mb-3">Editable contact details</h2>
+    <div class="row g-3">
+        {% for field in form %}
+            <div class="col-md-6">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+    </div>
+</form>
+{% endblock %}

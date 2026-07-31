@@ -94,3 +94,24 @@
 - Inventory history must preserve the actor, previous balance and new balance.
 - Future order stock changes will use the same inventory service.
 - Do not implement Cart, Order or Delivery Agent logic in this phase.
+
+## Customer management rules
+
+- Customer authentication must use the custom User model.
+- Do not store passwords in the Customer model.
+- A Customer profile must have a one-to-one relationship with User.
+- Customer Users must always have role CUSTOMER.
+- Customer Users must have is_staff=False and is_superuser=False.
+- Support self-registration and management-portal registration.
+- Store registration source instead of an is_app_user Boolean.
+- Customers may have multiple delivery addresses.
+- Only one address can be the default address for a Customer.
+- Customers must never access another Customer's profile or addresses.
+- Customers cannot change role, verification status, active status,
+  registration source or created_by.
+- Use transaction.atomic() when creating User and Customer records.
+- Passwords must be saved using set_password().
+- Do not expose passwords in URLs, logs or templates.
+- Deactivate Customer accounts instead of deleting them.
+- Collect latitude and longitude for future 10 km validation.
+- Do not implement cart or orders in this phase.

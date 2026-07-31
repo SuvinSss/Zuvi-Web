@@ -1,0 +1,38 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}Customer Portal Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="h4 mb-3">Customer Portal</h1>
+                <form method="post">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+                        <input type="text" name="username" class="form-control" required id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}">
+                        {% for error in form.username.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+                        <input type="password" name="password" class="form-control" required id="{{ form.password.id_for_label }}">
+                        {% for error in form.password.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+                <p class="mt-3 mb-0 small text-muted">
+                    New here?
+                    <a href="{% url 'customers:customer_register' %}">Create an account</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+from django.urls import path
+
+from . import views
+
+app_name = "customers"
+
+urlpatterns = [
+    path("customer/register/", views.customer_register_view, name="customer_register"),
+    path(
+        "customer/login/",
+        views.customer_portal_login_view,
+        name="customer_portal_login",
+    ),
+    path(
+        "customer/logout/",
+        views.customer_portal_logout_view,
+        name="customer_portal_logout",
+    ),
+    path(
+        "customer/dashboard/",
+        views.customer_portal_dashboard_view,
+        name="customer_portal_dashboard",
+    ),
+    path(
+        "customer/profile/",
+        views.customer_portal_profile_view,
+        name="customer_portal_profile",
+    ),
+    path(
+        "customer/profile/edit/",
+        views.customer_portal_profile_edit_view,
+        name="customer_portal_profile_edit",
+    ),
+    path(
+        "customer/addresses/",
+        views.customer_portal_address_list_view,
+        name="customer_portal_address_list",
+    ),
+    path(
+        "customer/addresses/create/",
+        views.customer_portal_address_create_view,
+        name="customer_portal_address_create",
+    ),
+    path(
+        "customer/addresses/<int:pk>/edit/",
+        views.customer_portal_address_edit_view,
+        name="customer_portal_address_edit",
+    ),
+    path(
+        "customer/addresses/<int:pk>/set-default/",
+        views.customer_portal_address_set_default_view,
+        name="customer_portal_address_set_default",
+    ),
+    path(
+        "customer/addresses/<int:pk>/deactivate/",
+        views.customer_portal_address_deactivate_view,
+        name="customer_portal_address_deactivate",
+    ),
+    path("management/customers/", views.customer_list_view, name="customer_list"),
+    path(
+        "management/customers/create/",
+        views.customer_create_view,
+        name="customer_create",
+    ),
+    path(
+        "management/customers/<int:pk>/",
+        views.customer_detail_view,
+        name="customer_detail",
+    ),
+    path(
+        "management/customers/<int:pk>/edit/",
+        views.customer_edit_view,
+        name="customer_edit",
+    ),
+    path(
+        "management/customers/<int:pk>/toggle-status/",
+        views.customer_toggle_status_view,
+        name="customer_toggle_status",
+    ),
+    path(
+        "management/customers/<int:pk>/verify/",
+        views.customer_verify_view,
+        name="customer_verify",
+    ),
+]

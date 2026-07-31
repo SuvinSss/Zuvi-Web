@@ -41,10 +41,10 @@ MANAGEMENT_MODULES = {
     },
     "customers": {
         "title": "Customers",
-        "description": "Customer management tools are coming soon.",
-        "permission": "accounts.access_customers_module",
+        "description": "Manage customer accounts, verification, and status.",
+        "permission": "customers.view_customer",
         "super_admin_only": False,
-        "url_name": None,
+        "url_name": "customers:customer_list",
     },
     "orders": {
         "title": "Orders",
@@ -90,6 +90,13 @@ def can_access_module(user, module_key):
 def has_store_perm(user, permission):
     """Template helper: Super Admin bypasses; Admin needs the Django permission."""
     return user_has_store_permission(user, permission)
+
+
+@register.filter
+def has_customer_perm(user, permission):
+    from customers.decorators import user_has_customer_permission
+
+    return user_has_customer_permission(user, permission)
 
 
 @register.filter

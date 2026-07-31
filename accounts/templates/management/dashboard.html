@@ -52,7 +52,7 @@
                                 <span class="badge text-bg-warning">Coming Soon</span>
                             {% endif %}
                         </div>
-                        <p class="text-muted{% if module_key != 'stores' or not store_stats %}{% if module_key != 'products' or not product_stats %}{% if module_key != 'inventory' or not inventory_stats %} flex-grow-1{% endif %}{% endif %}{% endif %}">{{ module.description }}</p>
+                        <p class="text-muted{% if module_key != 'stores' or not store_stats %}{% if module_key != 'products' or not product_stats %}{% if module_key != 'inventory' or not inventory_stats %}{% if module_key != 'customers' or not customer_stats %} flex-grow-1{% endif %}{% endif %}{% endif %}{% endif %}">{{ module.description }}</p>
                         {% if module_key == "stores" and store_stats %}
                             <ul class="list-unstyled small mb-3">
                                 <li><strong>Total Stores:</strong> {{ store_stats.total }}</li>
@@ -80,6 +80,17 @@
                                 <li><strong>Products expiring within 30 days:</strong> {{ inventory_stats.expiring_soon }}</li>
                             </ul>
                             <a href="{% url 'inventory:management_inventory_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
+                        {% elif module_key == "customers" and customer_stats %}
+                            <ul class="list-unstyled small mb-3">
+                                <li><strong>Total Customers:</strong> {{ customer_stats.total }}</li>
+                                <li><strong>Active Customers:</strong> {{ customer_stats.active }}</li>
+                                <li><strong>Inactive Customers:</strong> {{ customer_stats.inactive }}</li>
+                                <li><strong>Verified Customers:</strong> {{ customer_stats.verified }}</li>
+                                <li><strong>Unverified Customers:</strong> {{ customer_stats.unverified }}</li>
+                                <li><strong>Website registrations:</strong> {{ customer_stats.website }}</li>
+                                <li><strong>Management registrations:</strong> {{ customer_stats.management }}</li>
+                            </ul>
+                            <a href="{% url 'customers:customer_list' %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% elif module.url_name %}
                             <a href="{% url module.url_name %}" class="btn btn-outline-primary mt-auto">Open Module</a>
                         {% else %}

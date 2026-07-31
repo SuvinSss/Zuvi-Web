@@ -1,0 +1,116 @@
+{% extends "management/base.html" %}
+
+{% block title %}Customer {{ customer.customer_code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Customer {{ customer.customer_code }}</h1>
+    <div class="d-flex gap-2">
+        <a href="{% url 'customers:customer_list' %}" class="btn btn-outline-secondary">Back to list</a>
+        {% if can_change_customer %}
+            <a href="{% url 'customers:customer_edit' customer.pk %}" class="btn btn-primary">Edit</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h2 class="h5">Profile</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Username</dt>
+                    <dd class="col-sm-8">{{ customer.user.username }}</dd>
+                    <dt class="col-sm-4">Name</dt>
+                    <dd class="col-sm-8">{{ customer.user.get_full_name|default:"—" }}</dd>
+                    <dt class="col-sm-4">Email</dt>
+                    <dd class="col-sm-8">{{ customer.user.email }}</dd>
+                    <dt class="col-sm-4">Phone</dt>
+                    <dd class="col-sm-8">{{ customer.user.phone_number|default:"—" }}</dd>
+                    <dt class="col-sm-4">Role</dt>
+                    <dd class="col-sm-8">{{ customer.user.get_role_display }}</dd>
+                    <dt class="col-sm-4">Registration source</dt>
+                    <dd class="col-sm-8">{{ customer.get_registration_source_display }}</dd>
+                    <dt class="col-sm-4">Verification</dt>
+                    <dd class="col-sm-8">{{ customer.get_verification_status_display }}</dd>
+                    <dt class="col-sm-4">Active</dt>
+                    <dd class="col-sm-8">{% if customer.user.is_active %}Yes{% else %}No{% endif %}</dd>
+                    <dt class="col-sm-4">Saved addresses</dt>
+                    <dd class="col-sm-8">{{ saved_address_count }}</dd>
+                    <dt class="col-sm-4">Date of birth</dt>
+                    <dd class="col-sm-8">{{ customer.date_of_birth|default:"—" }}</dd>
+                    <dt class="col-sm-4">Management notes</dt>
+                    <dd class="col-sm-8">{{ customer.notes|default:"—"|linebreaksbr }}</dd>
+                    <dt class="col-sm-4">Created by</dt>
+                    <dd class="col-sm-8">{{ customer.created_by|default:"—" }}</dd>
+                    <dt class="col-sm-4">Created</dt>
+                    <dd class="col-sm-8">{{ customer.created_at }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Delivery addresses</h2>
+                {% if addresses %}
+                    <div class="list-group list-group-flush">
+                        {% for item in addresses %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ item.get_label_display }} · {{ item.recipient_name }}</strong>
+                                    <span>
+                                        {% if item.is_default and item.is_active %}<span class="badge text-bg-primary">Default</span>{% endif %}
+                                        {% if not item.is_active %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+                                    </span>
+                                </div>
+                                <div class="small">{{ item.address }}</div>
+                                <div class="small text-muted">{{ item.phone_number }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No saved addresses.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        {% if can_activate_customer %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h6">Account status</h2>
+                    <form method="post" action="{% url 'customers:customer_toggle_status' customer.pk %}">
+                        {% csrf_token %}
+                        {% if customer.user.is_active %}
+                            <div class="mb-2">
+                                <label class="form-label" for="{{ deactivation_form.reason.id_for_label }}">
+                                    {{ deactivation_form.reason.label }}
+                                </label>
+                                {{ deactivation_form.reason }}
+                                {% for error in deactivation_form.reason.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger w-100">Deactivate</button>
+                        {% else %}
+                            <button type="submit" class="btn btn-outline-success w-100">Activate</button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+        {% if can_verify_customer %}
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6">Verification</h2>
+                    <form method="post" action="{% url 'customers:customer_verify' customer.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-2">{{ verification_form.verification_status }}</div>
+                        <button type="submit" class="btn btn-outline-primary w-100">Update verification</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -37,6 +37,25 @@ class User(AbstractUser):
             ("access_delivery_module", "Can access delivery module"),
         )
 
+    def clean(self):
+        super().clean()
+        if self.role == Role.CUSTOMER and (self.is_staff or self.is_superuser):
+            raise ValidationError(
+                "Customer users must have is_staff=False and is_superuser=False."
+            )
+        if self.pk and self.role != Role.CUSTOMER:
+            if User.objects.filter(
+                pk=self.pk,
+                customer_profile__isnull=False,
+            ).exists():
+                raise ValidationError(
+                    {
+                        "role": (
+                            "Users with a Customer profile must keep role CUSTOMER."
+                        )
+                    }
+                )
+
     def __str__(self):
         return self.username
 
@@ -98,6 +117,12 @@ class AdminAuditLog(models.Model):
         INVENTORY_DAMAGE_RECORDED = "INVENTORY_DAMAGE_RECORDED", "Inventory Damage Recorded"
         INVENTORY_EXPIRY_RECORDED = "INVENTORY_EXPIRY_RECORDED", "Inventory Expiry Recorded"
         PURCHASE_ENTRY_CONFIRMED = "PURCHASE_ENTRY_CONFIRMED", "Purchase Entry Confirmed"
+        CUSTOMER_CREATED = "CUSTOMER_CREATED", "Customer Created"
+        CUSTOMER_UPDATED = "CUSTOMER_UPDATED", "Customer Updated"
+        CUSTOMER_ACTIVATED = "CUSTOMER_ACTIVATED", "Customer Activated"
+        CUSTOMER_DEACTIVATED = "CUSTOMER_DEACTIVATED", "Customer Deactivated"
+        CUSTOMER_VERIFIED = "CUSTOMER_VERIFIED", "Customer Verified"
+        CUSTOMER_UNVERIFIED = "CUSTOMER_UNVERIFIED", "Customer Unverified"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
