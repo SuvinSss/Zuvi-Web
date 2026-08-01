@@ -18,6 +18,7 @@
         <a class="navbar-brand" href="{% url 'stores:store_portal_dashboard' %}">Store Portal</a>
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{% url 'stores:store_portal_dashboard' %}" class="btn btn-outline-light btn-sm">Dashboard</a>
+            <a href="{% url 'orders:store_order_list' %}" class="btn btn-outline-light btn-sm">Orders</a>
             <a href="{% url 'catalog:store_product_list' %}" class="btn btn-outline-light btn-sm">Products</a>
             <a href="{% url 'inventory:store_inventory_list' %}" class="btn btn-outline-light btn-sm">Inventory</a>
             <a href="{% url 'inventory:store_purchase_list' %}" class="btn btn-outline-light btn-sm">Purchases</a>

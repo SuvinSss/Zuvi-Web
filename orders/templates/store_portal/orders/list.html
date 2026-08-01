@@ -1,0 +1,57 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Store Orders{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">Store Orders</h1>
+        <p class="text-muted small mb-0">Orders for {{ request.store.name }} only.</p>
+    </div>
+</div>
+
+{% if store_orders %}
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Store order</th>
+                        <th>Customer order</th>
+                        <th>Placed</th>
+                        <th class="text-end">Items</th>
+                        <th>Fulfillment</th>
+                        <th class="text-end">Store subtotal</th>
+                        <th>Status</th>
+                        <th>Customer note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for so in store_orders %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'orders:store_order_detail' so.store_order_number %}">
+                                    {{ so.store_order_number }}
+                                </a>
+                            </td>
+                            <td>{{ so.order.order_number }}</td>
+                            <td>{{ so.order.placed_at|date:"d M Y, H:i" }}</td>
+                            <td class="text-end">{{ so.item_count|default_if_none:0 }}</td>
+                            <td>{{ so.order.get_fulfillment_type_display }}</td>
+                            <td class="text-end">₹{{ so.items_subtotal }}</td>
+                            <td>
+                                <span class="badge text-bg-light border">{{ so.get_status_display }}</span>
+                            </td>
+                            <td class="small text-muted">
+                                {{ so.order.customer_notes|default:"—"|truncatechars:40 }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-info mb-0">No store orders yet.</div>
+{% endif %}
+{% endblock %}

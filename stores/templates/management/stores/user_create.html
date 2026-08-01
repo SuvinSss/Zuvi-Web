@@ -8,8 +8,8 @@
     {% csrf_token %}
     <div class="row g-3 mb-3">
         {% for field in form %}
-            <div class="col-md-6 {% if field.name == 'is_primary' or field.name == 'can_manage_inventory' %}col-12{% endif %}">
-                {% if field.name == 'is_primary' or field.name == 'can_manage_inventory' %}
+            <div class="col-md-6 {% if field.name == 'is_primary' or field.name == 'can_manage_inventory' or field.name == 'can_manage_orders' %}col-12{% endif %}">
+                {% if field.name == 'is_primary' or field.name == 'can_manage_inventory' or field.name == 'can_manage_orders' %}
                     <div class="form-check">
                         {{ field }}
                         <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>

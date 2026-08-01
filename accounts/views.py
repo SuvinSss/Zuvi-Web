@@ -16,6 +16,8 @@ from customers.decorators import user_has_customer_permission
 from customers.services import get_customer_dashboard_stats
 from inventory.decorators import user_can_view_management_inventory
 from inventory.status import get_inventory_dashboard_stats
+from orders.decorators import user_has_order_permission
+from orders.management import get_order_dashboard_stats
 
 from .audit_ip import get_client_ip
 from .decorators import (
@@ -80,6 +82,10 @@ def management_dashboard_view(request):
     if user_has_customer_permission(request.user, "customers.view_customer"):
         customer_stats = get_customer_dashboard_stats()
 
+    order_stats = None
+    if user_has_order_permission(request.user, "orders.view_order"):
+        order_stats = get_order_dashboard_stats()
+
     return render(
         request,
         "management/dashboard.html",
@@ -90,6 +96,7 @@ def management_dashboard_view(request):
             "product_stats": product_stats,
             "inventory_stats": inventory_stats,
             "customer_stats": customer_stats,
+            "order_stats": order_stats,
         },
     )
 

@@ -18,7 +18,15 @@ class StoreUserInline(admin.TabularInline):
     model = StoreUser
     extra = 0
     autocomplete_fields = ("user", "created_by")
-    fields = ("user", "is_primary", "is_active", "designation", "created_by")
+    fields = (
+        "user",
+        "is_primary",
+        "is_active",
+        "can_manage_inventory",
+        "can_manage_orders",
+        "designation",
+        "created_by",
+    )
     show_change_link = True
 
 
@@ -109,10 +117,18 @@ class StoreUserAdmin(admin.ModelAdmin):
         "designation",
         "is_primary",
         "is_active",
+        "can_manage_inventory",
+        "can_manage_orders",
         "created_by",
         "created_at",
     )
-    list_filter = ("is_primary", "is_active", "created_at")
+    list_filter = (
+        "is_primary",
+        "is_active",
+        "can_manage_inventory",
+        "can_manage_orders",
+        "created_at",
+    )
     search_fields = (
         "user__username",
         "user__email",

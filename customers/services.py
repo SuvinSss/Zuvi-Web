@@ -350,6 +350,12 @@ def get_customer_portal_dashboard_context(user):
 
     Always keyed by user.pk — never by a client-supplied customer_id.
     """
+    from cart.services import get_cart_item_count
+    from orders.portal import (
+        get_customer_order_dashboard_stats,
+        get_customer_recent_orders,
+    )
+
     customer = (
         Customer.objects.select_related("user")
         .prefetch_related(
@@ -371,12 +377,16 @@ def get_customer_portal_dashboard_context(user):
         user=customer.user,
         has_default_address=default_address is not None,
     )
+    order_stats = get_customer_order_dashboard_stats(customer)
     return {
         "customer": customer,
         "default_address": default_address,
         "saved_address_count": len(addresses),
         "profile_completion_message": profile_completion_message,
         "profile_is_complete": profile_completion_message == "Your profile is complete.",
+        "cart_item_count": get_cart_item_count(customer),
+        "pending_order_count": order_stats["pending"],
+        "recent_orders": get_customer_recent_orders(customer),
     }
 
 

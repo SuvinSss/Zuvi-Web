@@ -419,6 +419,7 @@ class InventoryTransaction(models.Model):
             models.Index(fields=["store", "transaction_type"]),
             models.Index(fields=["transaction_type", "-created_at"]),
             models.Index(fields=["purchase_entry"]),
+            models.Index(fields=["reference"]),
         ]
         constraints = [
             models.CheckConstraint(
@@ -447,6 +448,13 @@ class InventoryTransaction(models.Model):
                     | models.Q(expiry_date__gte=models.F("manufacturing_date"))
                 ),
                 name="inventory_txn_expiry_on_or_after_manufacturing",
+            ),
+            # Order deduct/restore keys (order-item:{id}:deduct|restore) are
+            # immutable once-only ledger references.
+            models.UniqueConstraint(
+                fields=["reference"],
+                condition=models.Q(reference__startswith="order-item:"),
+                name="inventory_txn_unique_order_item_reference",
             ),
         ]
 

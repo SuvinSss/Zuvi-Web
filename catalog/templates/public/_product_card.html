@@ -1,0 +1,26 @@
+{% load static %}
+<div class="card product-card">
+    <a href="{% url 'catalog:public_product_detail' product.slug %}" class="text-decoration-none text-dark">
+        {% if product.primary_image_url %}
+            <img src="{{ product.primary_image_url }}" alt="{{ product.primary_image_alt }}" class="card-img-top">
+        {% else %}
+            <div class="card-img-top d-flex align-items-center justify-content-center text-muted" style="height:180px;background:#e7eee9">No image</div>
+        {% endif %}
+        <div class="card-body">
+            <div class="small text-muted mb-1">{{ product.store_name }}</div>
+            <h2 class="h6 mb-1">{{ product.name }}</h2>
+            {% if product.brand_name %}<div class="small mb-1">{{ product.brand_name }}</div>{% endif %}
+            <div class="small text-muted mb-2">{{ product.category_name }} · {{ product.unit_label }}</div>
+            <div class="d-flex align-items-baseline gap-2 mb-2">
+                <span class="price-now">₹{{ product.final_price }}</span>
+                {% if product.compare_at_price %}
+                    <span class="price-was small">₹{{ product.compare_at_price }}</span>
+                {% endif %}
+            </div>
+            {% if product.discount_label %}
+                <div class="badge text-bg-success mb-2">{{ product.discount_label }}</div>
+            {% endif %}
+            <div class="small">{{ product.stock_label }}</div>
+        </div>
+    </a>
+</div>

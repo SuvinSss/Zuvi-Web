@@ -3,7 +3,7 @@ import string
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from accounts.audit_ip import get_client_ip
@@ -30,7 +30,70 @@ NUMBER_ALPHABET = string.ascii_uppercase + string.digits
 TRANSACTION_NUMBER_MAX_ATTEMPTS = 32
 ENTRY_NUMBER_MAX_ATTEMPTS = 32
 
+# Immutable ledger references for order stock movements. Unique among
+# InventoryTransaction.reference values that use this prefix (DB constraint).
+ORDER_ITEM_REFERENCE_PREFIX = "order-item:"
+ORDER_ITEM_DEDUCT_SUFFIX = ":deduct"
+ORDER_ITEM_RESTORE_SUFFIX = ":restore"
+
 THREEPLACES = Decimal("0.001")
+
+
+def order_item_deduct_reference(order_item_id) -> str:
+    """Stable reference for the single checkout STOCK_OUT of an OrderItem."""
+    return f"{ORDER_ITEM_REFERENCE_PREFIX}{order_item_id}{ORDER_ITEM_DEDUCT_SUFFIX}"
+
+
+def order_item_restore_reference(order_item_id) -> str:
+    """Stable reference for the single cancel/reject CUSTOMER_RETURN of an OrderItem."""
+    return f"{ORDER_ITEM_REFERENCE_PREFIX}{order_item_id}{ORDER_ITEM_RESTORE_SUFFIX}"
+
+
+def _find_transaction_by_reference(reference):
+    if not (reference or "").strip():
+        return None
+    return (
+        InventoryTransaction.objects.select_related("product", "store")
+        .filter(reference=reference)
+        .first()
+    )
+
+
+def _require_order_reference(reference):
+    cleaned = (reference or "").strip()
+    if not cleaned.startswith(ORDER_ITEM_REFERENCE_PREFIX):
+        raise ValidationError(
+            {
+                "reference": (
+                    "Order inventory movements require an immutable "
+                    f"'{ORDER_ITEM_REFERENCE_PREFIX}…' reference."
+                )
+            }
+        )
+    return cleaned
+
+
+def _assert_existing_order_txn_matches(
+    *,
+    existing,
+    product,
+    store,
+    quantity,
+    transaction_type,
+):
+    """Reject reuse of a reference that points at a different movement."""
+    quantity = quantize_quantity(quantity)
+    errors = {}
+    if existing.product_id != getattr(product, "pk", product):
+        errors["reference"] = "Reference already used for a different product."
+    if existing.store_id != getattr(store, "pk", store):
+        errors["reference"] = "Reference already used for a different store."
+    if existing.transaction_type != transaction_type:
+        errors["reference"] = "Reference already used for a different movement type."
+    if quantize_quantity(existing.quantity) != quantity:
+        errors["reference"] = "Reference already used for a different quantity."
+    if errors:
+        raise ValidationError(errors)
 
 
 def _as_decimal(value):
@@ -623,6 +686,130 @@ def record_customer_return(
         ip_address=ip_address,
         request=request,
     )
+
+
+@transaction.atomic
+def deduct_order_stock(
+    *,
+    product,
+    store,
+    quantity,
+    reference,
+    actor=None,
+    reason="",
+    notes="",
+    ip_address=None,
+    request=None,
+):
+    """
+    Deduct sellable stock at checkout.
+
+    Maps to existing STOCK_OUT (OUT). ``reference`` must be the immutable
+    order-item deduct key from ``order_item_deduct_reference``; repeating the
+    same reference returns the existing row and does not deduct again.
+    """
+    reference = _require_order_reference(reference)
+    existing = _find_transaction_by_reference(reference)
+    if existing is not None:
+        _assert_existing_order_txn_matches(
+            existing=existing,
+            product=product,
+            store=store,
+            quantity=quantity,
+            transaction_type=InventoryTransactionType.STOCK_OUT,
+        )
+        return existing
+
+    try:
+        with transaction.atomic():
+            return apply_stock_movement(
+                product=product,
+                store=store,
+                transaction_type=InventoryTransactionType.STOCK_OUT,
+                quantity=quantity,
+                actor=actor,
+                reason=(reason or "").strip() or "Order stock deduction",
+                notes=notes or "Stock deducted at checkout.",
+                reference=reference,
+                ip_address=ip_address,
+                request=request,
+                is_system_generated=True,
+            )
+    except IntegrityError:
+        existing = _find_transaction_by_reference(reference)
+        if existing is None:
+            raise
+        _assert_existing_order_txn_matches(
+            existing=existing,
+            product=product,
+            store=store,
+            quantity=quantity,
+            transaction_type=InventoryTransactionType.STOCK_OUT,
+        )
+        return existing
+
+
+@transaction.atomic
+def restore_order_stock(
+    *,
+    product,
+    store,
+    quantity,
+    reference,
+    actor=None,
+    reason="",
+    notes="",
+    ip_address=None,
+    request=None,
+):
+    """
+    Restore sellable stock previously deducted at checkout.
+
+    Maps to existing CUSTOMER_RETURN (IN) for cancellation and store rejection.
+    Does not delete or edit the original checkout STOCK_OUT — the ledger remains
+    append-only. ``reference`` must be the immutable order-item restore key from
+    ``order_item_restore_reference``; repeating it returns the existing row and
+    does not restore again.
+    """
+    reference = _require_order_reference(reference)
+    existing = _find_transaction_by_reference(reference)
+    if existing is not None:
+        _assert_existing_order_txn_matches(
+            existing=existing,
+            product=product,
+            store=store,
+            quantity=quantity,
+            transaction_type=InventoryTransactionType.CUSTOMER_RETURN,
+        )
+        return existing
+
+    try:
+        with transaction.atomic():
+            return apply_stock_movement(
+                product=product,
+                store=store,
+                transaction_type=InventoryTransactionType.CUSTOMER_RETURN,
+                quantity=quantity,
+                actor=actor,
+                reason=(reason or "").strip() or "Order stock restoration",
+                notes=notes or "Stock restored after order cancel/reject.",
+                reference=reference,
+                ip_address=ip_address,
+                request=request,
+                is_system_generated=True,
+            )
+    except IntegrityError:
+        existing = _find_transaction_by_reference(reference)
+        if existing is None:
+            raise
+        _assert_existing_order_txn_matches(
+            existing=existing,
+            product=product,
+            store=store,
+            quantity=quantity,
+            transaction_type=InventoryTransactionType.CUSTOMER_RETURN,
+        )
+        return existing
 
 
 @transaction.atomic

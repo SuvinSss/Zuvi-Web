@@ -1305,11 +1305,17 @@ class StorePortalAccessTests(StoreModelTestMixin, TestCase):
         self.assertContains(dashboard, "Out-of-stock Products:")
         self.assertContains(dashboard, "Expired Products:")
         self.assertContains(dashboard, "Products expiring within 30 days:")
-        self.assertContains(dashboard, "Coming Soon")
+        self.assertContains(dashboard, "Pending StoreOrders:")
+        self.assertContains(dashboard, "Accepted StoreOrders:")
+        self.assertContains(dashboard, "Processing StoreOrders:")
+        self.assertContains(dashboard, "Ready StoreOrders:")
         self.assertContains(dashboard, "Open Products")
         self.assertContains(dashboard, "Open Inventory")
+        self.assertContains(dashboard, "Open Orders")
+        self.assertNotContains(dashboard, "Coming Soon")
         self.assertEqual(dashboard.context["product_stats"]["total"], 0)
         self.assertEqual(dashboard.context["inventory_stats"]["total"], 0)
+        self.assertEqual(dashboard.context["order_stats"]["pending"], 0)
 
     def test_non_store_user_roles_cannot_login(self):
         User.objects.create_user(

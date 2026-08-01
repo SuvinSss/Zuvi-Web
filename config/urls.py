@@ -25,9 +25,11 @@ handler403 = management_permission_denied_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("", include("catalog.urls")),
+    path("", include("cart.urls")),
+    path("", include("orders.urls")),
     path("", include("accounts.urls")),
     path("", include("stores.urls")),
-    path("", include("catalog.urls")),
     path("", include("inventory.urls")),
     path("", include("customers.urls")),
 ]

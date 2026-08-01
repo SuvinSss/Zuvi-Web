@@ -299,7 +299,10 @@ class ManagementPortalAccessTests(TestCase):
             codename="view_store",
             content_type__app_label="stores",
         )
-        self.orders_permission = Permission.objects.get(codename="access_orders_module")
+        self.orders_permission = Permission.objects.get(
+            codename="view_order",
+            content_type__app_label="orders",
+        )
 
     def test_super_admin_access(self):
         self.client.login(username="portal-super", password="secure-password-123")

@@ -1,0 +1,268 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">Checkout</h1>
+        <p class="text-muted small mb-0">
+            Prices below are recalculated on the server from current product prices.
+            Online payment is not available in this MVP.
+        </p>
+    </div>
+    <a href="{% url 'cart:cart_detail' %}" class="btn btn-outline-secondary btn-sm">Back to cart</a>
+</div>
+
+{% if is_empty %}
+    <div class="alert alert-info mb-0">
+        Your cart is empty.
+        <a href="{% url 'catalog:public_product_list' %}">Browse products</a>.
+    </div>
+{% else %}
+    {% if has_blocking_issues %}
+        <div class="alert alert-danger">
+            <div class="fw-semibold mb-1">Checkout is blocked until these issues are fixed:</div>
+            <ul class="mb-0">
+                {% for message in blocking_messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+            <div class="mt-2">
+                <a href="{% url 'cart:cart_detail' %}">Review your cart</a>
+            </div>
+        </div>
+    {% endif %}
+
+    {% for group in store_groups %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">{{ group.store_name }}</h2>
+                <span class="small text-muted">Subtotal: ₹{{ group.items_subtotal }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-end">Final price</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Item subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in group.items %}
+                                <tr {% if not row.is_available or row.line_total is None %}class="table-danger"{% endif %}>
+                                    <td>
+                                        {{ row.product_name }}
+                                        <div class="small text-muted">{{ row.sku }}</div>
+                                        {% for warning in row.warnings %}
+                                            <div class="small text-danger">{{ warning }}</div>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if row.unit_price is not None %}₹{{ row.unit_price }}{% else %}—{% endif %}
+                                    </td>
+                                    <td class="text-end">{{ row.quantity }}</td>
+                                    <td class="text-end">
+                                        {% if row.line_total is not None %}₹{{ row.line_total }}{% else %}—{% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    <form method="post" action="{% url 'orders:checkout_place' %}" id="checkout-form">
+        {% csrf_token %}
+        <input type="hidden" name="checkout_token" value="{{ checkout_token }}">
+
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <h2 class="h6">Fulfillment method</h2>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-delivery" value="DELIVERY" checked data-fulfillment-toggle>
+                            <label class="form-check-label" for="fulfillment-delivery">Delivery</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-pickup" value="FACILITY_PICKUP" data-fulfillment-toggle>
+                            <label class="form-check-label" for="fulfillment-pickup">Facility pickup</label>
+                        </div>
+
+                        <div id="delivery-panel">
+                            <h3 class="h6">Delivery address</h3>
+                            <p class="small text-muted">{{ location_eligibility_notice }}</p>
+                            {% if delivery_addresses %}
+                                {% for address in delivery_addresses %}
+                                    <div class="form-check mb-2">
+                                        <input
+                                            class="form-check-input"
+                                            type="radio"
+                                            name="delivery_address_id"
+                                            id="address-{{ address.pk }}"
+                                            value="{{ address.pk }}"
+                                            {% if address.is_default %}checked{% endif %}
+                                        >
+                                        <label class="form-check-label" for="address-{{ address.pk }}">
+                                            <strong>{{ address.get_label_display }} · {{ address.recipient_name }}</strong>
+                                            <div class="small text-muted">{{ address.address }}</div>
+                                            <div class="small text-muted">{{ address.phone_number }}</div>
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning mb-0">
+                                    You have no active delivery addresses.
+                                    <a href="{% url 'customers:customer_portal_address_create' %}">Add an address</a>
+                                    before placing a delivery order.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div id="pickup-panel" class="d-none">
+                            <h3 class="h6">Pickup locations</h3>
+                            <p class="small text-muted">Select one active pickup location for each store in your cart.</p>
+                            {% for group in store_groups %}
+                                <div class="border rounded p-3 mb-3">
+                                    <div class="fw-semibold mb-2">{{ group.store_name }}</div>
+                                    {% if group.pickup_locations %}
+                                        {% for pickup in group.pickup_locations %}
+                                            <div class="form-check mb-2">
+                                                <input
+                                                    class="form-check-input"
+                                                    type="radio"
+                                                    name="pickup_location_{{ group.store_id }}"
+                                                    id="pickup-{{ pickup.id }}"
+                                                    value="{{ pickup.id }}"
+                                                    {% if forloop.first %}checked{% endif %}
+                                                >
+                                                <label class="form-check-label" for="pickup-{{ pickup.id }}">
+                                                    <strong>{{ pickup.name }}</strong>
+                                                    <div class="small text-muted">{{ pickup.address_display }}</div>
+                                                    {% if pickup.contact_phone %}
+                                                        <div class="small text-muted">Contact: {{ pickup.contact_phone }}</div>
+                                                    {% endif %}
+                                                    {% if pickup.hours %}
+                                                        <div class="small text-muted">Hours: {{ pickup.hours }}</div>
+                                                    {% endif %}
+                                                    {% if pickup.instructions %}
+                                                        <div class="small text-muted">{{ pickup.instructions }}</div>
+                                                    {% endif %}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="alert alert-warning mb-0">
+                                            No active pickup locations are available for this store.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <h2 class="h6">Payment</h2>
+                        <p class="small text-muted mb-2">Online payment is not supported in the MVP.</p>
+                        <div id="payment-delivery">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod" value="COD" checked>
+                                <label class="form-check-label" for="pay-cod">Cash on Delivery</label>
+                            </div>
+                        </div>
+                        <div id="payment-pickup" class="d-none">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-pickup" value="PAY_AT_PICKUP">
+                                <label class="form-check-label" for="pay-pickup">Pay at Pickup</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod-pickup" value="COD">
+                                <label class="form-check-label" for="pay-cod-pickup">Cash on Delivery</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <label class="form-label" for="id_customer_notes">Order note (optional)</label>
+                        <textarea class="form-control" name="customer_notes" id="id_customer_notes" rows="3" maxlength="2000"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="h6">Order summary</h2>
+                        <dl class="row mb-3 small">
+                            <dt class="col-6">Items subtotal</dt>
+                            <dd class="col-6 text-end">₹{{ items_subtotal }}</dd>
+                            <dt class="col-6">Delivery charge</dt>
+                            <dd class="col-6 text-end">₹{{ delivery_charge }}</dd>
+                            <dt class="col-6">Discount</dt>
+                            <dd class="col-6 text-end">₹{{ discount_total }}</dd>
+                            <dt class="col-6 fw-semibold">Grand total</dt>
+                            <dd class="col-6 text-end fw-semibold">₹{{ grand_total }}</dd>
+                        </dl>
+                        <button
+                            type="submit"
+                            class="btn btn-primary w-100"
+                            {% if not can_place_order %}disabled{% endif %}
+                        >
+                            Place order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>
+    (function () {
+        const deliveryPanel = document.getElementById("delivery-panel");
+        const pickupPanel = document.getElementById("pickup-panel");
+        const paymentDelivery = document.getElementById("payment-delivery");
+        const paymentPickup = document.getElementById("payment-pickup");
+        const toggles = document.querySelectorAll("[data-fulfillment-toggle]");
+
+        function setEnabled(container, enabled) {
+            container.querySelectorAll("input, select, textarea").forEach(function (el) {
+                el.disabled = !enabled;
+            });
+        }
+
+        function sync() {
+            const selected = document.querySelector('input[name="fulfillment_type"]:checked');
+            const isDelivery = selected && selected.value === "DELIVERY";
+            deliveryPanel.classList.toggle("d-none", !isDelivery);
+            pickupPanel.classList.toggle("d-none", isDelivery);
+            paymentDelivery.classList.toggle("d-none", !isDelivery);
+            paymentPickup.classList.toggle("d-none", isDelivery);
+            setEnabled(deliveryPanel, isDelivery);
+            setEnabled(pickupPanel, !isDelivery);
+            setEnabled(paymentDelivery, isDelivery);
+            setEnabled(paymentPickup, !isDelivery);
+            if (isDelivery) {
+                document.getElementById("pay-cod").checked = true;
+            } else {
+                document.getElementById("pay-pickup").checked = true;
+            }
+        }
+
+        toggles.forEach(function (el) {
+            el.addEventListener("change", sync);
+        });
+        sync();
+    })();
+    </script>
+{% endif %}
+{% endblock %}

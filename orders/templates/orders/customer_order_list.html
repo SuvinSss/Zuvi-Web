@@ -1,0 +1,59 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">My Orders</h1>
+        <p class="text-muted small mb-0">Orders placed with your customer account.</p>
+    </div>
+    <a href="{% url 'catalog:public_product_list' %}" class="btn btn-outline-primary btn-sm">Browse products</a>
+</div>
+
+{% if orders %}
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Order number</th>
+                        <th>Placed</th>
+                        <th class="text-end">Items</th>
+                        <th>Fulfillment</th>
+                        <th>Payment</th>
+                        <th class="text-end">Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'orders:customer_order_detail' order.order_number %}">
+                                    {{ order.order_number }}
+                                </a>
+                            </td>
+                            <td>{{ order.placed_at|date:"d M Y, H:i" }}</td>
+                            <td class="text-end">{{ order.item_count|default_if_none:0 }}</td>
+                            <td>{{ order.get_fulfillment_type_display }}</td>
+                            <td>{{ order.get_payment_method_display }}</td>
+                            <td class="text-end">₹{{ order.grand_total }}</td>
+                            <td>
+                                <span class="badge text-bg-{% if order.status == 'CANCELLED' %}secondary{% elif order.status == 'COMPLETED' %}success{% else %}primary{% endif %}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-info mb-0">
+        You have not placed any orders yet.
+        <a href="{% url 'catalog:public_product_list' %}">Browse products</a>.
+    </div>
+{% endif %}
+{% endblock %}

@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 
@@ -338,13 +339,25 @@ def customer_register_view(request):
     )
 
 
+def _safe_customer_redirect(request, fallback_name="customers:customer_portal_dashboard"):
+    """Honor a safe next URL from GET/POST; otherwise use the customer dashboard."""
+    redirect_to = request.POST.get("next") or request.GET.get("next")
+    if redirect_to and url_has_allowed_host_and_scheme(
+        url=redirect_to,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(redirect_to)
+    return redirect(fallback_name)
+
+
 @csrf_protect
 @never_cache
 def customer_portal_login_view(request):
     if request.user.is_authenticated and request.user.role == Role.CUSTOMER:
         customer, _ = resolve_customer_portal_profile(request.user)
         if customer is not None:
-            return redirect("customers:customer_portal_dashboard")
+            return _safe_customer_redirect(request)
 
     form = AuthenticationForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -357,7 +370,7 @@ def customer_portal_login_view(request):
             )
         else:
             login(request, user)
-            return redirect("customers:customer_portal_dashboard")
+            return _safe_customer_redirect(request)
 
     return render(request, "customer_portal/login.html", {"form": form})
 

@@ -1,0 +1,209 @@
+{% extends "management/base.html" %}
+
+{% block title %}Store Order {{ store_order.store_order_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">{{ store_order.store_order_number }}</h1>
+        <p class="text-muted small mb-0">
+            {{ store_order.store_name }} ({{ store_order.store_code }})
+            · Parent
+            <a href="{% url 'orders:management_order_detail' order.order_number %}">{{ order.order_number }}</a>
+            · {{ store_order.get_status_display }}
+        </p>
+    </div>
+    <a href="{% url 'orders:management_order_detail' order.order_number %}" class="btn btn-outline-secondary btn-sm">Back to order</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Customer</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-5">Name</dt>
+                    <dd class="col-7">{{ order.customer.user.get_full_name|default:order.customer.user.username }}</dd>
+                    <dt class="col-5">Email</dt>
+                    <dd class="col-7">{{ order.customer.user.email }}</dd>
+                    <dt class="col-5">Phone</dt>
+                    <dd class="col-7">{{ order.customer.user.phone_number|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Totals</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-6">Items</dt>
+                    <dd class="col-6 text-end">₹{{ store_order.items_subtotal }}</dd>
+                    <dt class="col-6">Delivery</dt>
+                    <dd class="col-6 text-end">₹{{ store_order.delivery_charge }}</dd>
+                    <dt class="col-6">Store total</dt>
+                    <dd class="col-6 text-end fw-semibold">₹{{ store_order.store_total }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Pickup / fulfillment</h2>
+                {% if store_order.pickup_location %}
+                    <div class="small">
+                        <div class="fw-semibold">{{ store_order.pickup_location.name }}</div>
+                        {% if store_order.pickup_location.address %}
+                            <div class="text-muted">{{ store_order.pickup_location.address }}</div>
+                        {% endif %}
+                        {% if store_order.pickup_location.contact_phone %}
+                            <div>Phone: {{ store_order.pickup_location.contact_phone }}</div>
+                        {% endif %}
+                        {% if store_order.pickup_location.hours %}
+                            <div>Hours: {{ store_order.pickup_location.hours }}</div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="small text-muted mb-0">{{ order.get_fulfillment_type_display }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Order items</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th>Unit</th>
+                    <th class="text-end">Price</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Line total</th>
+                    <th>Flags</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>
+                            {{ item.product_name }}
+                            <div class="small text-muted">{{ item.product_code }} · {{ item.sku }}</div>
+                        </td>
+                        <td class="small">{{ item.unit_value }} {{ item.get_unit_display }}</td>
+                        <td class="text-end">₹{{ item.unit_price }}</td>
+                        <td class="text-end">{{ item.quantity }}</td>
+                        <td class="text-end">₹{{ item.line_total }}</td>
+                        <td class="small">
+                            {% if item.is_rejected %}<span class="badge text-bg-warning">Rejected</span>{% endif %}
+                            {% if item.is_cancelled %}<span class="badge text-bg-secondary">Cancelled</span>{% endif %}
+                            {% if item.stock_restored %}<span class="badge text-bg-info">Stock restored</span>{% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-muted text-center">No items.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h2 class="h6 mb-0">Store order status history</h2>
+            </div>
+            <div class="card-body p-0">
+                {% if status_history %}
+                    <ul class="list-group list-group-flush">
+                        {% for entry in status_history %}
+                            <li class="list-group-item small">
+                                {% if entry.old_status %}{{ entry.get_old_status_display }} → {% endif %}{{ entry.get_new_status_display }}
+                                <div class="text-muted">{{ entry.created_at|date:"d M Y, H:i" }}{% if entry.changed_by %} · {{ entry.changed_by }}{% endif %}</div>
+                                {% if entry.reason %}<div class="text-muted">{{ entry.reason }}</div>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="p-3 small text-muted">No status changes recorded yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h2 class="h6 mb-0">Parent order status history</h2>
+            </div>
+            <div class="card-body p-0">
+                {% if order_status_history %}
+                    <ul class="list-group list-group-flush">
+                        {% for entry in order_status_history %}
+                            <li class="list-group-item small">
+                                {% if entry.old_status %}{{ entry.get_old_status_display }} → {% endif %}{{ entry.get_new_status_display }}
+                                <div class="text-muted">{{ entry.created_at|date:"d M Y, H:i" }}</div>
+                                {% if entry.reason %}<div class="text-muted">{{ entry.reason }}</div>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="p-3 small text-muted">No parent status changes recorded yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Inventory transaction references</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th>Deduct reference</th>
+                    <th>Restore reference</th>
+                    <th>Stock restored?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in inventory_rows %}
+                    <tr>
+                        <td>
+                            {{ row.item.product_code }}
+                            <div class="small text-muted">× {{ row.item.quantity }}</div>
+                        </td>
+                        <td class="small">
+                            <code>{{ row.deduct_reference }}</code>
+                            {% if row.deduct %}
+                                <div class="text-muted">txn #{{ row.deduct.pk }}</div>
+                            {% else %}
+                                <div class="text-warning">Not found</div>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            <code>{{ row.restore_reference }}</code>
+                            {% if row.restore %}
+                                <div class="text-muted">txn #{{ row.restore.pk }}</div>
+                            {% else %}
+                                <div class="text-muted">—</div>
+                            {% endif %}
+                        </td>
+                        <td>{% if row.item.stock_restored %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-muted text-center">No items.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

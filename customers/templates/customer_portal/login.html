@@ -10,6 +10,11 @@
                 <h1 class="h4 mb-3">Customer Portal</h1>
                 <form method="post">
                     {% csrf_token %}
+                    {% if request.GET.next %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+                    {% elif request.POST.next %}
+                        <input type="hidden" name="next" value="{{ request.POST.next }}">
+                    {% endif %}
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger">
                             {% for error in form.non_field_errors %}{{ error }}{% endfor %}

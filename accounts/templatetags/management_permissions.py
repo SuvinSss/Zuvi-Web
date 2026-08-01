@@ -48,10 +48,10 @@ MANAGEMENT_MODULES = {
     },
     "orders": {
         "title": "Orders",
-        "description": "Order management tools are coming soon.",
-        "permission": "accounts.access_orders_module",
+        "description": "View and manage customer orders across stores.",
+        "permission": "orders.view_order",
         "super_admin_only": False,
-        "url_name": None,
+        "url_name": "orders:management_order_list",
     },
     "delivery": {
         "title": "Delivery",
@@ -97,6 +97,13 @@ def has_customer_perm(user, permission):
     from customers.decorators import user_has_customer_permission
 
     return user_has_customer_permission(user, permission)
+
+
+@register.filter
+def has_order_perm(user, permission):
+    from orders.decorators import user_has_order_permission
+
+    return user_has_order_permission(user, permission)
 
 
 @register.filter

@@ -18,6 +18,8 @@
         <a class="navbar-brand" href="{% url 'customers:customer_portal_dashboard' %}">Customer Portal</a>
         <div class="ms-auto d-flex align-items-center gap-2">
             <a href="{% url 'customers:customer_portal_dashboard' %}" class="btn btn-outline-light btn-sm">Dashboard</a>
+            <a href="{% url 'orders:customer_order_list' %}" class="btn btn-outline-light btn-sm">Orders</a>
+            <a href="{% url 'cart:cart_detail' %}" class="btn btn-outline-light btn-sm">Cart</a>
             <a href="{% url 'customers:customer_portal_profile' %}" class="btn btn-outline-light btn-sm">Profile</a>
             <a href="{% url 'customers:customer_portal_address_list' %}" class="btn btn-outline-light btn-sm">Addresses</a>
             <form method="post" action="{% url 'customers:customer_portal_logout' %}" class="d-inline">

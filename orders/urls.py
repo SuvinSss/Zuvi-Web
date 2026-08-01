@@ -1,0 +1,83 @@
+from django.urls import path
+
+from . import management_views, views
+
+app_name = "orders"
+
+urlpatterns = [
+    path(
+        "management/orders/",
+        management_views.management_order_list_view,
+        name="management_order_list",
+    ),
+    path(
+        "management/orders/<str:order_number>/",
+        management_views.management_order_detail_view,
+        name="management_order_detail",
+    ),
+    path(
+        "management/orders/<str:order_number>/change-status/",
+        management_views.management_order_change_status_view,
+        name="management_order_change_status",
+    ),
+    path(
+        "management/store-orders/<str:store_order_number>/",
+        management_views.management_store_order_detail_view,
+        name="management_store_order_detail",
+    ),
+    path(
+        "customer/checkout/",
+        views.checkout_preview_view,
+        name="checkout_preview",
+    ),
+    path(
+        "customer/checkout/place/",
+        views.checkout_place_view,
+        name="checkout_place",
+    ),
+    path(
+        "customer/orders/",
+        views.customer_order_list_view,
+        name="customer_order_list",
+    ),
+    path(
+        "customer/orders/<str:order_number>/",
+        views.customer_order_detail_view,
+        name="customer_order_detail",
+    ),
+    path(
+        "customer/orders/<str:order_number>/cancel/",
+        views.customer_order_cancel_view,
+        name="customer_order_cancel",
+    ),
+    path(
+        "store/orders/",
+        views.store_order_list_view,
+        name="store_order_list",
+    ),
+    path(
+        "store/orders/<str:store_order_number>/",
+        views.store_order_detail_view,
+        name="store_order_detail",
+    ),
+    path(
+        "store/orders/<str:store_order_number>/accept/",
+        views.store_order_accept_view,
+        name="store_order_accept",
+    ),
+    path(
+        "store/orders/<str:store_order_number>/reject/",
+        views.store_order_reject_view,
+        name="store_order_reject",
+    ),
+    path(
+        "store/orders/<str:store_order_number>/processing/",
+        views.store_order_processing_view,
+        name="store_order_processing",
+    ),
+    path(
+        "store/orders/<str:store_order_number>/ready/",
+        views.store_order_ready_view,
+        name="store_order_ready",
+    ),
+]

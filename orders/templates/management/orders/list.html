@@ -1,0 +1,148 @@
+{% extends "management/base.html" %}
+
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Orders</h1>
+</div>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Search order #, store order #, name, email, phone"
+                value="{{ search_query }}"
+            >
+        </div>
+        <div class="col-md-2">
+            <select name="status" class="form-select">
+                <option value="">All statuses</option>
+                {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="store" class="form-select">
+                <option value="">All stores</option>
+                {% for store in stores %}
+                    <option value="{{ store.pk }}" {% if store_filter == store.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ store.name }} ({{ store.store_code }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="customer" class="form-select">
+                <option value="">All customers</option>
+                {% for customer in customers %}
+                    <option value="{{ customer.pk }}" {% if customer_filter == customer.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ customer.user.get_full_name|default:customer.user.username }} ({{ customer.customer_code }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="fulfillment_type" class="form-select">
+                <option value="">All fulfillment</option>
+                {% for value, label in fulfillment_choices %}
+                    <option value="{{ value }}" {% if fulfillment_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="payment_method" class="form-select">
+                <option value="">All payment methods</option>
+                {% for value, label in payment_method_choices %}
+                    <option value="{{ value }}" {% if payment_method_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="payment_status" class="form-select">
+                <option value="">All payment statuses</option>
+                {% for value, label in payment_status_choices %}
+                    <option value="{{ value }}" {% if payment_status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <input type="date" name="date_from" class="form-control" value="{{ date_from }}" title="From date">
+        </div>
+        <div class="col-md-2">
+            <input type="date" name="date_to" class="form-control" value="{{ date_to }}" title="To date">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit">Apply</button>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Order number</th>
+                <th>Customer</th>
+                <th>Placed</th>
+                <th>Stores</th>
+                <th>Items</th>
+                <th>Fulfillment</th>
+                <th>Payment method</th>
+                <th>Payment status</th>
+                <th class="text-end">Total</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in page_obj %}
+                <tr>
+                    <td>{{ order.order_number }}</td>
+                    <td>
+                        {{ order.customer.user.get_full_name|default:order.customer.user.username }}
+                        <div class="small text-muted">{{ order.customer.customer_code }}</div>
+                    </td>
+                    <td>{{ order.placed_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ order.store_count }}</td>
+                    <td>{{ order.item_count }}</td>
+                    <td>{{ order.get_fulfillment_type_display }}</td>
+                    <td>{{ order.get_payment_method_display }}</td>
+                    <td>{{ order.get_payment_status_display }}</td>
+                    <td class="text-end">₹{{ order.grand_total }}</td>
+                    <td>{{ order.get_status_display }}</td>
+                    <td>
+                        <a href="{% url 'orders:management_order_detail' order.order_number %}" class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="11" class="text-center text-muted">No orders found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% endif %}
+{% endblock %}

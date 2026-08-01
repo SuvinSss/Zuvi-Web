@@ -169,6 +169,10 @@ class StoreUser(models.Model):
         default=True,
         help_text="When True, this store user may change inventory for their store.",
     )
+    can_manage_orders = models.BooleanField(
+        default=True,
+        help_text="When True, this store user may accept, reject and progress store orders.",
+    )
     designation = models.CharField(max_length=100, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

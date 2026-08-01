@@ -145,6 +145,7 @@ def get_active_store_membership(user):
 def _create_store_user(*, store, user_data, created_by, is_primary=False):
     designation = user_data.pop("designation", "")
     can_manage_inventory = user_data.pop("can_manage_inventory", True)
+    can_manage_orders = user_data.pop("can_manage_orders", True)
     password = user_data.pop("password")
     user = User(
         role=Role.STORE_USER,
@@ -162,6 +163,7 @@ def _create_store_user(*, store, user_data, created_by, is_primary=False):
         is_primary=is_primary,
         is_active=True,
         can_manage_inventory=bool(can_manage_inventory),
+        can_manage_orders=bool(can_manage_orders),
         designation=designation,
         created_by=created_by,
     )

@@ -1,0 +1,195 @@
+{% extends "store_portal/base.html" %}
+
+{% block title %}Store Order {{ store_order.store_order_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">{{ store_order.store_order_number }}</h1>
+        <p class="text-muted small mb-0">
+            Customer order {{ order.order_number }}
+            · Placed {{ order.placed_at|date:"d M Y, H:i" }}
+            · {{ order.get_fulfillment_type_display }}
+            ·
+            <span class="badge text-bg-light border">{{ store_order.get_status_display }}</span>
+        </p>
+    </div>
+    <a href="{% url 'orders:store_order_list' %}" class="btn btn-outline-secondary btn-sm">Back to orders</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Totals</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-6">Items subtotal</dt>
+                    <dd class="col-6 text-end">₹{{ store_order.items_subtotal }}</dd>
+                    <dt class="col-6">Delivery</dt>
+                    <dd class="col-6 text-end">₹{{ store_order.delivery_charge }}</dd>
+                    <dt class="col-6">Store total</dt>
+                    <dd class="col-6 text-end fw-semibold">₹{{ store_order.store_total }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Fulfillment</h2>
+                <p class="small mb-2">{{ order.get_fulfillment_type_display }}</p>
+                {% if order.fulfillment_type == "DELIVERY" %}
+                    <div class="small">
+                        <div class="fw-semibold">{{ order.delivery_recipient_name }}</div>
+                        <div>{{ order.delivery_phone_number }}</div>
+                        <div>{{ order.delivery_line1 }}</div>
+                        {% if order.delivery_line2 %}<div>{{ order.delivery_line2 }}</div>{% endif %}
+                        {% if order.delivery_landmark %}<div>{{ order.delivery_landmark }}</div>{% endif %}
+                        <div>
+                            {{ order.delivery_city }}{% if order.delivery_district %}, {{ order.delivery_district }}{% endif %}
+                        </div>
+                        <div>{{ order.delivery_state }} {{ order.delivery_postal_code }}</div>
+                        {% if order.delivery_instructions %}
+                            <div class="text-muted mt-2">{{ order.delivery_instructions }}</div>
+                        {% endif %}
+                    </div>
+                {% elif store_order.pickup_location %}
+                    <div class="small">
+                        <div class="fw-semibold">{{ store_order.pickup_location.name }}</div>
+                        {% if store_order.pickup_location.address %}
+                            <div class="text-muted">{{ store_order.pickup_location.address }}</div>
+                        {% endif %}
+                        {% if store_order.pickup_location.contact_phone %}
+                            <div>Phone: {{ store_order.pickup_location.contact_phone }}</div>
+                        {% endif %}
+                        {% if store_order.pickup_location.hours %}
+                            <div>Hours: {{ store_order.pickup_location.hours }}</div>
+                        {% endif %}
+                        {% if store_order.pickup_location.instructions %}
+                            <div class="text-muted mt-1">{{ store_order.pickup_location.instructions }}</div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="small text-muted mb-0">No pickup location on this store order.</p>
+                {% endif %}
+                {% if order.customer_notes %}
+                    <hr>
+                    <div class="small">
+                        <div class="fw-semibold">Customer note</div>
+                        <div class="text-muted">{{ order.customer_notes }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Actions</h2>
+                {% if not can_manage_orders %}
+                    <p class="small text-muted mb-0">You do not have permission to manage orders.</p>
+                {% else %}
+                    {% if can_accept %}
+                        <form method="post" action="{% url 'orders:store_order_accept' store_order.store_order_number %}" class="mb-2">
+                            {% csrf_token %}
+                            {{ note_form.reason }}
+                            <button type="submit" class="btn btn-success btn-sm mt-2">Accept</button>
+                        </form>
+                    {% endif %}
+                    {% if can_processing %}
+                        <form method="post" action="{% url 'orders:store_order_processing' store_order.store_order_number %}" class="mb-2">
+                            {% csrf_token %}
+                            {{ note_form.reason }}
+                            <button type="submit" class="btn btn-primary btn-sm mt-2">Mark processing</button>
+                        </form>
+                    {% endif %}
+                    {% if can_ready %}
+                        <form method="post" action="{% url 'orders:store_order_ready' store_order.store_order_number %}" class="mb-2">
+                            {% csrf_token %}
+                            {{ note_form.reason }}
+                            <button type="submit" class="btn btn-primary btn-sm mt-2">Mark ready</button>
+                        </form>
+                    {% endif %}
+                    {% if can_reject %}
+                        <form method="post" action="{% url 'orders:store_order_reject' store_order.store_order_number %}" class="mb-0">
+                            {% csrf_token %}
+                            <label class="form-label small" for="id_reason">{{ reject_form.reason.label }}</label>
+                            {{ reject_form.reason }}
+                            <button type="submit" class="btn btn-outline-danger btn-sm mt-2">Reject</button>
+                        </form>
+                    {% endif %}
+                    {% if not can_accept and not can_processing and not can_ready and not can_reject %}
+                        <p class="small text-muted mb-0">No further status actions available.</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Items</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th>Unit</th>
+                    <th class="text-end">Unit price</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Line total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td>
+                            {{ item.product_name }}
+                            <div class="small text-muted">{{ item.product_code }} · {{ item.sku }}</div>
+                        </td>
+                        <td class="small">{{ item.unit_value }} {{ item.get_unit_display }}</td>
+                        <td class="text-end">₹{{ item.unit_price }}</td>
+                        <td class="text-end">{{ item.quantity }}</td>
+                        <td class="text-end">₹{{ item.line_total }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-muted">No items.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Status history</h2>
+    </div>
+    <div class="card-body p-0">
+        {% if status_history %}
+            <ul class="list-group list-group-flush">
+                {% for entry in status_history %}
+                    <li class="list-group-item small">
+                        <div class="d-flex justify-content-between gap-2">
+                            <div>
+                                {% if entry.old_status %}
+                                    {{ entry.get_old_status_display }} → {{ entry.get_new_status_display }}
+                                {% else %}
+                                    {{ entry.get_new_status_display }}
+                                {% endif %}
+                                {% if entry.reason %}
+                                    <div class="text-muted">{{ entry.reason }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted text-nowrap">{{ entry.created_at|date:"d M Y, H:i" }}</div>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="p-3 small text-muted">No status changes recorded yet.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

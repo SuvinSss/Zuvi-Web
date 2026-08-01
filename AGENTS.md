@@ -115,3 +115,36 @@
 - Deactivate Customer accounts instead of deleting them.
 - Collect latitude and longitude for future 10 km validation.
 - Do not implement cart or orders in this phase.
+
+## Cart, checkout and order rules
+
+- Public customers may browse only approved and active Products belonging
+  to active Stores.
+- Public pages must never expose Store Price, profit margin, cost,
+  commission or internal inventory details.
+- A Cart belongs to one authenticated Customer.
+- A Cart can contain Products from multiple Stores.
+- A Cart must not contain duplicate rows for the same Product.
+- Cart quantity changes must be validated against available inventory.
+- Cart prices are previews only and must be recalculated during checkout.
+- Never trust Product price, discount, subtotal, delivery charge or total
+  received from the browser.
+- One customer Order can contain multiple OrderItems.
+- One Order must be split into one StoreOrder per participating Store.
+- OrderItem must save Product name, SKU, unit and price snapshots.
+- Checkout must use transaction.atomic().
+- Inventory rows must be locked during checkout using select_for_update().
+- All Products and stock must be revalidated during checkout.
+- Checkout must be idempotent to prevent duplicate Orders.
+- Do not directly edit Product stock if Phase 5 provides an inventory
+  service.
+- Use the Phase 5 inventory service for stock reservation and restoration.
+- A failed checkout must not create partial Orders or partial stock changes.
+- Order status changes must use a service layer.
+- State-changing operations must require POST.
+- Customer, Store and Admin permissions must be enforced on the backend.
+- Store Users must only access StoreOrders belonging to their Store.
+- Customers must only access their own Cart and Orders.
+- Order deletion is not allowed.
+- Cancellation must preserve Order history and restore inventory exactly once.
+- Online payments and Delivery Agent assignment are outside Phase 7.

@@ -1,0 +1,94 @@
+{% extends "public/base.html" %}
+
+{% block title %}{{ product.name }} · Zoop{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'catalog:public_home' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'catalog:public_product_list' %}">Products</a></li>
+        {% if product.category_slug %}
+            <li class="breadcrumb-item"><a href="{% url 'catalog:public_category_detail' product.category_slug %}">{{ product.category_name }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        {% if product.images %}
+            <div class="mb-3">
+                {% with first=product.images.0 %}
+                    {% if first.url %}
+                        <img src="{{ first.url }}" alt="{{ first.alt }}" class="img-fluid rounded shadow-sm w-100" style="max-height:420px;object-fit:cover">
+                    {% endif %}
+                {% endwith %}
+            </div>
+            {% if product.images|length > 1 %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for image in product.images %}
+                        {% if image.url %}
+                            <img src="{{ image.url }}" alt="{{ image.alt }}" class="rounded" style="width:72px;height:72px;object-fit:cover">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="rounded d-flex align-items-center justify-content-center text-muted" style="height:320px;background:#e7eee9">No images</div>
+        {% endif %}
+    </div>
+    <div class="col-lg-6">
+        <div class="small text-muted mb-1">{{ product.store_name }}</div>
+        <h1 class="h2 mb-2">{{ product.name }}</h1>
+        {% if product.brand_name %}<div class="mb-2">Brand: {{ product.brand_name }}</div>{% endif %}
+        <div class="mb-2 text-muted">{{ product.category_name }} · {{ product.unit_label }}</div>
+        <div class="d-flex align-items-baseline gap-3 mb-2">
+            <span class="price-now fs-3">₹{{ product.final_price }}</span>
+            {% if product.compare_at_price %}
+                <span class="price-was">₹{{ product.compare_at_price }}</span>
+            {% endif %}
+        </div>
+        {% if product.discount_label %}
+            <div class="badge text-bg-success mb-3">{{ product.discount_label }}</div>
+        {% endif %}
+        <div class="mb-3"><strong>{{ product.stock_label }}</strong></div>
+        {% if product.tags %}
+            <div class="mb-3">
+                {% for tag in product.tags %}
+                    <span class="badge text-bg-light border">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if product.description %}
+            <div class="mb-4">
+                <h2 class="h6">Description</h2>
+                <p class="mb-0" style="white-space:pre-wrap">{{ product.description }}</p>
+            </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="h6">Add to cart</h2>
+                {% if can_add_to_cart %}
+                    <form method="post" action="{% url 'cart:cart_add_item' product.product_code %}">
+                        {% csrf_token %}
+                        <div class="mb-3" style="max-width:10rem">
+                            <label class="form-label" for="id_quantity">Quantity</label>
+                            {{ add_to_cart_form.quantity }}
+                        </div>
+                        <button type="submit" class="btn btn-dark">Add to cart</button>
+                    </form>
+                {% else %}
+                    <p class="text-muted mb-2">Sign in with a customer account to add this product to your cart.</p>
+                    <form method="post" action="{% url 'cart:cart_add_item' product.product_code %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="quantity" value="1.000">
+                        <button type="submit" class="btn btn-outline-dark">Add to cart</button>
+                    </form>
+                    <a class="btn btn-link" href="{% url 'customers:customer_portal_login' %}?next={{ request.path|urlencode }}">Customer login</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

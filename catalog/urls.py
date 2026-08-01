@@ -1,10 +1,23 @@
 from django.urls import path
 
-from . import views
+from . import public_views, views
 
 app_name = "catalog"
 
 urlpatterns = [
+    # Public catalogue
+    path("", public_views.public_home_view, name="public_home"),
+    path("products/", public_views.public_product_list_view, name="public_product_list"),
+    path(
+        "products/<slug:slug>/",
+        public_views.public_product_detail_view,
+        name="public_product_detail",
+    ),
+    path(
+        "categories/<slug:slug>/",
+        public_views.public_category_detail_view,
+        name="public_category_detail",
+    ),
     # Management — taxonomy
     path(
         "management/product-categories/",

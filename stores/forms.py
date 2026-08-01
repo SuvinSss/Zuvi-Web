@@ -195,6 +195,11 @@ class StoreUserForm(forms.Form):
         label="Can manage inventory",
         help_text="Allow this user to change stock for their assigned store.",
     )
+    can_manage_orders = forms.BooleanField(
+        required=False,
+        label="Can manage orders",
+        help_text="Allow this user to accept, reject and progress store orders.",
+    )
     password = forms.CharField(widget=forms.PasswordInput, required=False)
     confirm_password = forms.CharField(widget=forms.PasswordInput, required=False)
 
@@ -215,8 +220,10 @@ class StoreUserForm(forms.Form):
             self.fields["designation"].initial = instance.designation
             self.fields["is_primary"].initial = instance.is_primary
             self.fields["can_manage_inventory"].initial = instance.can_manage_inventory
+            self.fields["can_manage_orders"].initial = instance.can_manage_orders
         else:
             self.fields["can_manage_inventory"].initial = True
+            self.fields["can_manage_orders"].initial = True
         _apply_bootstrap(self)
 
     def clean_username(self):

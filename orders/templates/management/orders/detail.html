@@ -1,0 +1,345 @@
+{% extends "management/base.html" %}
+
+{% block title %}Order {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">Order {{ order.order_number }}</h1>
+        <p class="text-muted small mb-0">
+            Placed {{ order.placed_at|date:"d M Y, H:i" }}
+            · {{ order.get_fulfillment_type_display }}
+            · {{ order.get_status_display }}
+            · {{ order.get_payment_method_display }} / {{ order.get_payment_status_display }}
+        </p>
+    </div>
+    <a href="{% url 'orders:management_order_list' %}" class="btn btn-outline-secondary btn-sm">Back to orders</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Customer</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-5">Name</dt>
+                    <dd class="col-7">{{ order.customer.user.get_full_name|default:order.customer.user.username }}</dd>
+                    <dt class="col-5">Code</dt>
+                    <dd class="col-7">{{ order.customer.customer_code }}</dd>
+                    <dt class="col-5">Email</dt>
+                    <dd class="col-7">{{ order.customer.user.email }}</dd>
+                    <dt class="col-5">Phone</dt>
+                    <dd class="col-7">{{ order.customer.user.phone_number|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">
+                    {% if order.fulfillment_type == "DELIVERY" %}Delivery address{% else %}Fulfillment{% endif %}
+                </h2>
+                {% if order.fulfillment_type == "DELIVERY" %}
+                    <div class="small">
+                        <div class="fw-semibold">{{ order.delivery_recipient_name }}</div>
+                        <div>{{ order.delivery_phone_number }}</div>
+                        <div>{{ order.delivery_line1 }}</div>
+                        {% if order.delivery_line2 %}<div>{{ order.delivery_line2 }}</div>{% endif %}
+                        {% if order.delivery_landmark %}<div>{{ order.delivery_landmark }}</div>{% endif %}
+                        <div>
+                            {{ order.delivery_city }}{% if order.delivery_district %}, {{ order.delivery_district }}{% endif %}
+                        </div>
+                        <div>{{ order.delivery_state }} {{ order.delivery_postal_code }}</div>
+                        {% if order.delivery_instructions %}
+                            <div class="text-muted mt-2">{{ order.delivery_instructions }}</div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="small mb-0">Facility pickup — see pickup locations under each store order.</p>
+                {% endif %}
+                {% if order.customer_notes %}
+                    <hr>
+                    <div class="small">
+                        <div class="fw-semibold">Customer notes</div>
+                        <div class="text-muted">{{ order.customer_notes }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h6">Totals</h2>
+                <dl class="row mb-0 small">
+                    <dt class="col-5">Items</dt>
+                    <dd class="col-7 text-end">₹{{ order.items_subtotal }}</dd>
+                    <dt class="col-5">Delivery</dt>
+                    <dd class="col-7 text-end">₹{{ order.delivery_charge }}</dd>
+                    {% if order.discount_total %}
+                        <dt class="col-5">Discount</dt>
+                        <dd class="col-7 text-end">−₹{{ order.discount_total }}</dd>
+                    {% endif %}
+                    <dt class="col-5">Grand total</dt>
+                    <dd class="col-7 text-end fw-semibold">₹{{ order.grand_total }}</dd>
+                </dl>
+                {% if order.status == "CANCELLED" %}
+                    <hr>
+                    <dl class="row mb-0 small">
+                        <dt class="col-5">Cancelled</dt>
+                        <dd class="col-7">{{ order.cancelled_at|date:"d M Y, H:i"|default:"—" }}</dd>
+                        <dt class="col-5">By</dt>
+                        <dd class="col-7">{{ order.cancelled_by|default:"—" }}</dd>
+                        <dt class="col-5">Reason</dt>
+                        <dd class="col-7">{{ order.cancellation_reason|default:"—" }}</dd>
+                    </dl>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if status_form or cancel_form or payment_form %}
+    <div class="row g-3 mb-3">
+        {% if status_form %}
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6">Change status</h2>
+                        <form method="post" action="{% url 'orders:management_order_change_status' order.order_number %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_status">
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ status_form.status.id_for_label }}">{{ status_form.status.label }}</label>
+                                <select name="{{ status_form.status.html_name }}" id="{{ status_form.status.id_for_label }}" class="form-select form-select-sm">
+                                    {% for value, label in status_form.status.field.choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ status_form.reason.id_for_label }}">{{ status_form.reason.label }}</label>
+                                {{ status_form.reason }}
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">Update status</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        {% if payment_form %}
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6">Payment status</h2>
+                        <form method="post" action="{% url 'orders:management_order_change_status' order.order_number %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_payment">
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ payment_form.payment_status.id_for_label }}">{{ payment_form.payment_status.label }}</label>
+                                <select name="{{ payment_form.payment_status.html_name }}" id="{{ payment_form.payment_status.id_for_label }}" class="form-select form-select-sm">
+                                    {% for value, label in payment_form.payment_status.field.choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ payment_form.reason.id_for_label }}">{{ payment_form.reason.label }}</label>
+                                {{ payment_form.reason }}
+                            </div>
+                            <button type="submit" class="btn btn-outline-primary btn-sm">Update payment</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        {% if cancel_form %}
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100 border-danger">
+                    <div class="card-body">
+                        <h2 class="h6 text-danger">Cancel order</h2>
+                        <form method="post" action="{% url 'orders:management_order_change_status' order.order_number %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="cancel">
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ cancel_form.reason.id_for_label }}">{{ cancel_form.reason.label }}</label>
+                                {{ cancel_form.reason }}
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Cancel order</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% for store_order in store_orders %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h2 class="h6 mb-0">
+                    <a href="{% url 'orders:management_store_order_detail' store_order.store_order_number %}">
+                        {{ store_order.store_name }}
+                    </a>
+                </h2>
+                <div class="small text-muted">
+                    {{ store_order.store_order_number }} · {{ store_order.store_code }}
+                </div>
+            </div>
+            <span class="badge text-bg-light border">{{ store_order.get_status_display }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th>Unit</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Line total</th>
+                            <th>Flags</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in store_order.items.all %}
+                            <tr>
+                                <td>
+                                    {{ item.product_name }}
+                                    <div class="small text-muted">{{ item.product_code }} · {{ item.sku }}</div>
+                                </td>
+                                <td class="small">{{ item.unit_value }} {{ item.get_unit_display }}</td>
+                                <td class="text-end">₹{{ item.unit_price }}</td>
+                                <td class="text-end">{{ item.quantity }}</td>
+                                <td class="text-end">₹{{ item.line_total }}</td>
+                                <td class="small">
+                                    {% if item.is_rejected %}<span class="badge text-bg-warning">Rejected</span>{% endif %}
+                                    {% if item.is_cancelled %}<span class="badge text-bg-secondary">Cancelled</span>{% endif %}
+                                    {% if item.stock_restored %}<span class="badge text-bg-info">Stock restored</span>{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="4" class="text-end small">Store total</td>
+                            <td class="text-end fw-semibold">₹{{ store_order.store_total }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% if store_order.pickup_location %}
+                <div class="border-top p-3 small">
+                    <div class="fw-semibold mb-1">Pickup location</div>
+                    <div>{{ store_order.pickup_location.name }}</div>
+                    {% if store_order.pickup_location.address %}
+                        <div class="text-muted">{{ store_order.pickup_location.address }}</div>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% if store_order.status_history.all %}
+                <div class="border-top p-3">
+                    <div class="fw-semibold small mb-2">Store order status history</div>
+                    <ul class="list-unstyled small mb-0">
+                        {% for entry in store_order.status_history.all %}
+                            <li class="mb-1">
+                                {% if entry.old_status %}{{ entry.get_old_status_display }} → {% endif %}{{ entry.get_new_status_display }}
+                                <span class="text-muted">· {{ entry.created_at|date:"d M Y, H:i" }}</span>
+                                {% if entry.reason %}<div class="text-muted">{{ entry.reason }}</div>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% empty %}
+    <div class="alert alert-warning">No store orders on this order.</div>
+{% endfor %}
+
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Order status history</h2>
+    </div>
+    <div class="card-body p-0">
+        {% if status_history %}
+            <ul class="list-group list-group-flush">
+                {% for entry in status_history %}
+                    <li class="list-group-item small">
+                        <div class="d-flex justify-content-between gap-2">
+                            <div>
+                                {% if entry.old_status %}
+                                    {{ entry.get_old_status_display }} → {{ entry.get_new_status_display }}
+                                {% else %}
+                                    {{ entry.get_new_status_display }}
+                                {% endif %}
+                                {% if entry.changed_by %}
+                                    <div class="text-muted">by {{ entry.changed_by }}</div>
+                                {% endif %}
+                                {% if entry.reason %}
+                                    <div class="text-muted">{{ entry.reason }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted text-nowrap">{{ entry.created_at|date:"d M Y, H:i" }}</div>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="p-3 small text-muted">No status changes recorded yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h2 class="h6 mb-0">Inventory transaction references</h2>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th>Deduct reference</th>
+                    <th>Restore reference</th>
+                    <th>Stock restored?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in inventory_rows %}
+                    <tr>
+                        <td>
+                            {{ row.item.product_code }}
+                            <div class="small text-muted">× {{ row.item.quantity }}</div>
+                        </td>
+                        <td class="small">
+                            <code>{{ row.deduct_reference }}</code>
+                            {% if row.deduct %}
+                                <div class="text-muted">txn #{{ row.deduct.pk }} · {{ row.deduct.get_transaction_type_display }}</div>
+                            {% else %}
+                                <div class="text-warning">Not found</div>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            <code>{{ row.restore_reference }}</code>
+                            {% if row.restore %}
+                                <div class="text-muted">txn #{{ row.restore.pk }} · {{ row.restore.get_transaction_type_display }}</div>
+                            {% else %}
+                                <div class="text-muted">—</div>
+                            {% endif %}
+                        </td>
+                        <td>{% if row.item.stock_restored %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-muted text-center">No order items.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
