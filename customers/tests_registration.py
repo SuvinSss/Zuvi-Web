@@ -36,7 +36,7 @@ class CustomerSelfRegistrationTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "csrfmiddlewaretoken")
-        self.assertContains(response, "Create your Zoop account")
+        self.assertContains(response, "Create your account")
 
     def test_successful_registration(self):
         response = self._post(self.valid_payload)

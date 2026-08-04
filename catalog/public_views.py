@@ -20,6 +20,54 @@ from .public import (
 from .public_forms import PublicAddToCartForm, PublicProductFilterForm
 
 
+def _remove_params_querystring(request, *names):
+    qs = request.GET.copy()
+    qs.pop("page", None)
+    for name in names:
+        qs.pop(name, None)
+    return qs.urlencode()
+
+
+def _active_filter_chips(request, data, *, brands):
+    chips = []
+    if data.get("q"):
+        chips.append(
+            {
+                "label": f"“{data['q']}”",
+                "remove_querystring": _remove_params_querystring(request, "q"),
+            }
+        )
+    if data.get("brand"):
+        brand_name = next(
+            (brand.name for brand in brands if brand.slug == data["brand"]),
+            data["brand"],
+        )
+        chips.append(
+            {
+                "label": brand_name,
+                "remove_querystring": _remove_params_querystring(request, "brand"),
+            }
+        )
+    min_price = data.get("min_price")
+    max_price = data.get("max_price")
+    if min_price or max_price:
+        if min_price and max_price:
+            label = f"₹{min_price}–₹{max_price}"
+        elif min_price:
+            label = f"Above ₹{min_price}"
+        else:
+            label = f"Under ₹{max_price}"
+        chips.append(
+            {
+                "label": label,
+                "remove_querystring": _remove_params_querystring(
+                    request, "min_price", "max_price"
+                ),
+            }
+        )
+    return chips
+
+
 def _list_context(request, *, queryset, page_title, active_category=None):
     form = PublicProductFilterForm(request.GET or None)
     if form.is_valid():
@@ -54,6 +102,8 @@ def _list_context(request, *, queryset, page_title, active_category=None):
     query = request.GET.copy()
     query.pop("page", None)
 
+    brands = list(Brand.objects.filter(is_active=True).order_by("name"))
+
     return {
         "page_title": page_title,
         "filter_form": form,
@@ -62,8 +112,11 @@ def _list_context(request, *, queryset, page_title, active_category=None):
         "paginator": paginator,
         "querystring": query.urlencode(),
         "categories": public_categories_queryset(),
-        "brands": Brand.objects.filter(is_active=True).order_by("name"),
+        "brands": brands,
         "active_category": active_category,
+        "active_category_slug": category_slug,
+        "active_filters": _active_filter_chips(request, data, brands=brands),
+        "active_sort": data.get("sort") or "newest",
         "result_count": paginator.count,
     }
 

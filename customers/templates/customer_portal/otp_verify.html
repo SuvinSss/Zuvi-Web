@@ -1,0 +1,160 @@
+{% extends "customer_portal/base.html" %}
+
+{% block title %}Verify OTP · Zoop{% endblock %}
+
+{% block main_class %}p-0{% endblock %}
+
+{% block extra_head %}
+<style>
+    .auth-shell {
+        min-height: calc(100vh - 56px - 90px);
+    }
+    .auth-form-side {
+        padding: 4rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 420px;
+    }
+    .otp-boxes {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+    }
+    .otp-boxes input {
+        width: 3.25rem;
+        height: 3.75rem;
+        text-align: center;
+        font-size: 1.75rem;
+        font-weight: 700;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+    }
+    .otp-boxes input:focus {
+        outline: none;
+        border-color: var(--zoop-leaf);
+        box-shadow: 0 0 0 0.2rem rgba(47, 107, 79, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-0 auth-shell justify-content-center">
+    <div class="col-lg-6 auth-form-side">
+        <div class="auth-card text-center">
+            <div class="mb-3">
+                <i class="bi bi-shield-lock" style="font-size: 2.5rem; color: var(--zoop-leaf);"></i>
+            </div>
+            <h1 class="h3 fw-bold mb-1">Verify your number</h1>
+            <p class="text-muted mb-4">
+                Enter the 4-digit code sent to <strong>+91 {{ phone_number }}</strong>
+            </p>
+
+            <form method="post" novalidate id="otpVerifyForm">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                {% endif %}
+                {% for error in form.otp_code.errors %}
+                    <div class="alert alert-danger py-2">{{ error }}</div>
+                {% endfor %}
+
+                <div class="otp-boxes mb-3" data-otp-boxes>
+                    <input type="text" inputmode="numeric" maxlength="1" autofocus>
+                    <input type="text" inputmode="numeric" maxlength="1">
+                    <input type="text" inputmode="numeric" maxlength="1">
+                    <input type="text" inputmode="numeric" maxlength="1">
+                </div>
+                <input type="hidden" name="otp_code" id="{{ form.otp_code.id_for_label }}">
+
+                <button type="submit" class="btn btn-brand btn-lg w-100 mt-2">Verify &amp; continue</button>
+            </form>
+
+            <div class="mt-4">
+                <span class="text-muted small" data-resend-countdown>Resend code in <span data-resend-seconds>30</span>s</span>
+                <form method="post" action="{% url 'customers:customer_otp_resend' %}" class="d-none" data-resend-form>
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link p-0 small link-brand">Resend OTP</button>
+                </form>
+            </div>
+            <p class="mt-3 mb-0">
+                <a href="{% url 'customers:customer_otp_start' %}" class="text-muted small text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> Change mobile number
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var boxes = document.querySelectorAll("[data-otp-boxes] input");
+        var hiddenInput = document.getElementById("{{ form.otp_code.id_for_label }}");
+        var form = document.getElementById("otpVerifyForm");
+
+        function syncHidden() {
+            var value = Array.prototype.map.call(boxes, function (box) {
+                return box.value;
+            }).join("");
+            hiddenInput.value = value;
+        }
+
+        boxes.forEach(function (box, index) {
+            box.addEventListener("input", function () {
+                box.value = box.value.replace(/[^0-9]/g, "").slice(0, 1);
+                if (box.value && boxes[index + 1]) {
+                    boxes[index + 1].focus();
+                }
+                syncHidden();
+                if (index === boxes.length - 1 && box.value) {
+                    syncHidden();
+                    if (hiddenInput.value.length === boxes.length) {
+                        form.requestSubmit();
+                    }
+                }
+            });
+            box.addEventListener("keydown", function (e) {
+                if (e.key === "Backspace" && !box.value && boxes[index - 1]) {
+                    boxes[index - 1].focus();
+                }
+            });
+            box.addEventListener("paste", function (e) {
+                var pasted = (e.clipboardData || window.clipboardData).getData("text").replace(/[^0-9]/g, "");
+                if (pasted.length) {
+                    e.preventDefault();
+                    pasted.split("").slice(0, boxes.length).forEach(function (digit, i) {
+                        if (boxes[i]) boxes[i].value = digit;
+                    });
+                    syncHidden();
+                    var last = Math.min(pasted.length, boxes.length) - 1;
+                    if (boxes[last]) boxes[last].focus();
+                }
+            });
+        });
+
+        form.addEventListener("submit", syncHidden);
+
+        var seconds = 30;
+        var secondsEl = document.querySelector("[data-resend-seconds]");
+        var countdownEl = document.querySelector("[data-resend-countdown]");
+        var resendForm = document.querySelector("[data-resend-form]");
+        var timer = setInterval(function () {
+            seconds -= 1;
+            if (secondsEl) secondsEl.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(timer);
+                if (countdownEl) countdownEl.classList.add("d-none");
+                if (resendForm) resendForm.classList.remove("d-none");
+            }
+        }, 1000);
+    })();
+</script>
+{% endblock %}

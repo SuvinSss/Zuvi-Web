@@ -9,6 +9,21 @@ from .pricing import DiscountType, MarginType
 from .status import allowed_next_statuses, reason_required_for
 
 
+def _date_input(**extra_attrs):
+    """HTML5 date picker widget (ISO value format for browser compatibility)."""
+    attrs = {"type": "date", **extra_attrs}
+    return forms.DateInput(attrs=attrs, format="%Y-%m-%d")
+
+
+def _apply_date_picker_widgets(form, *field_names):
+    for name in field_names:
+        field = form.fields.get(name)
+        if field is None:
+            continue
+        field.widget = _date_input()
+        field.input_formats = ["%Y-%m-%d"]
+
+
 def _apply_bootstrap(form):
     for _name, field in form.fields.items():
         widget = field.widget
@@ -103,6 +118,7 @@ class ManagementProductForm(forms.ModelForm):
         self.fields["low_stock_threshold"].required = False
         self.fields["manufacturing_date"].required = False
         self.fields["expiry_date"].required = False
+        _apply_date_picker_widgets(self, "manufacturing_date", "expiry_date")
         self.fields["category"].queryset = ProductCategory.objects.filter(
             is_active=True
         ).order_by("name")
@@ -194,6 +210,7 @@ class StoreProductForm(forms.ModelForm):
         self.fields["low_stock_threshold"].required = False
         self.fields["manufacturing_date"].required = False
         self.fields["expiry_date"].required = False
+        _apply_date_picker_widgets(self, "manufacturing_date", "expiry_date")
         self.fields["category"].queryset = ProductCategory.objects.filter(
             is_active=True
         ).order_by("name")
@@ -230,8 +247,57 @@ class StoreProductForm(forms.ModelForm):
         return value if value is not None else Decimal("0.000")
 
 
-class MultipleFileInput(forms.ClearableFileInput):
+class MultipleFileInput(forms.FileInput):
+    """Plain multi-file input (not ClearableFileInput — clearer for create forms)."""
+
     allow_multiple_selected = True
+
+
+class MultipleFileField(forms.Field):
+    """
+    Accept zero or more uploaded files from a multi-select file input.
+
+    Intentionally not a FileField: Django FileField expects a single file and
+    raises "No file was submitted. Check the encoding type on the form." when
+    the widget returns a list of uploads (normal for multiple=True).
+    """
+
+    widget = MultipleFileInput
+    default_error_messages = {
+        "required": "Please select at least one image.",
+        "invalid": "Invalid file submission.",
+    }
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("required", False)
+        super().__init__(*args, **kwargs)
+
+    def to_python(self, data):
+        if data in self.empty_values:
+            return []
+        if not isinstance(data, (list, tuple)):
+            data = [data]
+        files = []
+        for item in data:
+            if not item:
+                continue
+            # Browsers may include an empty file part when nothing was chosen.
+            name = getattr(item, "name", None)
+            if not name:
+                continue
+            files.append(item)
+        return files
+
+    def validate(self, value):
+        if self.required and not value:
+            raise forms.ValidationError(
+                self.error_messages["required"], code="required"
+            )
+
+    def widget_attrs(self, widget):
+        attrs = super().widget_attrs(widget)
+        attrs.setdefault("multiple", True)
+        return attrs
 
 
 class StoreProductCreateForm(StoreProductForm):
@@ -240,11 +306,11 @@ class StoreProductCreateForm(StoreProductForm):
         label="Save as draft",
         help_text="Leave unchecked to submit for approval (PENDING).",
     )
-    images = forms.FileField(
+    images = MultipleFileField(
         required=False,
         widget=MultipleFileInput(attrs={"class": "form-control", "multiple": True}),
         label="Product images",
-        help_text="Optional. You can select multiple images.",
+        help_text="Optional. JPEG, PNG or WebP. You can select multiple images.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -254,10 +320,13 @@ class StoreProductCreateForm(StoreProductForm):
     def clean_images(self):
         from .validators import MAX_IMAGES_PER_PRODUCT, validate_product_image
 
-        files = self.files.getlist("images") if self.files else []
+        # Prefer normalized field value; fall back to raw FILES for robustness.
+        files = self.cleaned_data.get("images")
+        if files is None:
+            files = self.files.getlist("images") if self.files else []
         cleaned = []
         for uploaded in files:
-            if not uploaded:
+            if not uploaded or not getattr(uploaded, "name", None):
                 continue
             try:
                 validate_product_image(uploaded)

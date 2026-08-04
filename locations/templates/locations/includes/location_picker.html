@@ -1,0 +1,40 @@
+{% comment %}
+Requires lat_field and lng_field (BoundField instances).
+Renders hidden coordinate inputs plus a Leaflet map picker.
+{% endcomment %}
+<div class="col-12">
+    {{ lat_field }}
+    {{ lng_field }}
+    <div
+        class="location-picker"
+        data-location-picker
+        data-lat-input-id="{{ lat_field.id_for_label }}"
+        data-lng-input-id="{{ lng_field.id_for_label }}"
+    >
+        <label class="form-label">Location on map</label>
+        <p class="text-muted small mb-2">
+            Click the map or use your current location to set coordinates.
+            Required for delivery radius validation.
+        </p>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" data-use-location>
+                Use my current location
+            </button>
+        </div>
+        <div
+            data-location-map
+            class="location-picker-map border rounded bg-white"
+            style="height: 280px; width: 100%; z-index: 0;"
+            role="application"
+            aria-label="Map location picker"
+        ></div>
+        <div class="form-text mt-2" data-coords-display>No location selected yet.</div>
+        <div class="text-danger small d-none mt-1" data-location-error role="alert"></div>
+        {% for error in lat_field.errors %}
+            <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+        {% for error in lng_field.errors %}
+            <div class="text-danger small">{{ error }}</div>
+        {% endfor %}
+    </div>
+</div>

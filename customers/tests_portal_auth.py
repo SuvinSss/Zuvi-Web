@@ -83,7 +83,7 @@ class CustomerPortalAuthTests(TestCase):
         response = self.client.get(self.login_url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "csrfmiddlewaretoken")
-        self.assertContains(response, "Customer Portal")
+        self.assertContains(response, "Sign in")
 
     def test_active_customer_can_login_and_see_dashboard(self):
         response = self._login("portal-customer")

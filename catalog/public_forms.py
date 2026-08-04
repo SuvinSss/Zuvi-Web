@@ -29,7 +29,11 @@ class PublicProductFilterForm(forms.Form):
         ("price_desc", "Price: high to low"),
     )
 
-    q = forms.CharField(required=False, label="Search")
+    q = forms.CharField(
+        required=False,
+        label="Search",
+        widget=forms.TextInput(attrs={"placeholder": "Search for products, brands, stores…"}),
+    )
     category = forms.SlugField(required=False)
     brand = forms.SlugField(required=False)
     min_price = forms.DecimalField(
@@ -38,6 +42,7 @@ class PublicProductFilterForm(forms.Form):
         max_digits=12,
         decimal_places=2,
         label="Min price",
+        widget=forms.NumberInput(attrs={"placeholder": "₹0"}),
     )
     max_price = forms.DecimalField(
         required=False,
@@ -45,6 +50,7 @@ class PublicProductFilterForm(forms.Form):
         max_digits=12,
         decimal_places=2,
         label="Max price",
+        widget=forms.NumberInput(attrs={"placeholder": "Any"}),
     )
     sort = forms.ChoiceField(choices=SORT_CHOICES, required=False, initial="newest")
 

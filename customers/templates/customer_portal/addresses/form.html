@@ -1,6 +1,16 @@
 {% extends "customer_portal/base.html" %}
+{% load static %}
 
 {% block title %}{{ form_title }}{% endblock %}
+
+{% block extra_head %}
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -17,7 +27,9 @@
     {% endif %}
     <div class="row g-3">
         {% for field in form %}
-            {% if field.name == "is_default" %}
+            {% if field.name == "latitude" or field.name == "longitude" %}
+                {# rendered via location picker #}
+            {% elif field.name == "is_default" %}
                 <div class="col-12">
                     <div class="form-check">
                         {{ field }}
@@ -39,9 +51,19 @@
                 </div>
             {% endif %}
         {% endfor %}
+        {% include "locations/includes/location_picker.html" with lat_field=form.latitude lng_field=form.longitude %}
     </div>
     <div class="mt-3">
-        <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        <button type="submit" class="btn btn-brand">{{ submit_label }}</button>
     </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+<script src="{% static 'locations/js/location_picker.js' %}"></script>
 {% endblock %}

@@ -1,6 +1,16 @@
 {% extends "management/base.html" %}
+{% load static %}
 
 {% block title %}Create Store{% endblock %}
+
+{% block extra_head %}
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+{% endblock %}
 
 {% block content %}
 <h1 class="h4 mb-3">Create Store</h1>
@@ -22,12 +32,17 @@
     <h2 class="h6">Address</h2>
     <div class="row g-3 mb-3">
         {% for field in address_form %}
-            <div class="col-md-6">
-                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
+            {% if field.name == "latitude" or field.name == "longitude" %}
+                {# rendered via location picker #}
+            {% else %}
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
         {% endfor %}
+        {% include "locations/includes/location_picker.html" with lat_field=address_form.latitude lng_field=address_form.longitude %}
     </div>
 
     <h2 class="h6">Primary Store User (optional)</h2>
@@ -53,4 +68,13 @@
         <a href="{% url 'stores:store_list' %}" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+<script src="{% static 'locations/js/location_picker.js' %}"></script>
 {% endblock %}

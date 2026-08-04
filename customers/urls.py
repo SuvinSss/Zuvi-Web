@@ -17,6 +17,26 @@ urlpatterns = [
         name="customer_portal_logout",
     ),
     path(
+        "customer/login/mobile/",
+        views.customer_otp_start_view,
+        name="customer_otp_start",
+    ),
+    path(
+        "customer/login/mobile/verify/",
+        views.customer_otp_verify_view,
+        name="customer_otp_verify",
+    ),
+    path(
+        "customer/login/mobile/resend/",
+        views.customer_otp_resend_view,
+        name="customer_otp_resend",
+    ),
+    path(
+        "customer/login/mobile/details/",
+        views.customer_otp_profile_view,
+        name="customer_otp_profile",
+    ),
+    path(
         "customer/dashboard/",
         views.customer_portal_dashboard_view,
         name="customer_portal_dashboard",

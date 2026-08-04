@@ -645,7 +645,12 @@ def store_product_detail_view(request, pk):
 
 @store_portal_required
 def store_product_create_view(request):
-    form = StoreProductCreateForm(request.POST or None, request.FILES or None)
+    # Always pass POST/FILES objects when bound — never use `or None` on
+    # MultiValueDict (empty dicts are falsy and break file handling).
+    if request.method == "POST":
+        form = StoreProductCreateForm(request.POST, request.FILES)
+    else:
+        form = StoreProductCreateForm()
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data.copy()
         save_as_draft = data.pop("save_as_draft", False)

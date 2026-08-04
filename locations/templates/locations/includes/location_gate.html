@@ -1,0 +1,54 @@
+{% load static %}
+<div
+    class="modal fade"
+    id="deliveryLocationModal"
+    tabindex="-1"
+    aria-hidden="true"
+    aria-labelledby="deliveryLocationModalLabel"
+    data-bs-backdrop="static"
+    data-bs-keyboard="false"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content location-gate-content">
+            <div class="modal-body text-center p-4 p-md-5">
+                <div class="location-gate-icon mb-3"><i class="bi bi-geo-alt-fill"></i></div>
+                <h2 class="h5 fw-bold mb-2" id="deliveryLocationModalLabel">Select delivery location</h2>
+                <p class="text-muted mb-4">We'll use this to show what's available near you.</p>
+
+                <button type="button" class="btn btn-brand w-100 mb-2" data-location-use-current>
+                    <i class="bi bi-crosshair"></i> Use my current location
+                </button>
+                <button type="button" class="btn btn-outline-brand w-100" data-location-toggle-manual>
+                    Enter location manually
+                </button>
+
+                <div class="d-none text-start mt-3" data-location-manual-panel>
+                    <div class="rounded border overflow-hidden" data-location-gate-map style="height: 220px;"></div>
+                    <div class="form-text mt-2" data-location-gate-coords>Tap the map to drop a pin.</div>
+                    <button type="button" class="btn btn-brand w-100 mt-2" data-location-confirm-manual disabled>
+                        Confirm this location
+                    </button>
+                </div>
+
+                <div class="text-danger small mt-3 d-none" data-location-gate-error role="alert"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+<script
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+<script>
+    window.ZOOP_HAS_DELIVERY_LOCATION = {{ delivery_location|yesno:"true,false" }};
+    window.ZOOP_LOCATION_SET_URL = "{% url 'locations:set_delivery_location' %}";
+</script>
+<script src="{% static 'locations/js/location_gate.js' %}"></script>

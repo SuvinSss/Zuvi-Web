@@ -1,6 +1,16 @@
 {% extends "management/base.html" %}
+{% load static %}
 
 {% block title %}Create Customer{% endblock %}
+
+{% block extra_head %}
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -37,18 +47,32 @@
             <p class="text-muted small">Leave blank to create the customer without an address.</p>
             <div class="row g-3">
                 {% for field in address_fields %}
-                    <div class="col-md-6 {% if field.name == 'address_delivery_instructions' %}col-12{% endif %}">
-                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                            <div class="text-danger small">{{ field.errors|striptags }}</div>
-                        {% endif %}
-                    </div>
+                    {% if field.name == "address_latitude" or field.name == "address_longitude" %}
+                        {# rendered via location picker #}
+                    {% else %}
+                        <div class="col-md-6 {% if field.name == 'address_delivery_instructions' %}col-12{% endif %}">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small">{{ field.errors|striptags }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 {% endfor %}
+                {% include "locations/includes/location_picker.html" with lat_field=form.address_latitude lng_field=form.address_longitude %}
             </div>
         </div>
     </div>
 
     <button type="submit" class="btn btn-primary">Create Customer</button>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script
+    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+<script src="{% static 'locations/js/location_picker.js' %}"></script>
 {% endblock %}

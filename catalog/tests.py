@@ -2094,6 +2094,43 @@ class StorePortalProductIsolationTests(CatalogTestMixin, TestCase):
         product = Product.objects.get(sku="DRAFT-1")
         self.assertEqual(product.status, ProductStatus.DRAFT)
 
+    def test_create_without_images_is_optional(self):
+        """Multi-file widget must not fail when no images are chosen."""
+        from django.utils.datastructures import MultiValueDict
+        from catalog.forms import StoreProductCreateForm
+
+        data = {
+            "name": "No Img Product",
+            "sku": "NOIMG-1",
+            "category": str(self.cat.pk),
+            "store_price": "12.00",
+            "description": "",
+        }
+        # Browser multi-file empty selection surfaces as an empty list.
+        form = StoreProductCreateForm(data, MultiValueDict({"images": []}))
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["images"], [])
+
+    def test_create_with_multiple_images(self):
+        self.client.login(username="portal-a", password="secure-password-123")
+        img_a = self._uploaded_image(name="a.jpg")
+        img_b = self._uploaded_image(name="b.jpg")
+        response = self.client.post(
+            reverse("catalog:store_product_create"),
+            {
+                "name": "With Images",
+                "sku": "IMGS-1",
+                "category": self.cat.pk,
+                "store_price": "12.00",
+                "description": "",
+                "images": [img_a, img_b],
+            },
+        )
+        self.assertEqual(response.status_code, 302, response.content)
+        product = Product.objects.get(sku="IMGS-1")
+        self.assertEqual(product.images.count(), 2)
+        self.assertEqual(product.images.filter(is_primary=True).count(), 1)
+
     def test_submit_draft_post_only(self):
         draft = self.create_product(
             store=self.store_a,

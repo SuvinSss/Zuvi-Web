@@ -8,6 +8,7 @@
         <h1 class="h4 mb-1">Store Orders</h1>
         <p class="text-muted small mb-0">Orders for {{ request.store.name }} only.</p>
     </div>
+    <a href="{% url 'stores:store_portal_dashboard' %}" class="btn btn-outline-secondary btn-sm">Dashboard</a>
 </div>
 
 {% if store_orders %}

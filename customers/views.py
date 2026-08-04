@@ -1,12 +1,15 @@
+import random
+
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -23,6 +26,9 @@ from .decorators import (
 )
 from .forms import (
     CustomerDeactivationForm,
+    CustomerOTPPhoneForm,
+    CustomerOTPProfileForm,
+    CustomerOTPVerifyForm,
     CustomerPortalAddressForm,
     CustomerPortalProfileForm,
     CustomerSelfRegistrationForm,
@@ -42,6 +48,11 @@ from .services import (
     update_customer_delivery_address,
     update_customer_profile,
 )
+
+User = get_user_model()
+
+OTP_SESSION_KEY = "customer_otp"
+OTP_LENGTH = 4
 
 
 def _get_customer_or_404(pk):
@@ -373,6 +384,141 @@ def customer_portal_login_view(request):
             return _safe_customer_redirect(request)
 
     return render(request, "customer_portal/login.html", {"form": form})
+
+
+def _generate_otp():
+    """
+    Placeholder OTP generator for the design/demo flow.
+
+    TODO(backend): replace with real OTP generation + dispatch through an
+    SMS gateway. Nothing here should ship to production as-is.
+    """
+    return "".join(str(random.randint(0, 9)) for _ in range(OTP_LENGTH))
+
+
+@csrf_protect
+@never_cache
+def customer_otp_start_view(request):
+    """Step 1 of the mobile-first login/signup flow: collect the phone number."""
+    if request.user.is_authenticated and request.user.role == Role.CUSTOMER:
+        customer, _ = resolve_customer_portal_profile(request.user)
+        if customer is not None:
+            return _safe_customer_redirect(request)
+
+    form = CustomerOTPPhoneForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        phone_number = form.cleaned_data["phone_number"]
+        otp_code = _generate_otp()
+        request.session[OTP_SESSION_KEY] = {
+            "phone_number": phone_number,
+            "code": otp_code,
+            "next": request.POST.get("next") or request.GET.get("next", ""),
+        }
+        # TODO(backend): send otp_code to phone_number via the SMS gateway
+        # instead of surfacing it in a message banner.
+        messages.info(
+            request,
+            f"Demo mode (no SMS gateway connected yet): your OTP is {otp_code}.",
+        )
+        return redirect("customers:customer_otp_verify")
+
+    return render(request, "customer_portal/otp_start.html", {"form": form})
+
+
+@csrf_protect
+@never_cache
+def customer_otp_verify_view(request):
+    """Step 2: verify the OTP, then sign in an existing customer or continue to profile capture."""
+    otp_session = request.session.get(OTP_SESSION_KEY)
+    if not otp_session:
+        return redirect("customers:customer_otp_start")
+
+    form = CustomerOTPVerifyForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        if form.cleaned_data["otp_code"] != otp_session.get("code"):
+            form.add_error("otp_code", "Incorrect OTP. Please try again.")
+        else:
+            phone_number = otp_session["phone_number"]
+            user = User.objects.filter(phone_number=phone_number).first()
+            if user is not None:
+                customer, denial = resolve_customer_portal_profile(user)
+                if customer is None:
+                    messages.error(
+                        request,
+                        denial or "This account cannot access the customer portal.",
+                    )
+                    request.session.pop(OTP_SESSION_KEY, None)
+                    return redirect("customers:customer_otp_start")
+                login(request, user)
+                request.session.pop(OTP_SESSION_KEY, None)
+                return _safe_customer_redirect(request)
+            return redirect("customers:customer_otp_profile")
+
+    return render(
+        request,
+        "customer_portal/otp_verify.html",
+        {"form": form, "phone_number": otp_session["phone_number"]},
+    )
+
+
+@csrf_protect
+@never_cache
+def customer_otp_resend_view(request):
+    otp_session = request.session.get(OTP_SESSION_KEY)
+    if not otp_session or request.method != "POST":
+        return redirect("customers:customer_otp_start")
+
+    otp_session["code"] = _generate_otp()
+    request.session[OTP_SESSION_KEY] = otp_session
+    # TODO(backend): trigger a fresh SMS dispatch here.
+    messages.info(
+        request,
+        f"Demo mode (no SMS gateway connected yet): your new OTP is {otp_session['code']}.",
+    )
+    return redirect("customers:customer_otp_verify")
+
+
+@csrf_protect
+@never_cache
+def customer_otp_profile_view(request):
+    """Step 3, new numbers only: collect the minimum details to create the account."""
+    otp_session = request.session.get(OTP_SESSION_KEY)
+    if not otp_session:
+        return redirect("customers:customer_otp_start")
+
+    phone_number = otp_session["phone_number"]
+    if User.objects.filter(phone_number=phone_number).exists():
+        return redirect("customers:customer_otp_verify")
+
+    form = CustomerOTPProfileForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        # OTP is the credential going forward, so the password is random and
+        # immediately disabled — nothing meaningful to hand to a backend dev
+        # here since sign-in never uses it.
+        _, user = create_customer_with_user(
+            user_data={
+                "username": f"zoop{phone_number}",
+                "email": form.cleaned_data["email"],
+                "first_name": form.cleaned_data["first_name"],
+                "last_name": form.cleaned_data.get("last_name") or "",
+                "phone_number": phone_number,
+                "password": get_random_string(32),
+            },
+            registration_source=RegistrationSource.WEBSITE,
+            created_by=None,
+            request=request,
+        )
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+        login(request, user)
+        request.session.pop(OTP_SESSION_KEY, None)
+        return _safe_customer_redirect(request)
+
+    return render(
+        request,
+        "customer_portal/otp_profile.html",
+        {"form": form, "phone_number": phone_number},
+    )
 
 
 @csrf_protect

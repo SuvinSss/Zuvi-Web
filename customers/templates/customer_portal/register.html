@@ -1,45 +1,219 @@
 {% extends "customer_portal/base.html" %}
 
-{% block title %}Customer Registration{% endblock %}
+{% block title %}Create Account · Zoop{% endblock %}
+
+{% block main_class %}p-0{% endblock %}
+
+{% block extra_head %}
+<style>
+    .auth-shell {
+        min-height: calc(100vh - 56px - 90px);
+    }
+    .auth-hero {
+        background:
+            radial-gradient(circle at 20% 20%, rgba(232, 184, 109, 0.25), transparent 45%),
+            linear-gradient(160deg, var(--zoop-leaf-dark) 0%, var(--zoop-ink) 100%);
+        color: #fff;
+        padding: 4rem 3rem;
+    }
+    .auth-hero h1 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        font-size: clamp(2rem, 4vw, 2.75rem);
+    }
+    .auth-feature {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+    .auth-feature .bi {
+        font-size: 1.4rem;
+        color: var(--zoop-sun);
+    }
+    .auth-form-side {
+        padding: 3rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 480px;
+    }
+    .input-icon-group {
+        position: relative;
+    }
+    .input-icon-group .bi {
+        position: absolute;
+        top: 50%;
+        left: 0.9rem;
+        transform: translateY(-50%);
+        color: #8a9a8f;
+    }
+    .input-icon-group .form-control {
+        padding-left: 2.5rem;
+    }
+    .toggle-password {
+        position: absolute;
+        top: 50%;
+        right: 0.75rem;
+        transform: translateY(-50%);
+        border: 0;
+        background: none;
+        color: #8a9a8f;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h1 class="h4 mb-3">Create your Zoop account</h1>
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-                        </div>
-                    {% endif %}
-                    {% for field in form %}
-                        {% if field.name == "accept_terms" %}
-                            <div class="mb-3 form-check">
-                                {{ field }}
-                                <label class="form-check-label" for="{{ field.id_for_label }}">
-                                    I accept the terms and conditions
-                                </label>
-                                {% for error in field.errors %}
-                                    <div class="text-danger small">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="mb-3">
-                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                {{ field }}
-                                {% for error in field.errors %}
-                                    <div class="text-danger small">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                    <button type="submit" class="btn btn-primary w-100">Register</button>
-                </form>
+<div class="row g-0 auth-shell">
+    <div class="col-lg-5 d-none d-lg-flex flex-column justify-content-center auth-hero">
+        <a href="{% url 'catalog:public_home' %}" class="text-white text-decoration-none mb-4 d-inline-block fw-bold fs-4">Zoop</a>
+        <h1 class="mb-3">Join Zoop and shop smarter</h1>
+        <p class="mb-5" style="color: rgba(255,255,255,0.75); max-width: 26rem;">
+            Create your free account to order from local stores, track deliveries, and manage everything in one place.
+        </p>
+        <div>
+            <div class="auth-feature">
+                <i class="bi bi-lightning-charge"></i>
+                <div>
+                    <div class="fw-semibold">Quick checkout</div>
+                    <div class="small" style="color: rgba(255,255,255,0.65);">Save your details once, reuse them every time.</div>
+                </div>
+            </div>
+            <div class="auth-feature">
+                <i class="bi bi-box-seam"></i>
+                <div>
+                    <div class="fw-semibold">Order history</div>
+                    <div class="small" style="color: rgba(255,255,255,0.65);">Keep track of every purchase in your dashboard.</div>
+                </div>
+            </div>
+            <div class="auth-feature">
+                <i class="bi bi-headset"></i>
+                <div>
+                    <div class="fw-semibold">Support when you need it</div>
+                    <div class="small" style="color: rgba(255,255,255,0.65);">Reach out any time about your orders.</div>
+                </div>
             </div>
         </div>
     </div>
+    <div class="col-lg-7 auth-form-side">
+        <div class="auth-card">
+            <h1 class="h3 fw-bold mb-1">Create your account</h1>
+            <p class="text-muted mb-4">It only takes a minute to get started.</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                {% endif %}
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                        {{ form.first_name }}
+                        {% for error in form.first_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                        {{ form.last_name }}
+                        {% for error in form.last_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                        <div class="input-icon-group">
+                            <i class="bi bi-person"></i>
+                            {{ form.username }}
+                        </div>
+                        {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                        <div class="input-icon-group">
+                            <i class="bi bi-envelope"></i>
+                            {{ form.email }}
+                        </div>
+                        {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+                        <div class="input-icon-group">
+                            <i class="bi bi-telephone"></i>
+                            {{ form.phone_number }}
+                        </div>
+                        {% for error in form.phone_number.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                        <div class="input-icon-group">
+                            <i class="bi bi-lock"></i>
+                            {{ form.password }}
+                            <button type="button" class="toggle-password" data-target="{{ form.password.id_for_label }}" aria-label="Show password">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="{{ form.confirm_password.id_for_label }}">{{ form.confirm_password.label }}</label>
+                        <div class="input-icon-group">
+                            <i class="bi bi-lock"></i>
+                            {{ form.confirm_password }}
+                            <button type="button" class="toggle-password" data-target="{{ form.confirm_password.id_for_label }}" aria-label="Show password">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% for error in form.confirm_password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            {{ form.accept_terms }}
+                            <label class="form-check-label small" for="{{ form.accept_terms.id_for_label }}">
+                                I accept the terms and conditions
+                            </label>
+                            {% for error in form.accept_terms.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-brand btn-lg w-100 mt-4">Create account</button>
+            </form>
+            <p class="mt-4 mb-1 text-muted">
+                Already have an account?
+                <a href="{% url 'customers:customer_portal_login' %}" class="link-brand">Sign in</a>
+            </p>
+            <p class="mb-1">
+                <a href="{% url 'customers:customer_otp_start' %}" class="link-brand small">
+                    <i class="bi bi-phone"></i> Sign up with mobile number &amp; OTP instead
+                </a>
+            </p>
+            <p class="mb-0">
+                <a href="{% url 'catalog:public_home' %}" class="text-muted small text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> Back to Zoop shop
+                </a>
+            </p>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll(".toggle-password").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var input = document.getElementById(btn.dataset.target);
+            var icon = btn.querySelector("i");
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.replace("bi-eye", "bi-eye-slash");
+            } else {
+                input.type = "password";
+                icon.classList.replace("bi-eye-slash", "bi-eye");
+            }
+        });
+    });
+</script>
 {% endblock %}

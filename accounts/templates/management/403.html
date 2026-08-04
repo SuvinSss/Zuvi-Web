@@ -5,6 +5,7 @@
 {% block content %}
 <div class="alert alert-danger" role="alert">
     <h1 class="h4">403 - Access Denied</h1>
-    <p class="mb-0">{{ error_message|default:"You do not have permission to access the management portal." }}</p>
+    <p class="mb-3">{{ error_message|default:"You do not have permission to access the management portal." }}</p>
+    <a href="{% url 'accounts:management_dashboard' %}" class="btn btn-outline-dark btn-sm">Back to dashboard</a>
 </div>
 {% endblock %}

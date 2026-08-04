@@ -216,6 +216,7 @@ def public_product_card(product):
     return {
         "id": product.pk,
         "slug": product.slug,
+        "product_code": product.product_code,
         "name": product.name,
         "brand_name": product.brand.name if product.brand_id else "",
         "category_name": product.category.name if product.category_id else "",

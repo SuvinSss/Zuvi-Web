@@ -10,33 +10,184 @@
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous"
     >
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet"
+    >
+    <style>
+        :root {
+            --zoop-ink: #1a2e1f;
+            --zoop-leaf: #2f6b4f;
+            --zoop-leaf-dark: #234f3b;
+            --zoop-mist: #f3f7f4;
+            --zoop-sun: #e8b86d;
+        }
+        body {
+            background:
+                radial-gradient(circle at top left, rgba(232, 184, 109, 0.18), transparent 40%),
+                linear-gradient(180deg, #f7faf8 0%, var(--zoop-mist) 100%);
+            color: var(--zoop-ink);
+            min-height: 100vh;
+        }
+        .shop-nav {
+            background: rgba(26, 46, 31, 0.94);
+        }
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .btn-brand {
+            background: var(--zoop-leaf);
+            border-color: var(--zoop-leaf);
+            color: #fff;
+        }
+        .btn-brand:hover {
+            background: var(--zoop-leaf-dark);
+            border-color: var(--zoop-leaf-dark);
+            color: #fff;
+        }
+        .btn-outline-brand {
+            border-color: var(--zoop-leaf);
+            color: var(--zoop-leaf);
+        }
+        .btn-outline-brand:hover {
+            background: var(--zoop-leaf);
+            color: #fff;
+        }
+        .link-brand {
+            color: var(--zoop-leaf);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .link-brand:hover {
+            color: var(--zoop-leaf-dark);
+            text-decoration: underline;
+        }
+        .card {
+            border: 0;
+            box-shadow: 0 10px 30px rgba(26, 46, 31, 0.06);
+        }
+        .card-shop {
+            background: rgba(255, 255, 255, 0.92);
+        }
+        .badge.text-bg-primary {
+            background-color: var(--zoop-leaf) !important;
+        }
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--zoop-leaf);
+            box-shadow: 0 0 0 0.2rem rgba(47, 107, 79, 0.15);
+        }
+        .location-pill {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 999px;
+            color: #fff;
+            font-size: 0.85rem;
+            padding: 0.3rem 0.75rem;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .location-pill:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .location-gate-icon {
+            font-size: 2.5rem;
+            color: var(--zoop-leaf);
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-light">
-{% if request.user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark shop-nav">
     <div class="container">
-        <a class="navbar-brand" href="{% url 'customers:customer_portal_dashboard' %}">Customer Portal</a>
-        <div class="ms-auto d-flex align-items-center gap-2">
-            <a href="{% url 'customers:customer_portal_dashboard' %}" class="btn btn-outline-light btn-sm">Dashboard</a>
-            <a href="{% url 'orders:customer_order_list' %}" class="btn btn-outline-light btn-sm">Orders</a>
-            <a href="{% url 'cart:cart_detail' %}" class="btn btn-outline-light btn-sm">Cart</a>
-            <a href="{% url 'customers:customer_portal_profile' %}" class="btn btn-outline-light btn-sm">Profile</a>
-            <a href="{% url 'customers:customer_portal_address_list' %}" class="btn btn-outline-light btn-sm">Addresses</a>
-            <form method="post" action="{% url 'customers:customer_portal_logout' %}" class="d-inline">
-                {% csrf_token %}
-                <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
-            </form>
+        <a class="navbar-brand" href="{% url 'catalog:public_home' %}">Zoop</a>
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#customerNav"
+            aria-controls="customerNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+        >
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <button
+            type="button"
+            class="btn location-pill d-none d-lg-inline-flex align-items-center gap-1 order-lg-1 me-lg-2"
+            data-open-location-gate
+        >
+            <i class="bi bi-geo-alt-fill"></i>
+            <span>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select location{% endif %}</span>
+        </button>
+        <div class="collapse navbar-collapse" id="customerNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'catalog:public_home' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'catalog:public_product_list' %}">Shop</a>
+                </li>
+                {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'customers:customer_portal_dashboard' %}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'orders:customer_order_list' %}">Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cart:cart_detail' %}">Cart</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'customers:customer_portal_profile' %}">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'customers:customer_portal_address_list' %}">Addresses</a>
+                    </li>
+                {% endif %}
+            </ul>
+            <div class="d-flex align-items-center gap-2 ms-lg-auto">
+                {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+                    <a class="btn btn-outline-light btn-sm" href="{% url 'cart:cart_detail' %}">
+                        <i class="bi bi-cart3"></i> Cart
+                    </a>
+                    <form method="post" action="{% url 'customers:customer_portal_logout' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
+                    </form>
+                {% else %}
+                    <a class="btn btn-brand btn-sm" href="{% url 'customers:customer_otp_start' %}">
+                        <i class="bi bi-phone"></i> Login / Sign up
+                    </a>
+                {% endif %}
+            </div>
         </div>
     </div>
 </nav>
-{% endif %}
-<main class="container py-4">
+<main class="{% block main_class %}container py-4{% endblock %}">
     {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
-        {% endfor %}
+        <div class="container pt-4 {% block messages_class %}{% endblock %}">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} shadow-sm border-0">{{ message }}</div>
+            {% endfor %}
+        </div>
     {% endif %}
     {% block content %}{% endblock %}
 </main>
+<footer class="border-top mt-5 py-4 text-center text-muted small">
+    <div class="container">
+        &copy; {% now "Y" %} Zoop. All rights reserved.
+    </div>
+</footer>
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+></script>
+{% include "locations/includes/location_gate.html" %}
+{% block extra_js %}{% endblock %}
 </body>
 </html>

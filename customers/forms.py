@@ -126,12 +126,16 @@ class ManagementCustomerCreateForm(forms.Form):
         decimal_places=6,
         required=False,
         label="Latitude",
+        widget=forms.HiddenInput(),
+        help_text="Set on the map below.",
     )
     address_longitude = forms.DecimalField(
         max_digits=9,
         decimal_places=6,
         required=False,
         label="Longitude",
+        widget=forms.HiddenInput(),
+        help_text="Set on the map below.",
     )
     address_delivery_instructions = forms.CharField(
         required=False,
@@ -158,6 +162,8 @@ class ManagementCustomerCreateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
+            if isinstance(field.widget, forms.HiddenInput):
+                continue
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.update({"class": "form-check-input"})
             elif isinstance(field.widget, forms.Select):
@@ -227,8 +233,8 @@ class ManagementCustomerCreateForm(forms.Form):
                 "address_city": "City is required when adding an address.",
                 "address_state": "State is required when adding an address.",
                 "address_postal_code": "Postal code is required when adding an address.",
-                "address_latitude": "Latitude is required when adding an address.",
-                "address_longitude": "Longitude is required when adding an address.",
+                "address_latitude": "Set a location on the map when adding an address.",
+                "address_longitude": "Set a location on the map when adding an address.",
             }
             for field_name, message in required_address.items():
                 value = cleaned_data.get(field_name)
@@ -281,7 +287,8 @@ class ManagementCustomerEditForm(forms.Form):
     phone_number = forms.CharField(max_length=20, required=False, label="Phone number")
     date_of_birth = forms.DateField(
         required=False,
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        input_formats=["%Y-%m-%d"],
     )
     notes = forms.CharField(
         widget=forms.Textarea,
@@ -339,6 +346,66 @@ class CustomerDeactivationForm(forms.Form):
         if not reason:
             raise ValidationError("A reason is required to deactivate a customer.")
         return reason
+
+
+class CustomerOTPPhoneForm(forms.Form):
+    """Step 1 of the mobile-first login/signup flow: capture the number to OTP."""
+
+    phone_number = forms.CharField(
+        max_length=20,
+        min_length=10,
+        label="Mobile number",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["phone_number"].widget.attrs.update(
+            {
+                "class": "form-control form-control-lg",
+                "inputmode": "numeric",
+                "placeholder": "10-digit mobile number",
+                "autocomplete": "tel",
+                "autofocus": True,
+            }
+        )
+
+    def clean_phone_number(self):
+        raw = self.cleaned_data["phone_number"]
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if len(digits) < 10:
+            raise ValidationError("Enter a valid 10-digit mobile number.")
+        return digits[-10:]
+
+
+class CustomerOTPVerifyForm(forms.Form):
+    """Step 2: the 4-digit code. Verification logic itself is backend-side."""
+
+    otp_code = forms.CharField(max_length=4, min_length=4, label="OTP")
+
+    def clean_otp_code(self):
+        code = self.cleaned_data["otp_code"].strip()
+        if not code.isdigit() or len(code) != 4:
+            raise ValidationError("Enter the 4-digit code.")
+        return code
+
+
+class CustomerOTPProfileForm(forms.Form):
+    """Step 3, new numbers only: the minimum details needed to create an account."""
+
+    first_name = forms.CharField(max_length=150, required=True)
+    last_name = forms.CharField(max_length=150, required=False)
+    email = forms.EmailField(required=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({"class": "form-control form-control-lg"})
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError("This email is already in use.")
+        return email
 
 
 class CustomerPortalProfileForm(forms.Form):
@@ -408,11 +475,17 @@ class CustomerPortalAddressForm(forms.Form):
         max_digits=9,
         decimal_places=6,
         required=True,
+        widget=forms.HiddenInput(),
+        help_text="Set on the map below.",
+        error_messages={"required": "Set a location on the map."},
     )
     longitude = forms.DecimalField(
         max_digits=9,
         decimal_places=6,
         required=True,
+        widget=forms.HiddenInput(),
+        help_text="Set on the map below.",
+        error_messages={"required": "Set a location on the map."},
     )
     delivery_instructions = forms.CharField(
         required=False,
@@ -444,6 +517,8 @@ class CustomerPortalAddressForm(forms.Form):
             self.fields["is_default"].initial = customer_address.is_default
 
         for name, field in self.fields.items():
+            if isinstance(field.widget, forms.HiddenInput):
+                continue
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.update({"class": "form-check-input"})
             elif isinstance(field.widget, forms.Select):

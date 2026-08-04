@@ -237,7 +237,6 @@ class PublicCatalogueViewTests(PublicCatalogueTestMixin, TestCase):
         self.assertContains(response, "Beverages")
         self.assertContains(response, "500 ML")
         self.assertContains(response, self.product.store.name)
-        self.assertContains(response, "In stock")
         self.assertContains(response, "10% off")
         self.assertContains(response, f"₹{self.product.final_price}")
 

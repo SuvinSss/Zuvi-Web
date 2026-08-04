@@ -15,6 +15,8 @@ USERNAME_VALIDATOR = UnicodeUsernameValidator()
 def _apply_bootstrap(form):
     for name, field in form.fields.items():
         widget = field.widget
+        if isinstance(widget, forms.HiddenInput):
+            continue
         if isinstance(widget, forms.CheckboxInput):
             widget.attrs.setdefault("class", "form-check-input")
         elif isinstance(widget, forms.Select):
@@ -41,10 +43,16 @@ class AddressForm(forms.ModelForm):
             "latitude",
             "longitude",
         )
+        widgets = {
+            "latitude": forms.HiddenInput(),
+            "longitude": forms.HiddenInput(),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _apply_bootstrap(self)
+        self.fields["latitude"].help_text = "Set on the map below."
+        self.fields["longitude"].help_text = "Set on the map below."
 
 
 class StoreForm(forms.ModelForm):

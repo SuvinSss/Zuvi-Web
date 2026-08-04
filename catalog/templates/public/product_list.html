@@ -2,83 +2,294 @@
 
 {% block title %}{{ page_title }} · Zoop{% endblock %}
 
+{% block extra_head %}
+<style>
+    .category-rail {
+        display: flex;
+        gap: 0.6rem;
+        overflow-x: auto;
+        padding-bottom: 0.35rem;
+        scrollbar-width: thin;
+    }
+    .category-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid #dbe4de;
+        background: #fff;
+        color: var(--zoop-ink);
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+        text-decoration: none;
+        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .category-chip:hover {
+        border-color: var(--zoop-leaf);
+        color: var(--zoop-leaf);
+    }
+    .category-chip.active {
+        background: var(--zoop-leaf);
+        border-color: var(--zoop-leaf);
+        color: #fff;
+    }
+    .search-input-group {
+        position: relative;
+        flex: 1 1 260px;
+    }
+    .search-input-group .bi {
+        position: absolute;
+        top: 50%;
+        left: 0.85rem;
+        transform: translateY(-50%);
+        color: #8a9a8f;
+    }
+    .search-input-group input {
+        padding-left: 2.4rem;
+        border-radius: 0.6rem;
+    }
+    .sort-select {
+        border-radius: 0.6rem;
+        min-width: 160px;
+    }
+    .filters-toggle-btn {
+        border-radius: 0.6rem;
+        border: 1px solid #dbe4de;
+        background: #fff;
+        color: var(--zoop-ink);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .filters-toggle-btn:hover,
+    .filters-toggle-btn[aria-expanded="true"] {
+        border-color: var(--zoop-leaf);
+        color: var(--zoop-leaf);
+    }
+    .more-filters-panel {
+        background: #fff;
+        border: 1px solid #eef1ee;
+        border-radius: 0.75rem;
+        box-shadow: 0 6px 18px rgba(26, 46, 31, 0.06);
+    }
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.65rem;
+        border-radius: 999px;
+        background: var(--zoop-mist);
+        border: 1px solid #dbe4de;
+        color: var(--zoop-ink);
+        font-size: 0.8rem;
+        text-decoration: none;
+    }
+    .filter-chip:hover {
+        border-color: #c8534b;
+        color: #c8534b;
+    }
+    .filter-chip .bi { font-size: 0.7rem; }
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.9rem;
+    }
+    @media (min-width: 576px) {
+        .product-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 768px) {
+        .product-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (min-width: 992px) {
+        .product-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    @media (min-width: 1200px) {
+        .product-grid { grid-template-columns: repeat(6, 1fr); }
+    }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 1rem;
+        color: var(--zoop-ink);
+    }
+    .empty-state .bi {
+        font-size: 3rem;
+        color: #c8d3cb;
+    }
+    .zoop-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        list-style: none;
+        padding: 0;
+        margin: 2rem 0 0;
+    }
+    .zoop-pagination .page-link {
+        border-radius: 999px;
+        border: 1px solid #dbe4de;
+        color: var(--zoop-ink);
+        padding: 0.4rem 1rem;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .zoop-pagination .page-link:hover {
+        border-color: var(--zoop-leaf);
+        color: var(--zoop-leaf);
+    }
+    .zoop-pagination .page-status {
+        color: #8a9a8f;
+        font-size: 0.85rem;
+        padding: 0 0.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
     <div>
+        <nav aria-label="breadcrumb" class="mb-2">
+            <ol class="breadcrumb mb-0 small">
+                <li class="breadcrumb-item"><a href="{% url 'catalog:public_home' %}">Home</a></li>
+                {% if active_category %}
+                    <li class="breadcrumb-item"><a href="{% url 'catalog:public_product_list' %}">Products</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ active_category.name }}</li>
+                {% else %}
+                    <li class="breadcrumb-item active" aria-current="page">Products</li>
+                {% endif %}
+            </ol>
+        </nav>
         <h1 class="h3 mb-1">{{ page_title }}</h1>
-        <p class="text-muted mb-0">{{ result_count }} product{{ result_count|pluralize }}</p>
+        <p class="text-muted mb-0">{{ result_count }} product{{ result_count|pluralize }} available</p>
     </div>
-    {% if active_category %}
-        <a href="{% url 'catalog:public_product_list' %}" class="btn btn-outline-secondary btn-sm">All products</a>
-    {% endif %}
 </div>
 
-<form method="get" class="card border-0 shadow-sm mb-4">
-    <div class="card-body">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label" for="id_q">Search</label>
-                {{ filter_form.q }}
-            </div>
-            {% if not active_category %}
-            <div class="col-md-2">
-                <label class="form-label" for="id_category">Category</label>
-                {{ filter_form.category }}
-            </div>
-            {% else %}
-                <input type="hidden" name="category" value="{{ active_category.slug }}">
-            {% endif %}
-            <div class="col-md-2">
-                <label class="form-label" for="id_brand">Brand</label>
-                {{ filter_form.brand }}
-            </div>
-            <div class="col-6 col-md-1">
-                <label class="form-label" for="id_min_price">Min</label>
-                {{ filter_form.min_price }}
-            </div>
-            <div class="col-6 col-md-1">
-                <label class="form-label" for="id_max_price">Max</label>
-                {{ filter_form.max_price }}
-            </div>
-            <div class="col-md-2">
-                <label class="form-label" for="id_sort">Sort</label>
-                {{ filter_form.sort }}
-            </div>
+{% if categories %}
+    <div class="category-rail mb-3">
+        <a
+            href="{% url 'catalog:public_product_list' %}"
+            class="category-chip {% if not active_category_slug %}active{% endif %}"
+        >
+            All
+        </a>
+        {% for category in categories %}
+            <a
+                href="{% url 'catalog:public_category_detail' category.slug %}"
+                class="category-chip {% if active_category_slug == category.slug %}active{% endif %}"
+            >
+                {{ category.name }}
+            </a>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<form method="get" class="mb-2" id="productFilterForm">
+    {% if active_category %}
+        <input type="hidden" name="category" value="{{ active_category.slug }}">
+    {% endif %}
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <div class="search-input-group">
+            <i class="bi bi-search"></i>
+            {{ filter_form.q }}
         </div>
-        {% if filter_form.non_field_errors %}
-            <div class="text-danger small mt-2">{{ filter_form.non_field_errors }}</div>
-        {% endif %}
-        <div class="mt-3">
-            <button type="submit" class="btn btn-dark btn-sm">Apply</button>
-            <a class="btn btn-link btn-sm" href="{% if active_category %}{% url 'catalog:public_category_detail' active_category.slug %}{% else %}{% url 'catalog:public_product_list' %}{% endif %}">Reset</a>
+        <div class="sort-select">
+            {{ filter_form.sort }}
+        </div>
+        <button
+            type="button"
+            class="btn filters-toggle-btn"
+            data-bs-toggle="collapse"
+            data-bs-target="#moreFiltersPanel"
+            aria-expanded="false"
+            aria-controls="moreFiltersPanel"
+        >
+            <i class="bi bi-sliders"></i> Filters
+        </button>
+        <button type="submit" class="btn btn-brand">Search</button>
+    </div>
+
+    <div class="collapse mb-2" id="moreFiltersPanel">
+        <div class="more-filters-panel p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-sm-6">
+                    <label class="form-label small" for="id_brand">Brand</label>
+                    {{ filter_form.brand }}
+                </div>
+                <div class="col-6 col-sm-3">
+                    <label class="form-label small" for="id_min_price">Min price</label>
+                    {{ filter_form.min_price }}
+                </div>
+                <div class="col-6 col-sm-3">
+                    <label class="form-label small" for="id_max_price">Max price</label>
+                    {{ filter_form.max_price }}
+                </div>
+            </div>
+            {% if filter_form.non_field_errors %}
+                <div class="text-danger small mt-2">{{ filter_form.non_field_errors }}</div>
+            {% endif %}
+            <div class="mt-3">
+                <button type="submit" class="btn btn-brand btn-sm">Apply filters</button>
+                <a class="btn btn-link btn-sm" href="{% if active_category %}{% url 'catalog:public_category_detail' active_category.slug %}{% else %}{% url 'catalog:public_product_list' %}{% endif %}">Clear all</a>
+            </div>
         </div>
     </div>
 </form>
 
+{% if active_filters %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        {% for chip in active_filters %}
+            <a href="?{{ chip.remove_querystring }}" class="filter-chip">
+                {{ chip.label }} <i class="bi bi-x"></i>
+            </a>
+        {% endfor %}
+    </div>
+{% endif %}
+
 {% if products %}
-    <div class="row g-3 mb-4">
+    <div class="product-grid mb-4">
         {% for product in products %}
-            <div class="col-6 col-md-4 col-lg-3">{% include "public/_product_card.html" %}</div>
+            {% include "public/_product_card.html" %}
         {% endfor %}
     </div>
     {% if page_obj.has_other_pages %}
-        <nav>
-            <ul class="pagination">
+        <nav aria-label="Product pages">
+            <ul class="zoop-pagination">
                 {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+                    <li>
+                        <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
                     </li>
                 {% endif %}
-                <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span></li>
+                <li class="page-status">Page {{ page_obj.number }} of {{ paginator.num_pages }}</li>
                 {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+                    <li>
+                        <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
                     </li>
                 {% endif %}
             </ul>
         </nav>
     {% endif %}
 {% else %}
-    <p class="text-muted">No products match your filters.</p>
+    <div class="empty-state">
+        <i class="bi bi-basket d-block mb-3"></i>
+        <h2 class="h5">No products match your filters</h2>
+        <p class="text-muted">Try a different search term or clear your filters to see everything available.</p>
+        <a class="btn btn-brand" href="{% if active_category %}{% url 'catalog:public_category_detail' active_category.slug %}{% else %}{% url 'catalog:public_product_list' %}{% endif %}">
+            Clear filters
+        </a>
+    </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById("id_sort").addEventListener("change", function () {
+        document.getElementById("productFilterForm").requestSubmit();
+    });
+</script>
 {% endblock %}

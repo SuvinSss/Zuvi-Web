@@ -31,6 +31,12 @@ def consume_purchase_submission_token(request, submitted_token):
     return secrets.compare_digest(str(expected), str(submitted_token))
 
 
+def _date_input(**extra_attrs):
+    """HTML5 date picker widget (ISO value format for browser compatibility)."""
+    attrs = {"type": "date", **extra_attrs}
+    return forms.DateInput(attrs=attrs, format="%Y-%m-%d")
+
+
 def _apply_bootstrap(form):
     for _name, field in form.fields.items():
         widget = field.widget
@@ -63,8 +69,16 @@ class InventoryMovementForm(forms.Form):
         max_digits=12,
         decimal_places=2,
     )
-    manufacturing_date = forms.DateField(required=False)
-    expiry_date = forms.DateField(required=False)
+    manufacturing_date = forms.DateField(
+        required=False,
+        widget=_date_input(),
+        input_formats=["%Y-%m-%d"],
+    )
+    expiry_date = forms.DateField(
+        required=False,
+        widget=_date_input(),
+        input_formats=["%Y-%m-%d"],
+    )
 
     def __init__(
         self,
@@ -148,8 +162,16 @@ class ProductScopedMovementForm(forms.Form):
         max_digits=12,
         decimal_places=2,
     )
-    manufacturing_date = forms.DateField(required=False)
-    expiry_date = forms.DateField(required=False)
+    manufacturing_date = forms.DateField(
+        required=False,
+        widget=_date_input(),
+        input_formats=["%Y-%m-%d"],
+    )
+    expiry_date = forms.DateField(
+        required=False,
+        widget=_date_input(),
+        input_formats=["%Y-%m-%d"],
+    )
     direction = forms.ChoiceField(
         choices=(("IN", "Adjustment in"), ("OUT", "Adjustment out")),
         required=False,
@@ -183,7 +205,11 @@ class PurchaseEntryCreateForm(forms.Form):
     submission_token = forms.CharField(widget=forms.HiddenInput)
     supplier_name = forms.CharField(max_length=200)
     supplier_invoice_number = forms.CharField(required=False, max_length=100)
-    entry_date = forms.DateField(initial=timezone.localdate)
+    entry_date = forms.DateField(
+        initial=timezone.localdate,
+        widget=_date_input(),
+        input_formats=["%Y-%m-%d"],
+    )
     notes = forms.CharField(required=False, widget=forms.Textarea)
     product = forms.ModelChoiceField(queryset=Product.objects.none())
     quantity = forms.DecimalField(
