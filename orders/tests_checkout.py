@@ -480,3 +480,66 @@ class CheckoutViewIsolationTests(CheckoutTestMixin, TestCase):
         self.assertEqual(order.payment_method, PaymentMethod.PAY_AT_PICKUP)
         store_order = order.store_orders.get()
         self.assertEqual(store_order.pickup_location_id, self.pickup.pk)
+
+
+class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.customer, self.user = create_customer_with_user(
+            user_data={
+                "username": "no-address-customer",
+                "email": "no-address@example.com",
+                "first_name": "No",
+                "last_name": "Address",
+                "phone_number": "9000000401",
+                "password": "secure-password-123",
+            },
+            registration_source=RegistrationSource.WEBSITE,
+        )
+        self.store = self.create_store(name="Gate Mart")
+        self.product = self.create_public_product(store=self.store, name="Gate Item")
+        add_product_to_cart(
+            customer=self.customer,
+            product_code=self.product.product_code,
+            quantity=Decimal("1.000"),
+        )
+        self.preview_url = reverse("orders:checkout_preview")
+        self.dashboard_url = reverse("customers:customer_portal_dashboard")
+
+    def _login(self):
+        self.client.force_login(self.user)
+        self.client.get(self.dashboard_url)
+
+    def test_redirects_to_add_address_when_none_exist(self):
+        self._login()
+        response = self.client.get(self.preview_url)
+        self.assertEqual(response.status_code, 302)
+        expected_prefix = reverse("customers:customer_portal_address_create")
+        self.assertTrue(response.url.startswith(expected_prefix))
+        self.assertIn(f"next={self.preview_url}", response.url)
+        self.assertNotIn("checkout_token", self.client.session)
+
+    def test_can_reach_checkout_once_address_exists(self):
+        create_customer_delivery_address(
+            customer=self.customer,
+            data={
+                "label": AddressLabel.HOME,
+                "recipient_name": "No Address",
+                "phone_number": "9000000401",
+                "line1": "1 Gate Road",
+                "line2": "",
+                "landmark": "",
+                "city": "Bengaluru",
+                "district": "",
+                "state": "Karnataka",
+                "postal_code": "560001",
+                "latitude": "12.971600",
+                "longitude": "77.594600",
+                "delivery_instructions": "",
+                "is_default": True,
+            },
+        )
+        self._login()
+        response = self.client.get(self.preview_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("checkout_token", self.client.session)

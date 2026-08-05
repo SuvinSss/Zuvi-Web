@@ -137,7 +137,7 @@ def public_home_view(request):
         request,
         "public/home.html",
         {
-            "page_title": "Zoop",
+            "page_title": "ZuuVi",
             "featured_products": featured,
             "newest_products": newest,
             "categories": public_categories_queryset()[:12],

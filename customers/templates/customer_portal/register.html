@@ -1,13 +1,18 @@
 {% extends "customer_portal/base.html" %}
 
-{% block title %}Create Account · Zoop{% endblock %}
+{% block title %}Create Account · ZuuVi{% endblock %}
 
 {% block main_class %}p-0{% endblock %}
 
 {% block extra_head %}
 <style>
     .auth-shell {
-        min-height: calc(100vh - 56px - 90px);
+        min-height: auto;
+    }
+    @media (min-width: 992px) {
+        .auth-shell {
+            min-height: calc(100vh - 56px - 90px);
+        }
     }
     .auth-hero {
         background:
@@ -64,14 +69,19 @@
         color: #8a9a8f;
         cursor: pointer;
     }
+    @media (max-width: 575.98px) {
+        .auth-form-side {
+            padding: 2rem 1.25rem;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row g-0 auth-shell">
     <div class="col-lg-5 d-none d-lg-flex flex-column justify-content-center auth-hero">
-        <a href="{% url 'catalog:public_home' %}" class="text-white text-decoration-none mb-4 d-inline-block fw-bold fs-4">Zoop</a>
-        <h1 class="mb-3">Join Zoop and shop smarter</h1>
+        <a href="{% url 'catalog:public_home' %}" class="text-white text-decoration-none mb-4 d-inline-block fw-bold fs-4">ZuuVi</a>
+        <h1 class="mb-3">Join ZuuVi and shop smarter</h1>
         <p class="mb-5" style="color: rgba(255,255,255,0.75); max-width: 26rem;">
             Create your free account to order from local stores, track deliveries, and manage everything in one place.
         </p>
@@ -192,7 +202,7 @@
             </p>
             <p class="mb-0">
                 <a href="{% url 'catalog:public_home' %}" class="text-muted small text-decoration-none">
-                    <i class="bi bi-arrow-left"></i> Back to Zoop shop
+                    <i class="bi bi-arrow-left"></i> Back to ZuuVi shop
                 </a>
             </p>
         </div>

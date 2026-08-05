@@ -1,0 +1,56 @@
+/* ZuuVi — sitewide mobile responsiveness & usability helpers.
+   Loaded on every base template (public, customer, store, management). */
+
+/* Prevent iOS Safari from zooming the page when a form field gets focus
+   (Safari auto-zooms any input/select/textarea with font-size < 16px). */
+input,
+select,
+textarea {
+    font-size: 16px;
+}
+
+/* Comfortable, thumb-friendly tap targets on touch devices. */
+@media (max-width: 991.98px) {
+    .btn {
+        min-height: 2.5rem;
+    }
+    .navbar-toggler {
+        padding: 0.4rem 0.6rem;
+    }
+}
+
+/* Keep the delivery-location trigger readable on narrow phones instead of
+   truncating almost everything. */
+@media (max-width: 380px) {
+    .loc-trigger {
+        max-width: 150px;
+    }
+}
+
+/* Location picker / delivery-gate Leaflet maps: fixed heights are fine on
+   desktop but eat too much of the viewport on small phones. */
+.location-gate-map {
+    height: 220px;
+    width: 100%;
+}
+.location-picker-map {
+    height: 280px;
+    width: 100%;
+    z-index: 0;
+}
+@media (max-width: 420px) {
+    .location-gate-map {
+        height: 170px;
+    }
+    .location-picker-map {
+        height: 200px;
+    }
+}
+
+/* Management / store-portal data tables: keep them legible without forcing
+   horizontal scrolling any more than necessary on small screens. */
+@media (max-width: 575.98px) {
+    .table {
+        font-size: 0.85rem;
+    }
+}

@@ -227,7 +227,7 @@ class PublicCatalogueViewTests(PublicCatalogueTestMixin, TestCase):
         response = self.client.get(reverse("catalog:public_home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Mango Nectar")
-        self.assertContains(response, "Zoop")
+        self.assertContains(response, "ZuuVi")
 
     def test_product_list_shows_required_fields(self):
         response = self.client.get(reverse("catalog:public_product_list"))

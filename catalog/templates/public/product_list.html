@@ -1,6 +1,7 @@
 {% extends "public/base.html" %}
+{% load catalog_extras %}
 
-{% block title %}{{ page_title }} · Zoop{% endblock %}
+{% block title %}{{ page_title }} · ZuuVi{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -15,8 +16,8 @@
         flex: 0 0 auto;
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.4rem 0.9rem;
+        gap: 0.4rem;
+        padding: 0.35rem 0.9rem 0.35rem 0.5rem;
         border-radius: 999px;
         border: 1px solid #dbe4de;
         background: #fff;
@@ -27,6 +28,20 @@
         text-decoration: none;
         transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
+    .category-chip-icon {
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 50%;
+        background: var(--zoop-mist);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex: 0 0 auto;
+    }
+    .category-chip.active .category-chip-icon {
+        background: rgba(255, 255, 255, 0.2);
+    }
     .category-chip:hover {
         border-color: var(--zoop-leaf);
         color: var(--zoop-leaf);
@@ -34,6 +49,28 @@
     .category-chip.active {
         background: var(--zoop-leaf);
         border-color: var(--zoop-leaf);
+        color: #fff;
+    }
+    .category-dropdown-btn {
+        border-radius: 0.6rem;
+        border: 1px solid #dbe4de;
+        background: #fff;
+        color: var(--zoop-ink);
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .category-dropdown-btn:hover,
+    .category-dropdown-btn[aria-expanded="true"] {
+        border-color: var(--zoop-leaf);
+        color: var(--zoop-leaf);
+    }
+    .category-dropdown-menu {
+        max-height: 60vh;
+        overflow-y: auto;
+        width: 100%;
+    }
+    .category-dropdown-menu .dropdown-item.active {
+        background: var(--zoop-leaf);
         color: #fff;
     }
     .search-input-group {
@@ -167,19 +204,49 @@
 </div>
 
 {% if categories %}
-    <div class="category-rail mb-3">
+    <div class="dropdown d-md-none mb-3">
+        <button
+            class="btn category-dropdown-btn dropdown-toggle w-100 text-start"
+            type="button"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+        >
+            {% if active_category %}{{ active_category.name|category_icon }} {{ active_category.name }}{% else %}<i class="bi bi-grid-3x3-gap-fill"></i> All categories{% endif %}
+        </button>
+        <ul class="dropdown-menu category-dropdown-menu">
+            <li>
+                <a
+                    class="dropdown-item {% if not active_category_slug %}active{% endif %}"
+                    href="{% url 'catalog:public_product_list' %}"
+                >
+                    All
+                </a>
+            </li>
+            {% for category in categories %}
+                <li>
+                    <a
+                        class="dropdown-item {% if active_category_slug == category.slug %}active{% endif %}"
+                        href="{% url 'catalog:public_category_detail' category.slug %}"
+                    >
+                        {{ category.name|category_icon }} {{ category.name }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="category-rail mb-3 d-none d-md-flex">
         <a
             href="{% url 'catalog:public_product_list' %}"
             class="category-chip {% if not active_category_slug %}active{% endif %}"
         >
-            All
+            <span class="category-chip-icon"><i class="bi bi-grid-3x3-gap-fill"></i></span> All
         </a>
         {% for category in categories %}
             <a
                 href="{% url 'catalog:public_category_detail' category.slug %}"
                 class="category-chip {% if active_category_slug == category.slug %}active{% endif %}"
             >
-                {{ category.name }}
+                <span class="category-chip-icon">{{ category.name|category_icon }}</span> {{ category.name }}
             </a>
         {% endfor %}
     </div>

@@ -11,11 +11,21 @@
         </div>
     </div>
 </div>
+{% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+    <a href="{% url 'cart:cart_detail' %}" class="cart-bottom-bar d-none" id="cartBottomBar">
+        <span class="cart-bottom-bar-info">
+            <span class="cart-bottom-bar-count" id="cartBottomBarCount">0 items</span>
+            <span class="cart-bottom-bar-total" id="cartBottomBarTotal">₹0</span>
+        </span>
+        <span class="cart-bottom-bar-cta">View Cart <i class="bi bi-arrow-right"></i></span>
+    </a>
+{% endif %}
 <link rel="stylesheet" href="{% static 'cart/css/cart.css' %}">
 <script>
     window.ZOOP_CART_ENABLED = {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}true{% else %}false{% endif %};
     window.ZOOP_CART_MINI_URL = "{% url 'cart:cart_mini' %}";
     window.ZOOP_CART_SUMMARY_URL = "{% url 'cart:cart_summary' %}";
+    window.ZOOP_CART_DETAIL_URL = "{% url 'cart:cart_detail' %}";
     window.ZOOP_CART_UPDATE_URL_TEMPLATE = "{% url 'cart:cart_update_item' 0 %}";
     window.ZOOP_CART_REMOVE_URL_TEMPLATE = "{% url 'cart:cart_remove_item' 0 %}";
 </script>

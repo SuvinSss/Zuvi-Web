@@ -168,6 +168,19 @@
     border-top: 1px solid #eef1ee;
 }
 
+.cart-qty-col {
+    width: 8.5rem;
+}
+
+@media (max-width: 575.98px) {
+    .cart-qty-col {
+        width: 6.5rem;
+    }
+    .mini-cart-line-name {
+        max-width: 9rem;
+    }
+}
+
 /* Toasts */
 .zoop-toast-container {
     position: fixed;
@@ -199,4 +212,57 @@
 .zoop-toast.is-visible {
     opacity: 1;
     transform: translateY(0);
+}
+
+/* Sticky bottom cart bar (Swiggy-style running total while browsing) */
+.cart-bottom-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--zoop-leaf, #2f6b4f);
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 -6px 18px rgba(26, 46, 31, 0.25);
+}
+.cart-bottom-bar:hover,
+.cart-bottom-bar:focus {
+    color: #fff;
+    text-decoration: none;
+}
+.cart-bottom-bar.d-none {
+    display: none !important;
+}
+.cart-bottom-bar-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+.cart-bottom-bar-count {
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+.cart-bottom-bar-total {
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+.cart-bottom-bar-cta {
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+body.has-cart-bottom-bar {
+    padding-bottom: 4.5rem;
+}
+body.has-cart-bottom-bar .zoop-toast-container {
+    bottom: 5.5rem;
 }

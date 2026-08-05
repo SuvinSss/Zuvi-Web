@@ -74,10 +74,26 @@
         });
     }
 
-    function openDrawer() {
-        var el = document.getElementById("miniCartOffcanvas");
-        if (!el || typeof bootstrap === "undefined") return;
-        bootstrap.Offcanvas.getOrCreateInstance(el).show();
+    function updateBottomBar(count, subtotal) {
+        var bar = document.getElementById("cartBottomBar");
+        if (!bar) return;
+        count = parseInt(count, 10) || 0;
+        var onCartPage =
+            window.ZOOP_CART_DETAIL_URL &&
+            window.location.pathname === window.ZOOP_CART_DETAIL_URL;
+        if (count > 0 && !onCartPage) {
+            var countEl = document.getElementById("cartBottomBarCount");
+            var totalEl = document.getElementById("cartBottomBarTotal");
+            if (countEl) countEl.textContent = count + (count === 1 ? " item" : " items");
+            if (totalEl && subtotal !== undefined && subtotal !== null) {
+                totalEl.textContent = "₹" + subtotal;
+            }
+            bar.classList.remove("d-none");
+            document.body.classList.add("has-cart-bottom-bar");
+        } else {
+            bar.classList.add("d-none");
+            document.body.classList.remove("has-cart-bottom-bar");
+        }
     }
 
     function refreshDrawer() {
@@ -159,6 +175,7 @@
 
     function applyMutationResult(originEl, data) {
         updateBadge(data.item_count);
+        updateBottomBar(data.item_count, data.preview_subtotal);
 
         if (originEl.closest("#cartContent")) {
             refreshCartContent();
@@ -276,7 +293,7 @@
                 if (result.data.ok) {
                     renderStepperInto(inner, result.data.cart_item_id, result.data.quantity);
                     updateBadge(result.data.item_count);
-                    openDrawer();
+                    updateBottomBar(result.data.item_count, result.data.preview_subtotal);
                 } else if (result.data.login_required) {
                     window.location.href = result.data.redirect;
                 } else {
@@ -299,6 +316,7 @@
             })
             .then(function (data) {
                 updateBadge(data.item_count);
+                updateBottomBar(data.item_count, data.preview_subtotal);
                 var byProductCode = {};
                 (data.lines || []).forEach(function (line) {
                     byProductCode[line.product_code] = line;

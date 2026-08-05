@@ -23,7 +23,6 @@ from .services import (
     add_product_to_cart,
     build_cart_view_context,
     clear_cart,
-    get_cart_item_count,
     get_portal_cart_item_or_404,
     list_cart_lines_summary,
     remove_cart_item,
@@ -129,17 +128,20 @@ def cart_summary_view(request):
     Degrades to an empty cart for anonymous/non-customer visitors instead of
     redirecting to login, since this is polled opportunistically.
     """
+    empty_response = {"item_count": 0, "preview_subtotal": "0.00", "lines": []}
     if not request.user.is_authenticated:
-        return JsonResponse({"item_count": 0, "lines": []})
+        return JsonResponse(empty_response)
 
     customer, _denial = resolve_customer_portal_profile(request.user)
     if customer is None:
-        return JsonResponse({"item_count": 0, "lines": []})
+        return JsonResponse(empty_response)
 
     lines = list_cart_lines_summary(customer)
+    context = build_cart_view_context(customer)
     return JsonResponse(
         {
-            "item_count": len(lines),
+            "item_count": context["item_count"],
+            "preview_subtotal": str(context["preview_subtotal"]),
             "lines": [
                 {
                     "product_code": product_code,
@@ -210,15 +212,11 @@ def cart_add_item_view(request, product_code):
         return _product_detail_redirect(product_code=product_code)
 
     if ajax:
-        return JsonResponse(
-            {
-                "ok": True,
-                "item_count": get_cart_item_count(customer),
-                "cart_item_id": item.pk,
-                "quantity": str(item.quantity),
-                "product_code": product_code,
-            }
-        )
+        data = _ajax_cart_state(customer, item_pk=item.pk)
+        data["cart_item_id"] = item.pk
+        data["quantity"] = str(item.quantity)
+        data["product_code"] = product_code
+        return JsonResponse(data)
 
     messages.success(
         request,

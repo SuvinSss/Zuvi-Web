@@ -126,6 +126,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Uploaded files (store images, etc.). Served by Django only when DEBUG=True.
 MEDIA_URL = '/media/'

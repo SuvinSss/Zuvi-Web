@@ -34,24 +34,24 @@
         </div>
     {% endif %}
 
-    {% for group in store_groups %}
-        <div class="card shadow-sm mb-3">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h2 class="h6 mb-0">{{ group.store_name }}</h2>
-                <span class="small text-muted">Subtotal: ₹{{ group.items_subtotal }}</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Product</th>
-                                <th class="text-end">Final price</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Item subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0">Order items</h2>
+            <span class="small text-muted">Subtotal: ₹{{ items_subtotal }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th class="text-end">Final price</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Item subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in store_groups %}
                             {% for row in group.items %}
                                 <tr {% if not row.is_available or row.line_total is None %}class="table-danger"{% endif %}>
                                     <td>
@@ -70,12 +70,12 @@
                                     </td>
                                 </tr>
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-    {% endfor %}
+    </div>
 
     <form method="post" action="{% url 'orders:checkout_place' %}" id="checkout-form">
         {% csrf_token %}

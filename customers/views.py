@@ -614,7 +614,9 @@ def customer_portal_address_create_view(request):
             data=form.cleaned_address_data(),
         )
         messages.success(request, "Delivery address added.")
-        return redirect("customers:customer_portal_address_list")
+        return _safe_customer_redirect(
+            request, fallback_name="customers:customer_portal_address_list"
+        )
 
     return render(
         request,

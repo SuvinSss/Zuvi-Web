@@ -1,9 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ page_title|default:"Zoop" }}{% endblock %}</title>
+    <title>{% block title %}{{ page_title|default:"ZuuVi" }}{% endblock %}</title>
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet"
@@ -28,8 +29,143 @@
             color: var(--zoop-ink);
             min-height: 100vh;
         }
-        .shop-nav {
-            background: rgba(26, 46, 31, 0.94);
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 1040;
+            background: #fff;
+            border-bottom: 1px solid var(--zoop-mist, #eef3ee);
+            box-shadow: 0 2px 10px rgba(26, 46, 31, 0.04);
+        }
+        .app-header .container {
+            padding-top: 0.7rem;
+            padding-bottom: 0.7rem;
+        }
+        .app-header-row1 {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+        .brand-mark {
+            font-weight: 800;
+            font-size: 1.3rem;
+            letter-spacing: -0.02em;
+            color: var(--zoop-leaf);
+            text-decoration: none;
+            flex: 0 0 auto;
+        }
+        .loc-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: 1px solid var(--zoop-mist, #eef3ee);
+            background: var(--zoop-mist);
+            color: var(--zoop-ink);
+            border-radius: 0.65rem;
+            padding: 0.4rem 0.7rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            max-width: 260px;
+        }
+        .loc-trigger span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .loc-trigger:hover {
+            border-color: var(--zoop-leaf);
+        }
+        .loc-trigger .bi-geo-alt-fill {
+            color: var(--zoop-leaf);
+        }
+        .app-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        .icon-btn {
+            position: relative;
+            width: 2.4rem;
+            height: 2.4rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: 1px solid var(--zoop-mist, #eef3ee);
+            background: var(--zoop-mist);
+            color: var(--zoop-ink);
+            font-size: 1.05rem;
+        }
+        .icon-btn:hover {
+            border-color: var(--zoop-leaf);
+            color: var(--zoop-leaf);
+        }
+        .icon-btn.dropdown-toggle::after {
+            display: none;
+        }
+        .navbar-toggler-custom {
+            width: 2.4rem;
+            height: 2.4rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.6rem;
+            border: 1px solid var(--zoop-mist, #eef3ee);
+            background: #fff;
+            color: var(--zoop-ink);
+            font-size: 1.2rem;
+        }
+        .app-header-row2 {
+            margin-top: 0.65rem;
+        }
+        .header-search {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .header-search .bi-search {
+            position: absolute;
+            left: 0.9rem;
+            color: #8a9a8f;
+        }
+        .header-search input {
+            width: 100%;
+            border: 1px solid var(--zoop-mist, #eef3ee);
+            background: var(--zoop-mist);
+            border-radius: 0.7rem;
+            padding: 0.6rem 0.8rem 0.6rem 2.4rem;
+            font-size: 0.9rem;
+            color: var(--zoop-ink);
+        }
+        .header-search input:focus {
+            outline: none;
+            border-color: var(--zoop-leaf);
+            background: #fff;
+        }
+        .mobile-nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+            border-top: 1px solid var(--zoop-mist, #eef3ee);
+        }
+        .mobile-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.2rem;
+            border: 0;
+            background: transparent;
+            color: var(--zoop-ink);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.92rem;
+            text-align: left;
+        }
+        .mobile-nav-link .bi-geo-alt-fill {
+            color: var(--zoop-leaf);
         }
         .product-card {
             border: 0;
@@ -72,8 +208,8 @@
         .product-badge-discount {
             position: absolute;
             top: 0.5rem;
-            left: 0.5rem;
-            background: var(--zoop-leaf);
+            right: 0.5rem;
+            background: #c8534b;
             color: #fff;
             font-size: 0.7rem;
             font-weight: 700;
@@ -150,6 +286,38 @@
             .product-card-name { font-size: 0.82rem; }
             .price-now { font-size: 0.95rem; }
         }
+        .pd-hero-img {
+            width: 100%;
+            max-height: 420px;
+            object-fit: cover;
+        }
+        .pd-thumb {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+        }
+        .pd-placeholder {
+            height: 320px;
+            background: #e7eee9;
+        }
+        .pd-qty-wrap {
+            max-width: 10rem;
+        }
+        @media (max-width: 575.98px) {
+            .pd-hero-img {
+                max-height: 260px;
+            }
+            .pd-placeholder {
+                height: 220px;
+            }
+            .pd-thumb {
+                width: 56px;
+                height: 56px;
+            }
+            .pd-qty-wrap {
+                max-width: none;
+            }
+        }
         .btn-brand {
             background: var(--zoop-leaf);
             border-color: var(--zoop-leaf);
@@ -174,93 +342,89 @@
             letter-spacing: -0.04em;
             color: var(--zoop-ink);
         }
-        .location-pill {
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            border-radius: 999px;
-            color: #fff;
-            font-size: 0.85rem;
-            padding: 0.3rem 0.75rem;
-            max-width: 220px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .location-pill:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
         .location-gate-icon {
             font-size: 2.5rem;
             color: var(--zoop-leaf);
         }
     </style>
+    <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark shop-nav mb-4">
+<header class="app-header mb-4">
     <div class="container">
-        <a class="navbar-brand fw-semibold" href="{% url 'catalog:public_home' %}">Zoop</a>
-        <button
-            class="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#publicNav"
-            aria-controls="publicNav"
-            aria-expanded="false"
-            aria-label="Toggle navigation"
-        >
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
-            <button
-                type="button"
-                class="btn btn-outline-light btn-sm cart-nav-btn order-lg-2"
-                data-bs-toggle="offcanvas"
-                data-bs-target="#miniCartOffcanvas"
-                aria-controls="miniCartOffcanvas"
-                aria-label="Open cart"
-            >
-                <i class="bi bi-cart3"></i>
-                <span class="cart-badge {% if not cart_item_count %}d-none{% endif %}">{{ cart_item_count }}</span>
+        <div class="app-header-row1">
+            <a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a>
+            <button type="button" class="loc-trigger d-none d-md-inline-flex" data-open-location-gate>
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select delivery location{% endif %}</span>
+                <i class="bi bi-chevron-down small"></i>
             </button>
-        {% endif %}
-        <button
-            type="button"
-            class="btn location-pill d-none d-lg-inline-flex align-items-center gap-1 order-lg-1 me-lg-2"
-            data-open-location-gate
-        >
-            <i class="bi bi-geo-alt-fill"></i>
-            <span>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select location{% endif %}</span>
-        </button>
-        <div class="collapse navbar-collapse" id="publicNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'catalog:public_home' %}">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'catalog:public_product_list' %}">Products</a>
-                </li>
-                <li class="nav-item d-lg-none">
-                    <button type="button" class="nav-link btn btn-link text-start" data-open-location-gate>
-                        <i class="bi bi-geo-alt-fill"></i>
-                        {% if delivery_location %}{{ delivery_location.label }}{% else %}Select location{% endif %}
-                    </button>
-                </li>
-            </ul>
-            <div class="d-flex flex-wrap align-items-center gap-2 ms-lg-auto">
+            <div class="app-header-actions">
                 {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'cart:cart_detail' %}">Cart</a>
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'orders:customer_order_list' %}">Orders</a>
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'customers:customer_portal_dashboard' %}">Account</a>
+                    <button
+                        type="button"
+                        class="icon-btn cart-nav-btn"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#miniCartOffcanvas"
+                        aria-controls="miniCartOffcanvas"
+                        aria-label="Open cart"
+                    >
+                        <i class="bi bi-cart3"></i>
+                        <span class="cart-badge {% if not cart_item_count %}d-none{% endif %}">{{ cart_item_count }}</span>
+                    </button>
+                    <div class="dropdown d-none d-lg-block">
+                        <button class="icon-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                            <i class="bi bi-person"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'orders:customer_order_list' %}">Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'customers:customer_portal_dashboard' %}">Account</a></li>
+                        </ul>
+                    </div>
                 {% else %}
-                    <a class="btn btn-light btn-sm" href="{% url 'customers:customer_otp_start' %}">
-                        <i class="bi bi-phone"></i> Login / Sign up
+                    <a class="btn btn-brand btn-sm d-none d-md-inline-flex" href="{% url 'customers:customer_otp_start' %}">
+                        <i class="bi bi-phone"></i> Login
                     </a>
+                {% endif %}
+                <button
+                    class="navbar-toggler-custom d-lg-none"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#publicNav"
+                    aria-controls="publicNav"
+                    aria-expanded="false"
+                    aria-label="Toggle menu"
+                >
+                    <i class="bi bi-list"></i>
+                </button>
+            </div>
+        </div>
+        <div class="app-header-row2">
+            <form class="header-search" method="get" action="{% url 'catalog:public_product_list' %}" role="search">
+                <i class="bi bi-search"></i>
+                <input type="search" name="q" placeholder='Search &quot;milk&quot;, &quot;bread&quot;, &quot;snacks&quot;…' value="{{ request.GET.q|default:'' }}" aria-label="Search products">
+            </form>
+        </div>
+        <div class="collapse d-lg-none" id="publicNav">
+            <div class="mobile-nav-links">
+                <button type="button" class="mobile-nav-link" data-open-location-gate>
+                    <i class="bi bi-geo-alt-fill"></i>
+                    {% if delivery_location %}{{ delivery_location.label }}{% else %}Select delivery location{% endif %}
+                </button>
+                <a class="mobile-nav-link" href="{% url 'catalog:public_home' %}"><i class="bi bi-house"></i> Home</a>
+                <a class="mobile-nav-link" href="{% url 'catalog:public_product_list' %}"><i class="bi bi-grid"></i> Products</a>
+                {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+                    <a class="mobile-nav-link" href="{% url 'cart:cart_detail' %}"><i class="bi bi-cart3"></i> Cart</a>
+                    <a class="mobile-nav-link" href="{% url 'orders:customer_order_list' %}"><i class="bi bi-receipt"></i> Orders</a>
+                    <a class="mobile-nav-link" href="{% url 'customers:customer_portal_dashboard' %}"><i class="bi bi-person"></i> Account</a>
+                {% else %}
+                    <a class="mobile-nav-link" href="{% url 'customers:customer_otp_start' %}"><i class="bi bi-phone"></i> Login / Sign up</a>
                 {% endif %}
             </div>
         </div>
     </div>
-</nav>
+</header>
 <main class="container pb-5">
     {% if messages %}
         {% for message in messages %}

@@ -10,6 +10,7 @@
         <a href="{% url 'catalog:product_list' %}" class="btn btn-outline-secondary btn-sm">Products</a>
     </div>
 </div>
+<div class="table-responsive">
 <table class="table table-bordered table-striped">
     <thead class="table-light"><tr><th>Name</th><th>Active</th><th></th></tr></thead>
     <tbody>
@@ -24,4 +25,5 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endblock %}

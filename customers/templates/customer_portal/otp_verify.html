@@ -1,13 +1,18 @@
 {% extends "customer_portal/base.html" %}
 
-{% block title %}Verify OTP · Zoop{% endblock %}
+{% block title %}Verify OTP · ZuuVi{% endblock %}
 
 {% block main_class %}p-0{% endblock %}
 
 {% block extra_head %}
 <style>
     .auth-shell {
-        min-height: calc(100vh - 56px - 90px);
+        min-height: auto;
+    }
+    @media (min-width: 992px) {
+        .auth-shell {
+            min-height: calc(100vh - 56px - 90px);
+        }
     }
     .auth-form-side {
         padding: 4rem 2rem;
@@ -38,6 +43,21 @@
         outline: none;
         border-color: var(--zoop-leaf);
         box-shadow: 0 0 0 0.2rem rgba(47, 107, 79, 0.15);
+    }
+    @media (max-width: 575.98px) {
+        .auth-form-side {
+            padding: 2.5rem 1.25rem;
+        }
+    }
+    @media (max-width: 380px) {
+        .otp-boxes {
+            gap: 0.5rem;
+        }
+        .otp-boxes input {
+            width: 2.6rem;
+            height: 3rem;
+            font-size: 1.4rem;
+        }
     }
 </style>
 {% endblock %}
