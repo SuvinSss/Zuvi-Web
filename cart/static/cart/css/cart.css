@@ -1,0 +1,202 @@
+/* Cart badge (navbar, always visible even when the menu is collapsed) */
+.cart-nav-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cart-badge {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.4rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--zoop-sun, #e8b86d);
+    color: #1a2e1f;
+    font-size: 0.65rem;
+    font-weight: 800;
+    line-height: 1.1rem;
+    text-align: center;
+}
+.cart-badge.d-none {
+    display: none !important;
+}
+
+/* Quantity steppers (product card, product detail, cart page, mini-cart) */
+.qty-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    border: 1.5px solid var(--zoop-leaf, #2f6b4f);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #fff;
+}
+.qty-stepper .qty-btn {
+    border: 0;
+    background: transparent;
+    color: var(--zoop-leaf, #2f6b4f);
+    font-weight: 700;
+    line-height: 1;
+    width: 1.9rem;
+    height: 1.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+.qty-stepper .qty-btn:hover:not(:disabled) {
+    background: var(--zoop-leaf, #2f6b4f);
+    color: #fff;
+}
+.qty-stepper .qty-btn:disabled {
+    opacity: 0.5;
+}
+.qty-stepper .qty-value {
+    min-width: 1.6rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--zoop-ink, #1a2e1f);
+}
+.qty-stepper.is-busy {
+    opacity: 0.7;
+}
+.qty-stepper-card {
+    box-shadow: 0 2px 8px rgba(26, 46, 31, 0.12);
+}
+
+/* Quantity picker on the product detail "before add" form */
+.qty-picker-control {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #dbe4de;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+.qty-picker-control input[type="number"] {
+    border: 0;
+    border-left: 1px solid #dbe4de;
+    border-right: 1px solid #dbe4de;
+    text-align: center;
+    width: 3.5rem;
+    -moz-appearance: textfield;
+}
+.qty-picker-control input[type="number"]::-webkit-inner-spin-button,
+.qty-picker-control input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.qty-picker-control .qty-btn {
+    border: 0;
+    background: #fff;
+    color: var(--zoop-ink, #1a2e1f);
+    width: 2.2rem;
+    height: 2.2rem;
+    font-weight: 700;
+}
+.qty-picker-control .qty-btn:hover {
+    background: var(--zoop-mist, #f3f7f4);
+}
+
+/* Mini-cart drawer */
+.mini-cart-offcanvas {
+    width: min(420px, 100vw);
+}
+.mini-cart-empty-icon {
+    font-size: 2.5rem;
+    color: #c8d3cb;
+}
+.mini-cart-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #eef1ee;
+}
+.mini-cart-line-info {
+    min-width: 0;
+}
+.mini-cart-line-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--zoop-ink, #1a2e1f);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 15rem;
+}
+.mini-cart-line-name:hover {
+    color: var(--zoop-leaf, #2f6b4f);
+}
+.mini-cart-line-price {
+    font-size: 0.78rem;
+    color: #8a9a8f;
+}
+.mini-cart-line-total {
+    color: var(--zoop-ink, #1a2e1f);
+    font-weight: 600;
+}
+.mini-cart-line-warning {
+    font-size: 0.72rem;
+    color: #c8534b;
+    margin-top: 0.15rem;
+}
+.mini-cart-line-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+.mini-cart-remove {
+    border: 0;
+    background: transparent;
+    color: #adb5bd;
+    padding: 0.25rem;
+}
+.mini-cart-remove:hover {
+    color: #c8534b;
+}
+.mini-cart-footer {
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid #eef1ee;
+}
+
+/* Toasts */
+.zoop-toast-container {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+    padding: 0 1rem;
+    pointer-events: none;
+}
+.zoop-toast {
+    background: #1a2e1f;
+    color: #fff;
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: 26rem;
+    text-align: center;
+}
+.zoop-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}

@@ -38,7 +38,6 @@
         {% endif %}
     </div>
     <div class="col-lg-6">
-        <div class="small text-muted mb-1">{{ product.store_name }}</div>
         <h1 class="h2 mb-2">{{ product.name }}</h1>
         {% if product.brand_name %}<div class="mb-2">Brand: {{ product.brand_name }}</div>{% endif %}
         <div class="mb-2 text-muted">{{ product.category_name }} · {{ product.unit_label }}</div>
@@ -70,13 +69,36 @@
             <div class="card-body">
                 <h2 class="h6">Add to cart</h2>
                 {% if can_add_to_cart %}
-                    <form method="post" action="{% url 'cart:cart_add_item' product.product_code %}">
+                    <form
+                        method="post"
+                        action="{% url 'cart:cart_add_item' product.product_code %}"
+                        class="product-add-form"
+                        data-product-code="{{ product.product_code }}"
+                    >
                         {% csrf_token %}
-                        <div class="mb-3" style="max-width:10rem">
-                            <label class="form-label" for="id_quantity">Quantity</label>
-                            {{ add_to_cart_form.quantity }}
+                        <div class="product-add-inner">
+                            <div class="mb-3" style="max-width:10rem">
+                                <label class="form-label small text-muted mb-1" for="id_quantity">Quantity</label>
+                                <div class="qty-picker-control" data-qty-picker>
+                                    <button type="button" class="qty-btn" data-picker-step="dec" aria-label="Decrease quantity">&minus;</button>
+                                    {{ add_to_cart_form.quantity }}
+                                    <button type="button" class="qty-btn" data-picker-step="inc" aria-label="Increase quantity">+</button>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-dark">Add to cart</button>
                         </div>
-                        <button type="submit" class="btn btn-dark">Add to cart</button>
+                    </form>
+                    <form
+                        method="post"
+                        action="{% url 'cart:cart_add_item' product.product_code %}"
+                        class="buy-now-form mt-2"
+                    >
+                        {% csrf_token %}
+                        <input type="hidden" name="quantity" value="1">
+                        <input type="hidden" name="redirect_to" value="checkout">
+                        <button type="submit" class="btn btn-outline-dark w-100">
+                            <i class="bi bi-lightning-charge-fill"></i> Buy it now
+                        </button>
                     </form>
                 {% else %}
                     <p class="text-muted mb-2">Sign in with a customer account to add this product to your cart.</p>

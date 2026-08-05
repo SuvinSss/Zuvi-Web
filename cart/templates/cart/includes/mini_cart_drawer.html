@@ -1,0 +1,22 @@
+{% load static %}
+<div class="offcanvas offcanvas-end mini-cart-offcanvas" tabindex="-1" id="miniCartOffcanvas" aria-labelledby="miniCartOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h2 class="offcanvas-title h6 mb-0" id="miniCartOffcanvasLabel">Your cart</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column" id="miniCartBody">
+        <div class="mini-cart-loading text-center text-muted py-5">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <div class="small mt-2">Loading your cart…</div>
+        </div>
+    </div>
+</div>
+<link rel="stylesheet" href="{% static 'cart/css/cart.css' %}">
+<script>
+    window.ZOOP_CART_ENABLED = {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}true{% else %}false{% endif %};
+    window.ZOOP_CART_MINI_URL = "{% url 'cart:cart_mini' %}";
+    window.ZOOP_CART_SUMMARY_URL = "{% url 'cart:cart_summary' %}";
+    window.ZOOP_CART_UPDATE_URL_TEMPLATE = "{% url 'cart:cart_update_item' 0 %}";
+    window.ZOOP_CART_REMOVE_URL_TEMPLATE = "{% url 'cart:cart_remove_item' 0 %}";
+</script>
+<script src="{% static 'cart/js/cart.js' %}"></script>

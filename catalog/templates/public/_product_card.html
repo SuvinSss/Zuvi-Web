@@ -20,11 +20,6 @@
         {% endif %}
     </div>
     <div class="card-body d-flex flex-column">
-        {% if product.store_name %}
-            <div class="product-store-name text-truncate">
-                <i class="bi bi-shop"></i> {{ product.store_name }}
-            </div>
-        {% endif %}
         <h2 class="product-card-name">
             <a href="{% url 'catalog:public_product_detail' product.slug %}" class="stretched-link">{{ product.name }}</a>
         </h2>
@@ -39,12 +34,19 @@
         </div>
     </div>
     {% if product.stock_label != "Out of stock" %}
-        <form method="post" action="{% url 'cart:cart_add_item' product.product_code %}" class="product-add-form">
+        <form
+            method="post"
+            action="{% url 'cart:cart_add_item' product.product_code %}"
+            class="product-add-form"
+            data-product-code="{{ product.product_code }}"
+        >
             {% csrf_token %}
-            <input type="hidden" name="quantity" value="1">
-            <button type="submit" class="btn-add-product">
-                <i class="bi bi-plus-lg"></i> Add
-            </button>
+            <div class="product-add-inner">
+                <input type="hidden" name="quantity" value="1">
+                <button type="submit" class="btn-add-product">
+                    <i class="bi bi-plus-lg"></i> Add
+                </button>
+            </div>
         </form>
     {% endif %}
 </div>

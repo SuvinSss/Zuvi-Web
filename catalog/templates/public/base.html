@@ -105,13 +105,6 @@
         .product-card .card-body {
             padding: 0.75rem 0.85rem 0.9rem;
         }
-        .product-store-name {
-            font-size: 0.72rem;
-            color: #8a9a8f;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-            margin-bottom: 0.15rem;
-        }
         .product-card-name {
             font-size: 0.9rem;
             font-weight: 600;
@@ -218,6 +211,19 @@
         >
             <span class="navbar-toggler-icon"></span>
         </button>
+        {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+            <button
+                type="button"
+                class="btn btn-outline-light btn-sm cart-nav-btn order-lg-2"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#miniCartOffcanvas"
+                aria-controls="miniCartOffcanvas"
+                aria-label="Open cart"
+            >
+                <i class="bi bi-cart3"></i>
+                <span class="cart-badge {% if not cart_item_count %}d-none{% endif %}">{{ cart_item_count }}</span>
+            </button>
+        {% endif %}
         <button
             type="button"
             class="btn location-pill d-none d-lg-inline-flex align-items-center gap-1 order-lg-1 me-lg-2"
@@ -269,6 +275,7 @@
     crossorigin="anonymous"
 ></script>
 {% include "locations/includes/location_gate.html" %}
+{% include "cart/includes/mini_cart_drawer.html" %}
 {% block extra_js %}{% endblock %}
 </body>
 </html>

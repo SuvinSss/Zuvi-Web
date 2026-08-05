@@ -44,6 +44,21 @@ def get_cart_item_count(customer):
     return CartItem.objects.filter(cart__customer_id=customer.pk).count()
 
 
+def list_cart_lines_summary(customer):
+    """
+    Lightweight (product_code, cart_item_id, quantity) list for ``customer``.
+
+    Used to hydrate "already in cart" state on storefront pages without the
+    full store-grouping/availability query that ``build_cart_view_context``
+    performs.
+    """
+    return list(
+        portal_cart_items_queryset(customer)
+        .order_by("pk")
+        .values_list("product__product_code", "pk", "quantity")
+    )
+
+
 def get_portal_cart_item_or_404(customer, pk):
     """Return a CartItem owned by the authenticated customer, or 404."""
     return get_object_or_404(portal_cart_items_queryset(customer), pk=pk)
@@ -297,6 +312,7 @@ def build_cart_view_context(customer):
     if cart is None:
         return {
             "cart": None,
+            "items": [],
             "store_groups": [],
             "item_count": 0,
             "preview_subtotal": Decimal("0.00"),
@@ -342,6 +358,7 @@ def build_cart_view_context(customer):
 
     return {
         "cart": cart,
+        "items": presentations,
         "store_groups": store_groups,
         "item_count": len(presentations),
         "preview_subtotal": preview_subtotal.quantize(Decimal("0.01")),
