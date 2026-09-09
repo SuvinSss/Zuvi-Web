@@ -179,9 +179,14 @@ def update_cart_item_quantity(*, customer, cart_item_id, quantity):
         raise ValidationError({"customer": "A customer profile is required."})
 
     quantity = _parse_positive_quantity(quantity)
+    # Lock only the CartItem row (``of=("self",)``). ``portal_cart_items_queryset``
+    # LEFT OUTER JOINs the nullable ``product__brand`` relation, and PostgreSQL
+    # refuses ``FOR UPDATE`` on the nullable side of an outer join. We only need
+    # to serialise concurrent writes to this line; the product row is locked
+    # separately by ``_lock_public_product`` below.
     item = (
         portal_cart_items_queryset(customer)
-        .select_for_update()
+        .select_for_update(of=("self",))
         .filter(pk=cart_item_id)
         .first()
     )
@@ -204,9 +209,11 @@ def remove_cart_item(*, customer, cart_item_id):
     if not isinstance(customer, Customer):
         raise ValidationError({"customer": "A customer profile is required."})
 
+    # Lock only the CartItem row — see ``update_cart_item_quantity`` for why the
+    # joined queryset cannot take a plain ``FOR UPDATE`` on PostgreSQL.
     item = (
         portal_cart_items_queryset(customer)
-        .select_for_update()
+        .select_for_update(of=("self",))
         .filter(pk=cart_item_id)
         .first()
     )
