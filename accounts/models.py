@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from .managers import UserManager
+
 
 class Role(models.TextChoices):
     SUPER_ADMIN = "SUPER_ADMIN", "Super Admin"
@@ -26,6 +28,8 @@ class User(AbstractUser):
         default=Role.CUSTOMER,
     )
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = UserManager()
 
     class Meta:
         permissions = (

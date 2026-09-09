@@ -48,6 +48,12 @@ class StoreStatusHistoryInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
@@ -149,6 +155,11 @@ class StoreUserAdmin(admin.ModelAdmin):
 
 @admin.register(StoreStatusHistory)
 class StoreStatusHistoryAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "store",
         "old_status",

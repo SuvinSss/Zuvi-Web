@@ -63,6 +63,12 @@ class ProductStatusHistoryInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 class ProductPriceHistoryInline(admin.TabularInline):
     model = ProductPriceHistory
@@ -85,6 +91,12 @@ class ProductPriceHistoryInline(admin.TabularInline):
     fields = readonly_fields
 
     def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -175,6 +187,11 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductStatusHistory)
 class ProductStatusHistoryAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "product",
         "old_status",
@@ -204,6 +221,11 @@ class ProductStatusHistoryAdmin(admin.ModelAdmin):
 
 @admin.register(ProductPriceHistory)
 class ProductPriceHistoryAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "product",
         "store_price",
