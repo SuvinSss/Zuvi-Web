@@ -12,20 +12,31 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+import environ
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Environment configuration (django-environ). In local development this reads
+# BASE_DIR/.env; in CI and production the real environment variables are set
+# and no .env file is present.
+env = environ.Env(
+    DJANGO_DEBUG=(bool, False),
+    DJANGO_ALLOWED_HOSTS=(list, []),
+    DB_CONN_MAX_AGE=(int, 0),
+    DB_SSL_REQUIRE=(bool, False),
+)
+environ.Env.read_env(BASE_DIR / '.env')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-m*4yqgk#j$#p07x$@y%6z^_#$%_p4b+_fi!vty(*lt@(+((t2q'
+# SECURITY WARNING: the secret key is supplied only via the environment.
+# A missing DJANGO_SECRET_KEY raises ImproperlyConfigured at startup (fail fast).
+SECRET_KEY = env('DJANGO_SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# SECURITY WARNING: don't run with debug turned on in production. Defaults to False.
+DEBUG = env('DJANGO_DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env('DJANGO_ALLOWED_HOSTS')
 
 
 # Application definition
@@ -82,13 +93,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# Connection parameters come from DATABASE_URL, e.g.
+#   postgres://USER:PASSWORD@HOST:5432/NAME
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        **env.db('DATABASE_URL'),
+        'CONN_MAX_AGE': env('DB_CONN_MAX_AGE'),
+        'CONN_HEALTH_CHECKS': True,
     }
 }
+
+if env('DB_SSL_REQUIRE'):
+    DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 
 
 # Password validation
