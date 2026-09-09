@@ -1,6 +1,11 @@
 # Virtual environment
 venv/
+.venv/
+
+# Local environment files (never commit real secrets)
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/

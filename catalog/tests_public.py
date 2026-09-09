@@ -236,7 +236,9 @@ class PublicCatalogueViewTests(PublicCatalogueTestMixin, TestCase):
         self.assertContains(response, "FreshCo")
         self.assertContains(response, "Beverages")
         self.assertContains(response, "500 ML")
-        self.assertContains(response, self.product.store.name)
+        # Unified ZuuVi storefront: the fulfilling merchant/store is internal and
+        # must not be surfaced on public product cards.
+        self.assertNotContains(response, self.product.store.name)
         self.assertContains(response, "10% off")
         self.assertContains(response, f"₹{self.product.final_price}")
 
@@ -248,7 +250,9 @@ class PublicCatalogueViewTests(PublicCatalogueTestMixin, TestCase):
         self.assertContains(response, "Mango Nectar")
         self.assertContains(response, "Add to cart")
         self.assertContains(response, "organic")
-        self.assertContains(response, self.product.store.name)
+        # Unified ZuuVi storefront: the fulfilling merchant/store is internal and
+        # must not be surfaced on the public product-detail page.
+        self.assertNotContains(response, self.product.store.name)
 
     def test_category_page_filters_products(self):
         other = self.create_public_product(
