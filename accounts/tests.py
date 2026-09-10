@@ -31,6 +31,8 @@ class UserModelTests(TestCase):
         )
         self.assertTrue(admin.is_staff)
         self.assertTrue(admin.is_superuser)
+        self.assertEqual(admin.role, Role.SUPER_ADMIN)
+        self.assertTrue(admin.check_password("secure-password-123"))
 
     def test_password_is_hashed(self):
         plain = "secure-password-123"
@@ -121,7 +123,12 @@ class UserAdminCustomerInvariantTests(TestCase):
             },
             registration_source=RegistrationSource.WEBSITE,
         )
-        request = type("Request", (), {"user": None})()
+        actor = User.objects.create_superuser(
+            username="invariant-super",
+            email="invariant-super@example.com",
+            password="secure-password-123",
+        )
+        request = type("Request", (), {"user": actor})()
         admin = UserAdmin(User, AdminSite())
 
         user.role = Role.ADMIN

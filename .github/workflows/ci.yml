@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, uat]
 
 permissions:
   contents: read
@@ -53,6 +53,57 @@ jobs:
       - name: Django system check
         run: python manage.py check
 
+      - name: Production-style deployment check (synthetic configuration)
+        env:
+          DJANGO_ENVIRONMENT: production
+          DJANGO_DEBUG: "False"
+          DJANGO_ALLOWED_HOSTS: ci.example.test,healthcheck.railway.app
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://ci.example.test
+          DJANGO_TRUST_PROXY_SSL_HEADER: "True"
+          DJANGO_SECURE_SSL_REDIRECT: "True"
+          DJANGO_SESSION_COOKIE_SECURE: "True"
+          DJANGO_CSRF_COOKIE_SECURE: "True"
+          DJANGO_SECURE_HSTS_SECONDS: "0"
+          MEDIA_STORAGE_BACKEND: s3
+          MEDIA_BUCKET_NAME: example-ci-media
+          MEDIA_REGION_NAME: ap-south-1
+          MEDIA_ACCESS_KEY_ID: EXAMPLE_ONLY
+          MEDIA_SECRET_ACCESS_KEY: EXAMPLE_ONLY
+        run: |
+          python - <<'PY'
+          import os
+          import secrets
+          import subprocess
+          import sys
+
+          # Ephemeral secret for this process and its child only; never printed.
+          os.environ['DJANGO_SECRET_KEY'] = secrets.token_urlsafe(64)
+          os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+          # DATABASE_URL remains the job's local PostgreSQL CI service URL.
+          subprocess.run([sys.executable, 'manage.py', 'check', '--deploy'], check=True)
+
+          import django
+          django.setup()
+          from django.conf import settings
+          from django.core import checks
+
+          # The command above prints all diagnostics. Permit only the intentional
+          # zero-HSTS warning; Django's default ERROR threshold alone is too lax.
+          unexpected = [
+              issue for issue in checks.run_checks(include_deployment_checks=True)
+              if issue.level >= checks.WARNING and not (
+                  issue.id == 'security.W004' and settings.SECURE_HSTS_SECONDS == 0
+              )
+          ]
+          if unexpected:
+              raise SystemExit('\n'.join(str(issue) for issue in unexpected))
+          PY
+
+      - name: Isolated static build
+        env:
+          DJANGO_STATIC_ROOT: ${{ runner.temp }}/zuvi-static
+        run: python scripts/collectstatic.py
+
       - name: Verify migrations are complete
         run: python manage.py makemigrations --check --dry-run
 
@@ -64,4 +115,5 @@ jobs:
           python manage.py test --verbosity 2 --parallel 1 \
             inventory.tests.InventoryConcurrencyTests \
             inventory.tests_stock_integrity.StockIntegrityConcurrencyTests \
-            orders.tests_checkout_service.CheckoutServiceConcurrencyTests
+            orders.tests_checkout_service.CheckoutServiceConcurrencyTests \
+            catalog.tests_image_workflow.ImageConcurrencyTests

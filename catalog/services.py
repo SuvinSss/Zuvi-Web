@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, F, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 
 from accounts.audit_ip import get_client_ip
@@ -326,6 +327,7 @@ def create_product(
     product_data,
     created_by,
     tag_ids=None,
+    images=(),
     initial_status=ProductStatus.DRAFT,
     request=None,
 ):
@@ -394,6 +396,14 @@ def create_product(
             "store_id": store.pk,
             "status": product.status,
         },
+    )
+    mutate_product_images(
+        mutations={product.pk: {"add": [
+            {"image": image, "sort_order": index}
+            for index, image in enumerate(images)
+        ]}},
+        changed_by=created_by,
+        request=request,
     )
     return product
 
@@ -715,87 +725,129 @@ def record_product_status_change(
 
 
 @transaction.atomic
-def add_product_image(
-    *,
-    product,
-    image,
-    alt_text="",
-    sort_order=0,
-    is_primary=False,
-):
+def mutate_product_images(*, mutations, changed_by=None, request=None, validate_only=False):
+    """Apply complete per-product image batches under ordered parent locks.
+
+    Each batch has add (field dictionaries), update (ID -> field dictionaries)
+    and delete (IDs). Storage writes are not transactional: failed transactions
+    deliberately leave uploaded objects for future delayed orphan cleanup.
+    Callers remain responsible for authorization; image IDs are parent-scoped.
     """
-    Attach an image to a product.
+    from .validators import MAX_IMAGES_PER_PRODUCT
 
-    Enforces the five-image cap. The first image is always primary. Requesting
-    primary demotes any existing primary image.
-    """
-    from .validators import MAX_IMAGES_PER_PRODUCT, validate_product_image
+    products = list(Product.objects.select_for_update().filter(
+        pk__in=mutations,
+    ).order_by("pk"))
+    if len(products) != len(mutations):
+        raise ValidationError("Product no longer exists.")
+    prepared = []
+    allowed_fields = {"image", "alt_text", "sort_order", "is_primary"}
+    # Validate every batch before making any database or storage writes.
+    for product in products:
+        batch = mutations[product.pk]
+        additions = batch.get("add", [])
+        updates = batch.get("update", {})
+        existing = {obj.pk: obj for obj in product.images.order_by("sort_order", "pk")}
+        deletions = set(existing) if batch.get("delete_all") else set(batch.get("delete", []))
+        if (set(updates) | deletions) - existing.keys():
+            raise Http404("Product image not found.")
+        if set(updates) & deletions:
+            raise ValidationError("Invalid product image selection.")
+        final_count = len(existing) + len(additions) - len(deletions)
+        if final_count > MAX_IMAGES_PER_PRODUCT:
+            raise ValidationError(f"A product may have at most {MAX_IMAGES_PER_PRODUCT} images.")
+        if deletions and product.status == ProductStatus.APPROVED and final_count < 1:
+            raise ValidationError("Approved products must keep at least one image.")
+        for fields in [*additions, *updates.values()]:
+            if set(fields) - allowed_fields:
+                raise ValidationError("Invalid product image fields.")
+        prepared.append((product, additions, updates, deletions, existing))
 
-    validate_product_image(image)
-    current_count = product.images.count()
-    if current_count >= MAX_IMAGES_PER_PRODUCT:
-        raise ValidationError(
-            f"A product may have at most {MAX_IMAGES_PER_PRODUCT} images."
-        )
-
-    make_primary = bool(is_primary) or current_count == 0
-    if make_primary:
-        ProductImage.objects.filter(product=product, is_primary=True).update(
-            is_primary=False
-        )
-
-    image_obj = ProductImage(
-        product=product,
-        image=image,
-        alt_text=alt_text,
-        sort_order=sort_order,
-        is_primary=make_primary,
-    )
-    image_obj.full_clean()
-    image_obj.save()
-    return image_obj
-
-
-@transaction.atomic
-def set_primary_product_image(*, product, image_id):
-    """Mark exactly one product image as primary."""
-    image = get_object_or_404(ProductImage, pk=image_id, product=product)
-    ProductImage.objects.filter(product=product, is_primary=True).exclude(
-        pk=image.pk
-    ).update(is_primary=False)
-    if not image.is_primary:
-        image.is_primary = True
-        image.save(update_fields=["is_primary"])
-    return image
-
-
-@transaction.atomic
-def delete_product_image(*, product, image_id):
-    """
-    Delete a product image.
-
-    Approved products must retain at least one image. If the deleted image was
-    primary, promote the next remaining image (by sort_order, then pk).
-    """
-    image = get_object_or_404(ProductImage, pk=image_id, product=product)
-    if (
-        product.status == ProductStatus.APPROVED
-        and product.images.count() <= 1
-    ):
-        raise ValidationError(
-            "Approved products must keep at least one image."
-        )
-    was_primary = image.is_primary
-    image.delete()
-    if was_primary:
-        replacement = product.images.order_by("sort_order", "pk").first()
-        if replacement is not None and not replacement.is_primary:
-            ProductImage.objects.filter(product=product, is_primary=True).update(
-                is_primary=False
+    if validate_only:
+        return
+    results = {}
+    for product, additions, updates, deletions, existing in prepared:
+        if not (additions or updates or deletions):
+            results[product.pk] = []
+            continue
+        primary_id = next((pk for pk, obj in existing.items() if obj.is_primary), None)
+        primary = existing.get(primary_id) if primary_id not in deletions else None
+        ProductImage.objects.filter(product=product, is_primary=True).update(is_primary=False)
+        # Model deletion removes references only, never the underlying object.
+        ProductImage.objects.filter(product=product, pk__in=deletions).delete()
+        saved = []
+        binary_changed = bool(additions or deletions)
+        for pk, fields in updates.items():
+            obj = existing[pk]
+            obj.is_primary = False
+            for name, value in fields.items():
+                if name != "is_primary":
+                    setattr(obj, name, value)
+            binary_changed |= "image" in fields
+            if fields.get("is_primary"):
+                primary = obj
+            elif fields.get("is_primary") is False and primary is obj:
+                primary = None
+            # Metadata-only edits need not open the stored image.
+            obj.full_clean(exclude=[] if "image" in fields else ["image"])
+            obj.save()
+            saved.append(obj)
+        for fields in additions:
+            obj = ProductImage(product=product, **{k: v for k, v in fields.items() if k != "is_primary"})
+            obj.full_clean()
+            obj.save()
+            if fields.get("is_primary"):
+                primary = obj
+            saved.append(obj)
+        if primary is None:
+            primary = product.images.order_by("sort_order", "pk").first()
+        if primary is not None:
+            ProductImage.objects.filter(pk=primary.pk).update(is_primary=True)
+        for obj in saved:
+            obj.is_primary = primary is not None and obj.pk == primary.pk
+        if binary_changed and product.status == ProductStatus.APPROVED:
+            record_product_status_change(
+                product=product, new_status=ProductStatus.PENDING,
+                changed_by=changed_by, reason="Product images changed; reapproval required.",
+                request=request,
             )
-            replacement.is_primary = True
-            replacement.save(update_fields=["is_primary"])
-    return None
+        results[product.pk] = saved
+    return results
+
+
+def add_product_image(*, product, image, alt_text="", sort_order=0,
+                      is_primary=False, changed_by=None, request=None):
+    return mutate_product_images(mutations={product.pk: {"add": [{
+        "image": image, "alt_text": alt_text, "sort_order": sort_order,
+        "is_primary": is_primary,
+    }]}}, changed_by=changed_by, request=request)[product.pk][0]
+
+
+def replace_product_image(*, product, image_id, image, changed_by=None, request=None):
+    return mutate_product_images(mutations={product.pk: {"update": {
+        image_id: {"image": image},
+    }}}, changed_by=changed_by, request=request)[product.pk][0]
+
+
+def set_primary_product_image(*, product, image_id):
+    return mutate_product_images(mutations={product.pk: {"update": {
+        image_id: {"is_primary": True},
+    }}})[product.pk][0]
+
+
+def delete_product_image(*, product, image_id, changed_by=None, request=None):
+    mutate_product_images(mutations={product.pk: {"delete": [image_id]}},
+                          changed_by=changed_by, request=request)
+
+
+def guard_product_image_cascade(products):
+    """Use the same complete-deletion validation before admin parent cascades.
+
+    The caller owns the transaction and performs the parent deletion immediately
+    afterwards. Validate without deleting images or creating transient history.
+    """
+    mutate_product_images(mutations={product.pk: {"delete_all": True}
+                                    for product in products}, validate_only=True)
 
 
 def assert_pricing_complete_for_approval(product):

@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
+from catalog.models import Product
+from catalog.services import guard_product_image_cascade
+from config.storage_errors import ImageAdminErrorMixin
+
 from .models import Store, StoreCategory, StoreStatusHistory, StoreUser
 
 
@@ -48,9 +52,15 @@ class StoreStatusHistoryInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Store)
-class StoreAdmin(admin.ModelAdmin):
+class StoreAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "store_code",
@@ -108,6 +118,14 @@ class StoreAdmin(admin.ModelAdmin):
             instance.save()
         formset.save_m2m()
 
+    def delete_model(self, request, obj):
+        guard_product_image_cascade(Product.objects.filter(store=obj).order_by("pk"))
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        guard_product_image_cascade(Product.objects.filter(store__in=queryset).order_by("pk"))
+        super().delete_queryset(request, queryset)
+
 
 @admin.register(StoreUser)
 class StoreUserAdmin(admin.ModelAdmin):
@@ -149,6 +167,11 @@ class StoreUserAdmin(admin.ModelAdmin):
 
 @admin.register(StoreStatusHistory)
 class StoreStatusHistoryAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     list_display = (
         "store",
         "old_status",

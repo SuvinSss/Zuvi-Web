@@ -6,6 +6,8 @@ from django.db.models import Prefetch, Q
 from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
+from config.storage_errors import image_request_errors
+
 from accounts.models import AdminAuditLog
 from catalog.services import get_store_product_dashboard_stats
 from inventory.status import get_store_inventory_dashboard_stats
@@ -170,6 +172,7 @@ def store_detail_view(request, pk):
     )
 
 @store_permission_required("stores.add_store")
+@image_request_errors
 def store_create_view(request):
     can_activate = user_has_store_permission(request.user, "stores.approve_store")
     store_form = StoreCreateForm(
@@ -217,6 +220,7 @@ def store_create_view(request):
 
 
 @store_permission_required("stores.change_store")
+@image_request_errors
 def store_edit_view(request, pk):
     store = _get_store_or_404(pk)
     store_form = StoreForm(
