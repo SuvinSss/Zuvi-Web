@@ -41,6 +41,16 @@ def isolated_environment(**overrides):
     env = build_environment(BASE_DIR / 'staticfiles')
     env.pop('DJANGO_STATIC_BUILD')
     env['DATABASE_URL'] = LOCAL_PLACEHOLDER_URL
+    # Synthetic values only: settings/signing checks never access a bucket.
+    env.update({
+        'MEDIA_STORAGE_BACKEND': 's3',
+        'MEDIA_BUCKET_NAME': 'example-deployment-test',
+        'MEDIA_REGION_NAME': 'ap-south-1',
+        'MEDIA_ACCESS_KEY_ID': 'EXAMPLE_ONLY',
+        'MEDIA_SECRET_ACCESS_KEY': 'EXAMPLE_ONLY',
+    })
+    if overrides.get('DJANGO_ENVIRONMENT') == 'local':
+        env['MEDIA_STORAGE_BACKEND'] = 'filesystem'
     env.update(overrides)
     return env
 
@@ -138,12 +148,12 @@ class DeploymentSettingsTests(SimpleTestCase):
         self.assertFalse(parsed['SECURE_HSTS_INCLUDE_SUBDOMAINS'])
         self.reject('DJANGO_SECURE_HSTS_SECONDS', '-1')
 
-    def test_hosted_static_settings_preserve_default_media_storage(self):
+    def test_hosted_static_settings_remain_separate_from_media_storage(self):
         with tempfile.TemporaryDirectory() as directory:
             parsed = self.probe(DJANGO_STATIC_ROOT=directory)
         self.assertEqual(parsed['STATIC_ROOT'], directory)
         self.assertEqual(parsed['STORAGES']['staticfiles']['BACKEND'], 'whitenoise.storage.CompressedManifestStaticFilesStorage')
-        self.assertEqual(parsed['STORAGES']['default']['BACKEND'], 'django.core.files.storage.FileSystemStorage')
+        self.assertEqual(parsed['STORAGES']['default']['BACKEND'], 'storages.backends.s3.S3Storage')
         self.assertEqual(parsed['MEDIA_ROOT'], str(BASE_DIR / 'media'))
         self.assertEqual(parsed['MEDIA_URL'], '/media/')
         self.assertEqual(parsed['MIDDLEWARE'][:2], ['django.middleware.security.SecurityMiddleware', 'whitenoise.middleware.WhiteNoiseMiddleware'])
@@ -189,6 +199,8 @@ class StaticBuildTests(SimpleTestCase):
             self.assertEqual(dict(os.environ), before)
         self.assertNotIn('DATABASE_URL', child)
         self.assertNotIn('PGPASSWORD', child)
+        for name in ('MEDIA_BUCKET_NAME', 'MEDIA_ACCESS_KEY_ID', 'MEDIA_SECRET_ACCESS_KEY'):
+            self.assertNotIn(name, child)
         self.assertNotEqual(child['DJANGO_SECRET_KEY'], 'parent-test-secret')
         self.assertEqual(child['DJANGO_STATIC_BUILD'], 'True')
         self.assertEqual(child['DJANGO_ENVIRONMENT'], 'production')
@@ -199,6 +211,7 @@ class StaticBuildTests(SimpleTestCase):
         result = run_python(SETTINGS_PROBE, build_environment('/tmp/static-build-test'), '--static-build')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['engine'], 'django.db.backends.dummy')
+        self.assertEqual(json.loads(result.stdout)['STORAGES']['default']['BACKEND'], 'django.core.files.storage.FileSystemStorage')
 
     def test_static_build_cannot_start_wsgi_asgi_or_runserver(self):
         for code in (

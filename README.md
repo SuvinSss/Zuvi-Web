@@ -109,9 +109,9 @@ before proposing an exemption.
 WhiteNoise immediately follows SecurityMiddleware and serves collected static
 files only. Hosted settings use CompressedManifestStaticFilesStorage for hashed,
 compressed assets. Local/test settings retain Django's normal static backend;
-DEBUG=True runserver behavior remains available. Default/media storage is
-unchanged. Uploaded images still depend on local media/ and are not served by
-WhiteNoise; durable media storage remains a deployment blocker.
+DEBUG=True runserver behavior remains available. Uploaded media uses the separate
+default storage contract below and is never served by WhiteNoise. Local media/
+remains available for local development only.
 
 The static-build script starts a fresh child using the same Python executable.
 It passes only OS execution/locale/temp variables plus explicit build settings:
@@ -147,3 +147,90 @@ Remaining deployment work includes durable uploaded-media storage, verified
 proxy/HTTPS behavior, separate environment databases/secrets/domains, and an
 approved migration/backup/rollback and production repository-cutover procedure.
 This foundation alone is not approval to deploy or change Railway.
+
+Uploaded media uses django-storages with AWS S3 in Mumbai (ap-south-1) for hosted
+runtime. ProductImage.image and Store.image retain their existing fields and
+UUID upload paths: products/images/ and stores/images/. No model migration or
+existing-object copy is performed by enabling this code.
+
+| Variable | Media contract |
+| --- | --- |
+| MEDIA_STORAGE_BACKEND | filesystem locally (default); hosted development/uat/production require explicit s3. Other combinations fail. |
+| MEDIA_BUCKET_NAME | Required for S3: the current environment's dedicated private bucket. |
+| MEDIA_REGION_NAME | Required for S3: ap-south-1. |
+| MEDIA_ACCESS_KEY_ID | Required for S3: the current environment's dedicated credential. |
+| MEDIA_SECRET_ACCESS_KEY | Required for S3: its matching secret. Never commit or log it. |
+
+Missing/blank S3 configuration fails at startup rather than falling back to disk
+or ambient AWS credentials. No bucket is created or checked during settings
+loading. Use a dedicated bucket and credential pair for each environment:
+develop/development -> DEV, uat/uat -> UAT, main/production -> PROD. Configuration
+parsing alone cannot prove isolation: separately verify IAM policies before
+deployment. DEV/UAT principals must have no access to the PROD bucket. Avoid
+shared project-wide production credentials; provision and rotate each environment
+independently. No credentials, bucket configuration or provider access is included
+in this repository batch.
+
+Before deployment, enable bucket/account Block Public Access and bucket-owner
+enforced ownership with ACLs disabled. Require HTTPS and scope runtime GetObject,
+PutObject and ListBucket permissions to that environment's bucket. ListBucket is
+needed for reliable missing-key checks with overwrite prevention. Do not grant
+runtime bucket administration, object deletion or version deletion. Provisioning,
+versioning/recovery policy and any cleanup credentials require separate approval.
+The backend requests no ACL (default_acl=None); it cannot make an incorrectly
+provisioned bucket private on its own.
+
+Media URLs use HTTPS Signature V4 with a 300-second lifetime. Query-string
+authentication is always enabled, custom domains are disabled, and no public-read
+ACL is sent. Existing keys are not overwritten and no extra location prefix is
+added. Objects use Cache-Control: private, no-store. SDK connections have a
+3-second connect timeout, 5-second read timeout and at most two attempts per
+request; these are not a total upload deadline. SDK debug logging stays disabled
+even if application logging is DEBUG, because it can include signed requests.
+Do not log full signed URLs: they are temporary bearer capabilities.
+
+Existing public catalogue visibility and management/store permission checks
+remain responsible for deciding which images may have URLs rendered. The storage
+backend itself does not know the current user. Never add an arbitrary-key signing
+endpoint. Unpublishing prevents new public URL issuance but does not revoke an
+already issued URL before expiry or a downloaded copy. CloudFront, public buckets
+and direct-to-bucket browser uploads are not introduced.
+
+Static builds always select local filesystem media storage before checking S3
+configuration; the private build child still requires no media credentials or
+database. Collected static storage remains WhiteNoise. Run:
+
+```text
+.venv/bin/python manage.py test
+```
+
+The supported manage.py test command ignores ambient media backend/credentials.
+The configured IsolatedMediaTestRunner overrides default storage with a temporary
+filesystem directory across discovery, setup, tests and teardown, then cleans it
+up even on failure. It also rejects SDK HTTP calls. Database selection is not
+changed by this runner: verify local PostgreSQL 127.0.0.1:5432/zuvi_dev before
+running, use Django's disposable test_zuvi_dev, and do not run tests concurrently
+from another worktree. Configuration probes use synthetic credentials and
+isolated child environments; signing is checked offline. Compatibility tests use
+an object-storage fake whose .path is unsupported. There are no real-bucket tests
+in the normal suite. Custom runners/direct test invocation must preserve the same
+isolation; bypassing the configured runner is not a supported storage-test path.
+
+Replacement and deletion behavior is deliberately unchanged: replacing/clearing
+a store image or deleting a ProductImage reference leaves the old object. SQL
+rollback does not roll back an object upload. Storage exceptions still propagate;
+multi-image product creation can remain partially completed if a later upload
+fails. Upload serialization, the concurrent five-image limit, admin image policy,
+publication/reapproval rules, user-facing storage failure handling and orphan
+cleanup belong to separately approved batches.
+
+Do not enable S3 against existing data until a separately approved migration has
+inventoried that environment's database references and actual media source, copied
+objects under their exact existing keys, and verified counts and SHA-256 checksums.
+Freeze all media mutations for the final copy and backend switch. Keep local
+sources/backups through the rollback window. After new S3 writes, rollback to
+filesystem requires copying those referenced objects back to a verified durable
+destination first; an old Railway container is not a backup. PROD requires its own
+inventory, backup, restore rehearsal and approval. DEV/UAT use synthetic or
+explicitly approved assets and never production credentials. No migration,
+automatic deletion, bucket access or deployment is performed by this integration.

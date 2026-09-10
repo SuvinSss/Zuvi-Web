@@ -116,6 +116,10 @@ LOGGING = {
         'django.server': {'handlers': ['console'], 'level': DJANGO_LOG_LEVEL, 'propagate': False},
         # Do not turn SQL/parameter logging on with application DEBUG logging.
         'django.db.backends': {'level': 'WARNING'},
+        # SDK debug output can contain signed request headers and URLs.
+        'boto3': {'level': 'WARNING'},
+        'botocore': {'level': 'WARNING'},
+        's3transfer': {'level': 'WARNING'},
     },
 }
 
@@ -231,7 +235,7 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = Path(env('DJANGO_STATIC_ROOT', default=str(BASE_DIR / 'staticfiles')))
 if not STATIC_ROOT.is_absolute():
     STATIC_ROOT = BASE_DIR / STATIC_ROOT
-# Preserve Django's default media backend. Only collected static storage changes.
+# Configure collected static independently from uploaded media.
 STORAGES = {name: dict(options) for name, options in DEFAULT_STORAGES.items()}
 if HOSTED:
     STORAGES['staticfiles'] = {
@@ -241,6 +245,64 @@ if HOSTED:
 # Uploaded files (store images, etc.). Served by Django only when DEBUG=True.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# The supported test command must be safe even with ambient hosted media
+# configuration. This is command detection, not a runtime environment flag.
+_TEST_COMMAND = Path(sys.argv[0]).name == 'manage.py' and sys.argv[1:2] == ['test']
+TEST_RUNNER = 'config.test_runner.IsolatedMediaTestRunner'
+if DJANGO_STATIC_BUILD or _TEST_COMMAND:
+    MEDIA_STORAGE_BACKEND = 'filesystem'
+else:
+    MEDIA_STORAGE_BACKEND = env('MEDIA_STORAGE_BACKEND', default='' if HOSTED else 'filesystem')
+    if HOSTED and MEDIA_STORAGE_BACKEND != 's3':
+        raise ImproperlyConfigured('Hosted runtime requires explicit MEDIA_STORAGE_BACKEND=s3.')
+    if not HOSTED and MEDIA_STORAGE_BACKEND != 'filesystem':
+        raise ImproperlyConfigured('Local development requires MEDIA_STORAGE_BACKEND=filesystem.')
+
+if MEDIA_STORAGE_BACKEND == 's3':
+    from botocore.config import Config
+
+    def required_media_value(name):
+        value = env(name, default='')
+        if not value or value != value.strip():
+            raise ImproperlyConfigured(f'{name} must be set and contain no surrounding whitespace.')
+        return value
+
+    _media_options = {
+        'bucket_name': required_media_value('MEDIA_BUCKET_NAME'),
+        'region_name': required_media_value('MEDIA_REGION_NAME'),
+        'access_key': required_media_value('MEDIA_ACCESS_KEY_ID'),
+        'secret_key': required_media_value('MEDIA_SECRET_ACCESS_KEY'),
+    }
+    if _media_options['region_name'] != 'ap-south-1':
+        raise ImproperlyConfigured('MEDIA_REGION_NAME must be ap-south-1 for this deployment.')
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            **_media_options,
+            'default_acl': None,
+            'querystring_auth': True,
+            'querystring_expire': 300,
+            'signature_version': 's3v4',
+            'file_overwrite': False,
+            'location': '',
+            'custom_domain': None,
+            'endpoint_url': None,
+            'use_ssl': True,
+            'verify': True,
+            'session_profile': None,
+            'security_token': None,
+            'cloudfront_signer': None,
+            'object_parameters': {'CacheControl': 'private, no-store'},
+            'client_config': Config(
+                signature_version='s3v4',
+                connect_timeout=3,
+                read_timeout=5,
+                retries={'mode': 'standard', 'total_max_attempts': 2},
+                ignore_configured_endpoint_urls=True,
+            ),
+        },
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
