@@ -10,9 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import environ
+from django.conf.global_settings import STORAGES as DEFAULT_STORAGES
+from django.core.exceptions import ImproperlyConfigured
+from django.http.request import split_domain_port
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +32,25 @@ env = environ.Env(
     DB_CONN_MAX_AGE=(int, 0),
     DB_SSL_REQUIRE=(bool, False),
 )
-environ.Env.read_env(BASE_DIR / '.env')
+# Hosted processes and static builds never load a developer's .env file.
+if os.environ.get('DJANGO_ENVIRONMENT', 'local') == 'local' and not env.bool(
+    'DJANGO_STATIC_BUILD', default=False
+):
+    environ.Env.read_env(BASE_DIR / '.env')
+
+DJANGO_ENVIRONMENT = env('DJANGO_ENVIRONMENT', default='local')
+if DJANGO_ENVIRONMENT not in {'local', 'development', 'uat', 'production'}:
+    raise ImproperlyConfigured('DJANGO_ENVIRONMENT must be local, development, uat or production.')
+HOSTED = DJANGO_ENVIRONMENT != 'local'
+
+# Private tooling mode: never a runtime database fallback. Only the static
+# management command may use it; Gunicorn also rejects it before loading WSGI.
+DJANGO_STATIC_BUILD = env.bool('DJANGO_STATIC_BUILD', default=False)
+if DJANGO_STATIC_BUILD and not (
+    Path(sys.argv[0]).name == 'manage.py'
+    and sys.argv[1:2] == ['collectstatic']
+):
+    raise ImproperlyConfigured('DJANGO_STATIC_BUILD is restricted to collectstatic tooling.')
 
 
 # SECURITY WARNING: the secret key is supplied only via the environment.
@@ -35,8 +59,65 @@ SECRET_KEY = env('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production. Defaults to False.
 DEBUG = env('DJANGO_DEBUG')
+if HOSTED and DEBUG:
+    raise ImproperlyConfigured('Hosted environments require DJANGO_DEBUG=False.')
 
 ALLOWED_HOSTS = env('DJANGO_ALLOWED_HOSTS')
+if HOSTED and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured('Hosted environments require explicit DJANGO_ALLOWED_HOSTS.')
+for host in ALLOWED_HOSTS:
+    domain, port = split_domain_port(host)
+    if not domain or port or '*' in host or host.startswith('.') or host != host.strip():
+        raise ImproperlyConfigured('DJANGO_ALLOWED_HOSTS must contain exact hostnames without wildcards or ports.')
+
+CSRF_TRUSTED_ORIGINS = env.list('DJANGO_CSRF_TRUSTED_ORIGINS', default=[])
+for origin in CSRF_TRUSTED_ORIGINS:
+    try:
+        parsed = urlsplit(origin)
+        domain, port = split_domain_port(parsed.netloc)
+        valid = (
+            parsed.scheme in ({'https'} if HOSTED else {'http', 'https'})
+            and domain and not domain.startswith('.') and '*' not in origin
+            and origin == f'{parsed.scheme}://{parsed.netloc}'
+            and not parsed.username and not parsed.password
+            and (not port or 1 <= int(port) <= 65535)
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ImproperlyConfigured('DJANGO_CSRF_TRUSTED_ORIGINS must contain exact valid origins; hosted origins require HTTPS.')
+
+if env.bool('DJANGO_TRUST_PROXY_SSL_HEADER', default=False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = env.bool('DJANGO_SECURE_SSL_REDIRECT', default=HOSTED)
+SESSION_COOKIE_SECURE = env.bool('DJANGO_SESSION_COOKIE_SECURE', default=HOSTED)
+CSRF_COOKIE_SECURE = env.bool('DJANGO_CSRF_COOKIE_SECURE', default=HOSTED)
+CSRF_COOKIE_HTTPONLY = False  # Cart and location JavaScript read csrftoken.
+SECURE_HSTS_SECONDS = env.int('DJANGO_SECURE_HSTS_SECONDS', default=0)
+if SECURE_HSTS_SECONDS < 0:
+    raise ImproperlyConfigured('DJANGO_SECURE_HSTS_SECONDS must be nonnegative.')
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
+DJANGO_LOG_LEVEL = env('DJANGO_LOG_LEVEL', default='INFO')
+if DJANGO_LOG_LEVEL not in {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}:
+    raise ImproperlyConfigured('DJANGO_LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR or CRITICAL.')
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'console': {'format': '{asctime} {levelname} {name} {message}', 'style': '{'}},
+    'handlers': {'console': {
+        'class': 'logging.StreamHandler', 'stream': 'ext://sys.stderr',
+        'formatter': 'console',
+    }},
+    'root': {'handlers': ['console'], 'level': DJANGO_LOG_LEVEL},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': DJANGO_LOG_LEVEL, 'propagate': False},
+        'django.server': {'handlers': ['console'], 'level': DJANGO_LOG_LEVEL, 'propagate': False},
+        # Do not turn SQL/parameter logging on with application DEBUG logging.
+        'django.db.backends': {'level': 'WARNING'},
+    },
+}
 
 
 # Application definition
@@ -61,6 +142,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -96,16 +178,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Connection parameters come from DATABASE_URL, e.g.
 #   postgres://USER:PASSWORD@HOST:5432/NAME
 
-DATABASES = {
-    'default': {
-        **env.db('DATABASE_URL'),
-        'CONN_MAX_AGE': env('DB_CONN_MAX_AGE'),
-        'CONN_HEALTH_CHECKS': True,
+if DJANGO_STATIC_BUILD:
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.dummy'}}
+else:
+    DATABASES = {
+        'default': {
+            **env.db('DATABASE_URL'),
+            'CONN_MAX_AGE': env('DB_CONN_MAX_AGE'),
+            'CONN_HEALTH_CHECKS': True,
+        }
     }
-}
-
-if env('DB_SSL_REQUIRE'):
-    DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
+    if env('DB_SSL_REQUIRE'):
+        DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = 'require'
 
 
 # Password validation
@@ -144,6 +228,15 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = Path(env('DJANGO_STATIC_ROOT', default=str(BASE_DIR / 'staticfiles')))
+if not STATIC_ROOT.is_absolute():
+    STATIC_ROOT = BASE_DIR / STATIC_ROOT
+# Preserve Django's default media backend. Only collected static storage changes.
+STORAGES = {name: dict(options) for name, options in DEFAULT_STORAGES.items()}
+if HOSTED:
+    STORAGES['staticfiles'] = {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    }
 
 # Uploaded files (store images, etc.). Served by Django only when DEBUG=True.
 MEDIA_URL = '/media/'
