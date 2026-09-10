@@ -174,9 +174,10 @@
                         <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
                     </form>
                 {% else %}
-                    <a class="btn btn-brand btn-sm" href="{% url 'customers:customer_otp_start' %}">
-                        <i class="bi bi-phone"></i> Login / Sign up
+                    <a class="btn btn-brand btn-sm" href="{% url 'customers:customer_portal_login' %}">
+                        <i class="bi bi-person"></i> Login
                     </a>
+                    <a class="btn btn-outline-light btn-sm" href="{% url 'customers:customer_register' %}">Sign up</a>
                 {% endif %}
             </div>
         </div>

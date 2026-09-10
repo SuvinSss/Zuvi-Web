@@ -30,9 +30,8 @@ Django normally creates an unusable password. Never put passwords in command
 arguments or logs. Ordinary create_user behavior is unchanged.
 
 The manager migration changes migration state only, not schema or existing data.
-Existing accounts with inconsistent roles/flags are not repaired automatically
-and may be denied sensitive admin operations. Whether such production accounts
-exist is unverified; any review or correction requires separate approval.
+New UAT/PROD accounts are created through the supported bootstrap and registration
+paths. The manager does not automatically alter existing local accounts.
 
 Deployment foundation uses Railpack, Python 3.13 and Gunicorn's synchronous WSGI
 workers. Configure these commands only during a separately approved Railway
@@ -58,7 +57,7 @@ Environment values consumed by this foundation:
 | DJANGO_DEBUG | Defaults False; True is rejected for all hosted environments. |
 | DJANGO_SECRET_KEY | Required runtime secret; use a different secret per environment. |
 | DJANGO_ALLOWED_HOSTS | Exact comma-separated hostnames, required for hosted environments; no wildcard, leading-dot patterns, schemes or ports. |
-| DATABASE_URL | Required runtime database URL; DEV/UAT must use their own databases. |
+| DATABASE_URL | Required runtime database URL; local development, UAT and PROD each use their own database. |
 | DB_CONN_MAX_AGE | Existing connection lifetime, default 0. |
 | DB_SSL_REQUIRE | Existing database SSL requirement, default False. |
 | DJANGO_CSRF_TRUSTED_ORIGINS | Exact comma-separated origins including scheme and optional port; default empty. Hosted origins require HTTPS. No wildcards, paths or credentials. |
@@ -79,14 +78,14 @@ rewritten. healthcheck.railway.app must be explicitly included in
 DJANGO_ALLOWED_HOSTS when Railway healthchecks are enabled; it is never added
 automatically and does not belong in CSRF trusted origins.
 
-Railway DEV/UAT/PROD must not be deployed until the proxy's control of
+Railway UAT/PROD must not be deployed until the proxy's control of
 X-Forwarded-Proto is verified. Once verified, deliberately set
 DJANGO_TRUST_PROXY_SSL_HEADER=True. With hosted SSL redirects enabled by default,
 missing or incorrect proxy configuration can cause redirect loops and failed
 healthchecks. Gunicorn's independent secure-scheme header interpretation is
 disabled so Django controls this opt-in. No client-IP trust behavior is added.
 
-Keep HSTS at 0 throughout initial DEV/UAT HTTPS validation. After validation,
+Keep HSTS at 0 throughout initial UAT HTTPS validation. After validation,
 intentionally increase it to a conservative value such as 300 seconds. HSTS
 preload and includeSubDomains remain disabled. CSRF_COOKIE_HTTPONLY remains
 False because cart and location JavaScript read the csrftoken cookie.
@@ -99,7 +98,7 @@ statement timeout. The probe connection closes after each request. Success is
 non-cacheable, contain no database diagnostics, and require no authentication.
 Unexpected programming errors are not swallowed. These routes follow normal
 HTTPS/proxy behavior with no redirect exemptions. Railway's later deployment
-healthcheck path is /health/ready/. If DEV probes fail due to redirects, record
+healthcheck path is /health/ready/. If UAT probes fail due to redirects, record
 the exact request, headers, response status and platform behavior for review
 before proposing an exemption.
 
@@ -160,10 +159,13 @@ existing-object copy is performed by enabling this code.
 
 Missing/blank S3 configuration fails at startup rather than falling back to disk
 or ambient AWS credentials. No bucket is created or checked during settings
-loading. Use a dedicated bucket and credential pair for each environment:
-develop/development -> DEV, uat/uat -> UAT, main/production -> PROD. Configuration
+loading. Local Mac development uses PostgreSQL and filesystem media, with GitHub
+Actions for automated validation; no permanent Railway DEV service or DEV bucket
+is required. UAT (branch uat) and PROD (branch main) each require a fresh private
+bucket and dedicated credentials. The optional hosted development settings remain
+supported but do not require provisioning another environment. Configuration
 parsing alone cannot prove isolation: separately verify IAM policies before
-deployment. DEV/UAT principals must have no access to the PROD bucket. Avoid
+deployment. UAT principals must have no access to the PROD bucket. Avoid
 shared project-wide production credentials; provision and rotate each environment
 independently. No credentials, bucket configuration or provider access is included
 in this repository batch.
@@ -238,8 +240,9 @@ policy require a separate approved batch; no cleanup job is implemented here.
 
 Deployment is a fresh start in the owner's new Railway workspace. Development is
 local Mac/PostgreSQL plus GitHub Actions; no permanent Railway DEV is required.
-UAT uses branch uat, a fresh database and dedicated private S3 bucket/credentials.
-Production uses branch main, a separate fresh database and private S3 bucket with
+UAT uses branch uat, a fresh Railway environment, fresh PostgreSQL database and
+dedicated private S3 bucket/credentials. Production uses branch main, a separate
+fresh Railway environment, fresh PostgreSQL database and private S3 bucket with
 separate credentials. UAT credentials must have no production-media access.
 No old production database, migration ledger, users, sessions, media or volumes
 will be copied or reconciled. Apply normal schema migrations to the new empty
@@ -251,3 +254,23 @@ moving zuuvi.in, verifying the domain and shutting down the old project each nee
 separate approval. Establish backups and rollback for new data before accepting
 live writes; reverting application code does not roll back database or object
 writes. This repository patch does not provision buckets, migrate media or deploy.
+
+Customer-facing navigation uses /customer/login/ and /customer/register/ for
+password-based authentication. Retired mobile OTP endpoints remain disabled with
+HTTP 410; they are not advertised as active sign-in or signup options.
+
+CI runs on pull requests and pushes to main and uat. The intended flow is feature
+branches -> develop/local integration -> uat -> Railway UAT -> main -> Railway
+Production. Initial environment bootstrap creates uat from the reviewed merged
+release foundation. Pushes to develop do not require a separate CI trigger; use
+pull requests for integration checks.
+
+CI retains Python 3.13, PostgreSQL 16, system and migration checks, the full suite,
+and explicit inventory/checkout/image concurrency tests. A separate hosted check
+runs manage.py check --deploy using only synthetic configuration and the local CI
+PostgreSQL URL. Its temporary strong secret is never printed. All diagnostics are
+visible: only security.W004 while HSTS is zero is nonfatal; any other warning or
+error fails CI. Hosted settings apply only to that step, not the ordinary tests.
+The isolated static-build step writes under the runner's temporary directory and
+requires no database or media credentials. No AWS/Railway resources or production
+secrets are used by these CI checks.
