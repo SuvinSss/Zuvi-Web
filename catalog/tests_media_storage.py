@@ -11,7 +11,7 @@ from django.test import TestCase, override_settings
 from config.tests_media_storage import RemoteStorage
 from .models import ProductImage
 from .public import get_public_product_by_slug, public_product_detail_context
-from .services import add_product_image, delete_product_image
+from .services import add_product_image, delete_product_image, replace_product_image
 from .tests import CatalogTestMixin
 from .validators import validate_product_image
 
@@ -49,9 +49,8 @@ class ProductRemoteStorageTests(CatalogTestMixin, TestCase):
     def test_replacement_retains_old_object_and_changes_only_reference(self):
         image = add_product_image(product=self.product, image=self._uploaded_image())
         old_key = image.image.name
-        image.image = self._uploaded_image('replacement.png', self._png_bytes())
-        image.full_clean()
-        image.save()
+        replace_product_image(product=self.product, image_id=image.pk,
+                              image=self._uploaded_image('replacement.png', self._png_bytes()))
         image.refresh_from_db()
         self.assertNotEqual(image.image.name, old_key)
         self.assertTrue(self.storage.exists(old_key))

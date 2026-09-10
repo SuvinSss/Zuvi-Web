@@ -8,11 +8,8 @@ regardless of DEBUG, with no configuration flag to re-enable demo authentication
 Password-based login and registration remain available. Visiting a disabled
 route does not log out an authenticated user or change their account.
 
-Customers who depend on demo mobile authentication and have unusable passwords
-may require a separately approved identity-verification and account-recovery
-process before production cutover. Their existence in production has not been
-verified. This containment change does not reset passwords, recover accounts,
-or introduce an authentication bypass.
+The new deployment starts with fresh accounts and data. No old-account recovery,
+session preservation or authentication bypass is part of this deployment plan.
 
 Django admin permits user, AdminProfile, and Group mutations only for active
 ZuuVi SUPER_ADMIN accounts with both is_staff=True and is_superuser=True.
@@ -143,9 +140,9 @@ server exception tracebacks retained. No request-body/header/cookie logging,
 environment dumps, custom redaction framework or external logging provider is
 introduced. Database AdminAuditLog behavior is independent and unchanged.
 
-Remaining deployment work includes durable uploaded-media storage, verified
-proxy/HTTPS behavior, separate environment databases/secrets/domains, and an
-approved migration/backup/rollback and production repository-cutover procedure.
+Remaining deployment work includes provisioning isolated UAT/PROD media buckets,
+verifying proxy/HTTPS behavior, separate fresh databases/secrets/domains, and
+approved bootstrap, backup, rollback and domain-switch procedures.
 This foundation alone is not approval to deploy or change Railway.
 
 Uploaded media uses django-storages with AWS S3 in Mumbai (ap-south-1) for hosted
@@ -216,21 +213,41 @@ an object-storage fake whose .path is unsupported. There are no real-bucket test
 in the normal suite. Custom runners/direct test invocation must preserve the same
 isolation; bypassing the configured runner is not a supported storage-test path.
 
-Replacement and deletion behavior is deliberately unchanged: replacing/clearing
-a store image or deleting a ProductImage reference leaves the old object. SQL
-rollback does not roll back an object upload. Storage exceptions still propagate;
-multi-image product creation can remain partially completed if a later upload
-fails. Upload serialization, the concurrent five-image limit, admin image policy,
-publication/reapproval rules, user-facing storage failure handling and orphan
-cleanup belong to separately approved batches.
+Product image changes use the authoritative batch service in catalog/services.py.
+It locks Product rows in primary-key order before checking the final image count:
+at most five images, and at least one remaining when removing images from an
+APPROVED product. Other statuses may have zero images. A successful image addition,
+binary replacement or removal returns an APPROVED product to PENDING through the
+normal status service, with approval metadata cleared and history/audit recorded.
+It is no longer public until reapproved. Alt text, order and primary-flag edits do
+not require reapproval. Pricing approval rules are unchanged.
 
-Do not enable S3 against existing data until a separately approved migration has
-inventoried that environment's database references and actual media source, copied
-objects under their exact existing keys, and verified counts and SHA-256 checksums.
-Freeze all media mutations for the final copy and backend switch. Keep local
-sources/backups through the rollback window. After new S3 writes, rollback to
-filesystem requires copying those referenced objects back to a verified durable
-destination first; an old Railway container is not a backup. PROD requires its own
-inventory, backup, restore rehearsal and approval. DEV/UAT use synthetic or
-explicitly approved assets and never production credentials. No migration,
-automatic deletion, bucket access or deployment is performed by this integration.
+Management/store portals and standalone/inline/bulk Django admin image operations
+use these services. Existing image records cannot be reassigned to another product
+in admin. Arbitrary ORM writes outside these supported paths do not enforce the
+service contract; future writers must use the service, not direct save/delete.
+
+Multi-image product creation and image batches roll back database references and
+related database changes together on failure. Expected storage errors receive a
+generic message; server logs retain tracebacks. Store replacement failure preserves
+the old image reference and rolls back related edits. Image changes do not change
+store status. Replacement, clearing and deletion never physically delete the old
+stored object. SQL rollback cannot undo an upload: already-written objects remain
+orphan candidates. Delayed cleanup, grace periods and object recovery/versioning
+policy require a separate approved batch; no cleanup job is implemented here.
+
+Deployment is a fresh start in the owner's new Railway workspace. Development is
+local Mac/PostgreSQL plus GitHub Actions; no permanent Railway DEV is required.
+UAT uses branch uat, a fresh database and dedicated private S3 bucket/credentials.
+Production uses branch main, a separate fresh database and private S3 bucket with
+separate credentials. UAT credentials must have no production-media access.
+No old production database, migration ledger, users, sessions, media or volumes
+will be copied or reconciled. Apply normal schema migrations to the new empty
+databases and create new accounts through supported bootstrap/registration paths.
+
+The old deployment stays online temporarily and must not be accessed or changed
+during repository preparation. After UAT and new-production smoke tests pass,
+moving zuuvi.in, verifying the domain and shutting down the old project each need
+separate approval. Establish backups and rollback for new data before accepting
+live writes; reverting application code does not roll back database or object
+writes. This repository patch does not provision buckets, migrate media or deploy.

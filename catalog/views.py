@@ -5,6 +5,8 @@ from django.db.models import F, Prefetch, Q
 from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
+from config.storage_errors import image_request_errors
+
 from stores.decorators import store_portal_required
 from stores.models import Store
 
@@ -354,20 +356,17 @@ def product_change_status_view(request, pk):
 
 
 @catalog_permission_required("catalog.change_product")
+@image_request_errors
 def product_images_view(request, pk):
     product = _get_product_or_404(pk)
     image_count = product.images.count()
     form = ProductImageForm(request.POST or None, request.FILES or None)
     if request.method == "POST":
-        if image_count >= MAX_IMAGES_PER_PRODUCT:
-            messages.error(
-                request,
-                f"A product may have at most {MAX_IMAGES_PER_PRODUCT} images.",
-            )
-        elif form.is_valid():
+        if form.is_valid():
             try:
                 add_product_image(
                     product=product,
+                    changed_by=request.user, request=request,
                     image=form.cleaned_data["image"],
                     alt_text=form.cleaned_data.get("alt_text", ""),
                     sort_order=form.cleaned_data.get("sort_order") or 0,
@@ -396,12 +395,13 @@ def product_images_view(request, pk):
 
 
 @catalog_permission_required("catalog.change_product")
+@image_request_errors
 def product_image_delete_view(request, pk, image_id):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     product = _get_product_or_404(pk)
     try:
-        delete_product_image(product=product, image_id=image_id)
+        delete_product_image(product=product, image_id=image_id, changed_by=request.user, request=request)
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
         return redirect("catalog:product_images", pk=product.pk)
@@ -410,6 +410,7 @@ def product_image_delete_view(request, pk, image_id):
 
 
 @catalog_permission_required("catalog.change_product")
+@image_request_errors
 def product_image_set_primary_view(request, pk, image_id):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -644,6 +645,7 @@ def store_product_detail_view(request, pk):
 
 
 @store_portal_required
+@image_request_errors
 def store_product_create_view(request):
     # Always pass POST/FILES objects when bound — never use `or None` on
     # MultiValueDict (empty dicts are falsy and break file handling).
@@ -681,16 +683,10 @@ def store_product_create_view(request):
             product_data=data,
             created_by=request.user,
             tag_ids=[t.pk for t in tags],
+            images=images,
             initial_status=initial_status,
             request=request,
         )
-        for index, uploaded in enumerate(images):
-            add_product_image(
-                product=product,
-                image=uploaded,
-                sort_order=index,
-                is_primary=(index == 0),
-            )
         messages.success(
             request,
             f"Product {product.product_code} created.",
@@ -778,20 +774,17 @@ def store_product_submit_view(request, pk):
 
 
 @store_portal_required
+@image_request_errors
 def store_product_images_view(request, pk):
     product = get_portal_product_or_404(request, pk)
     image_count = product.images.count()
     form = ProductImageForm(request.POST or None, request.FILES or None)
     if request.method == "POST":
-        if image_count >= MAX_IMAGES_PER_PRODUCT:
-            messages.error(
-                request,
-                f"A product may have at most {MAX_IMAGES_PER_PRODUCT} images.",
-            )
-        elif form.is_valid():
+        if form.is_valid():
             try:
                 add_product_image(
                     product=product,
+                    changed_by=request.user, request=request,
                     image=form.cleaned_data["image"],
                     alt_text=form.cleaned_data.get("alt_text", ""),
                     sort_order=form.cleaned_data.get("sort_order") or 0,
@@ -818,12 +811,13 @@ def store_product_images_view(request, pk):
 
 
 @store_portal_required
+@image_request_errors
 def store_product_image_delete_view(request, pk, image_id):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     product = get_portal_product_or_404(request, pk)
     try:
-        delete_product_image(product=product, image_id=image_id)
+        delete_product_image(product=product, image_id=image_id, changed_by=request.user, request=request)
     except ValidationError as exc:
         messages.error(request, "; ".join(exc.messages))
         return redirect("catalog:store_product_images", pk=product.pk)
@@ -832,6 +826,7 @@ def store_product_image_delete_view(request, pk, image_id):
 
 
 @store_portal_required
+@image_request_errors
 def store_product_image_set_primary_view(request, pk, image_id):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])

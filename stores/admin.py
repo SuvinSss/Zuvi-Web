@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
+from catalog.models import Product
+from catalog.services import guard_product_image_cascade
+from config.storage_errors import ImageAdminErrorMixin
+
 from .models import Store, StoreCategory, StoreStatusHistory, StoreUser
 
 
@@ -56,7 +60,7 @@ class StoreStatusHistoryInline(admin.TabularInline):
 
 
 @admin.register(Store)
-class StoreAdmin(admin.ModelAdmin):
+class StoreAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "store_code",
@@ -113,6 +117,14 @@ class StoreAdmin(admin.ModelAdmin):
             instance.full_clean()
             instance.save()
         formset.save_m2m()
+
+    def delete_model(self, request, obj):
+        guard_product_image_cascade(Product.objects.filter(store=obj).order_by("pk"))
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        guard_product_image_cascade(Product.objects.filter(store__in=queryset).order_by("pk"))
+        super().delete_queryset(request, queryset)
 
 
 @admin.register(StoreUser)
