@@ -32,7 +32,7 @@ class PublicProductFilterForm(forms.Form):
     q = forms.CharField(
         required=False,
         label="Search",
-        widget=forms.TextInput(attrs={"placeholder": "Search for products, brands, stores…"}),
+        widget=forms.TextInput(attrs={"placeholder": "Search products, brands and categories"}),
     )
     category = forms.SlugField(required=False)
     brand = forms.SlugField(required=False)
@@ -54,27 +54,28 @@ class PublicProductFilterForm(forms.Form):
     )
     sort = forms.ChoiceField(choices=SORT_CHOICES, required=False, initial="newest")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, categories=None, brands=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["category"] = forms.ChoiceField(
             required=False,
             choices=[("", "All categories")]
             + list(
-                ProductCategory.objects.filter(is_active=True)
-                .order_by("name")
-                .values_list("slug", "name")
+                ((category.slug, category.name) for category in categories)
+                if categories is not None else ProductCategory.objects.filter(is_active=True)
+                .order_by("name").values_list("slug", "name")
             ),
         )
         self.fields["brand"] = forms.ChoiceField(
             required=False,
             choices=[("", "All brands")]
             + list(
-                Brand.objects.filter(is_active=True)
-                .order_by("name")
-                .values_list("slug", "name")
+                ((brand.slug, brand.name) for brand in brands)
+                if brands is not None else Brand.objects.filter(is_active=True)
+                .order_by("name").values_list("slug", "name")
             ),
         )
         self.fields["sort"].choices = self.SORT_CHOICES
+        self.fields["sort"].widget.attrs["form"] = "productFilterForm"
         _bootstrap(self)
 
     def clean(self):

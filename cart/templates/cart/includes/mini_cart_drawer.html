@@ -2,11 +2,11 @@
 <div class="offcanvas offcanvas-end mini-cart-offcanvas" tabindex="-1" id="miniCartOffcanvas" aria-labelledby="miniCartOffcanvasLabel">
     <div class="offcanvas-header">
         <h2 class="offcanvas-title h6 mb-0" id="miniCartOffcanvasLabel">Your cart</h2>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close cart"></button>
     </div>
-    <div class="offcanvas-body d-flex flex-column" id="miniCartBody">
-        <div class="mini-cart-loading text-center text-muted py-5">
-            <div class="spinner-border spinner-border-sm" role="status"></div>
+    <div class="offcanvas-body d-flex flex-column" id="miniCartBody" aria-live="polite">
+        <div class="mini-cart-loading text-center text-muted py-5" role="status">
+            <div class="spinner-border spinner-border-sm" aria-hidden="true"></div>
             <div class="small mt-2">Loading your cart…</div>
         </div>
     </div>

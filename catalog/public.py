@@ -53,15 +53,15 @@ def public_products_queryset(*, today=None):
     Applies every visibility rule in the database layer. Callers may further
     filter/search/sort but must not widen this set.
     """
-    primary_images = Prefetch(
+    card_images = Prefetch(
         "images",
-        queryset=ProductImage.objects.filter(is_primary=True),
-        to_attr="primary_image_list",
+        queryset=ProductImage.objects.order_by("-is_primary", "sort_order", "pk"),
+        to_attr="catalogue_images",
     )
     return (
         Product.objects.filter(public_products_q(today=today))
         .select_related("store", "category", "brand")
-        .prefetch_related("tags", primary_images)
+        .prefetch_related(card_images)
         .distinct()
     )
 
@@ -103,7 +103,6 @@ def apply_public_search(queryset, query):
         | Q(category__name__icontains=query)
         | Q(brand__name__icontains=query)
         | Q(tags__name__icontains=query)
-        | Q(store__name__icontains=query)
     ).distinct()
 
 
@@ -118,7 +117,12 @@ def apply_public_filters(
     category_slug = (category_slug or "").strip()
     brand_slug = (brand_slug or "").strip()
     if category_slug:
-        queryset = queryset.filter(category__slug=category_slug, category__is_active=True)
+        queryset = queryset.filter(
+            Q(category__slug=category_slug)
+            | Q(category__parent__slug=category_slug)
+            | Q(category__parent__parent__slug=category_slug),
+            category__is_active=True,
+        )
     if brand_slug:
         queryset = queryset.filter(brand__slug=brand_slug, brand__is_active=True)
 
@@ -150,7 +154,7 @@ def _parse_price(value):
         amount = Decimal(str(value).strip())
     except (InvalidOperation, TypeError, ValueError):
         return None
-    if amount < 0:
+    if not amount.is_finite() or amount < 0:
         return None
     return amount
 
@@ -196,14 +200,13 @@ def unit_label_for_product(product):
 
 
 def primary_image_for_product(product):
-    images = getattr(product, "primary_image_list", None)
-    if images:
-        return images[0]
-    # Detail queryset prefetches all images; prefer primary.
-    for image in product.images.all():
-        if image.is_primary:
-            return image
-    return product.images.first() if product.pk else None
+    images = getattr(product, "catalogue_images", None)
+    if images is None:
+        # The detail queryset already prefetches these. Unprefetched callers pay
+        # one query, including the legitimate no-image case.
+        images = list(product.images.all())
+    return next((image for image in images if image.is_primary), images[0] if images else None)
+
 
 
 def public_product_card(product):
@@ -221,7 +224,6 @@ def public_product_card(product):
         "brand_name": product.brand.name if product.brand_id else "",
         "category_name": product.category.name if product.category_id else "",
         "category_slug": product.category.slug if product.category_id else "",
-        "store_name": product.store.name if product.store_id else "",
         "unit_label": unit_label_for_product(product),
         "final_price": product.final_price,
         "compare_at_price": compare_at,
@@ -253,3 +255,40 @@ def public_product_detail_context(product):
         "images": images,
         "product_code": product.product_code,
     }
+
+
+DEPARTMENT_PRIORITY = (
+    "groceries-daily-essentials", "jewellery-accessories", "mobiles-accessories",
+    "home-kitchen", "beauty-personal-care", "fashion", "stationery-toys",
+)
+
+
+def public_category_navigation(request):
+    """Load the small taxonomy once per request, never the product catalogue.
+
+    Orphaned active categories retain navigation access without modifying data.
+    Traversal is cycle-safe even if old records bypassed model validation.
+    """
+    cached = getattr(request, "_catalogue_navigation", None)
+    if cached is not None:
+        return cached
+    categories = list(public_categories_queryset().select_related("parent"))
+    nodes = {category.pk: {"name": category.name, "slug": category.slug,
+                          "pk": category.pk, "parent_id": category.parent_id,
+                          "children": []} for category in categories}
+    roots = []
+    for node in nodes.values():
+        seen = {node["pk"]}
+        ancestor = nodes.get(node["parent_id"])
+        while ancestor and ancestor["pk"] not in seen:
+            seen.add(ancestor["pk"])
+            ancestor = nodes.get(ancestor["parent_id"])
+        if node["parent_id"] in nodes and ancestor is None:
+            nodes[node["parent_id"]]["children"].append(node)
+        else:
+            roots.append(node)
+    priority = {slug: index for index, slug in enumerate(DEPARTMENT_PRIORITY)}
+    roots.sort(key=lambda node: (priority.get(node["slug"], len(priority)), node["name"].casefold()))
+    cached = {"departments": roots, "categories": categories, "nodes": nodes}
+    request._catalogue_navigation = cached
+    return cached
