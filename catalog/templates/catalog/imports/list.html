@@ -1,0 +1,9 @@
+{% extends base_template %}
+{% block title %}Bulk product import · ZuuVi{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap gap-3 align-items-start justify-content-between mb-4"><div><p class="text-muted mb-1">ZuuVi catalogue</p><h1 class="h3">Bulk product import</h1><p>Create pending products from a reviewed CSV and prepared photos.</p></div>{% if can_create %}<a class="btn btn-primary" href="{{ create_url }}">New import</a>{% endif %}</div>
+{% if not staging_available %}<div class="alert alert-warning">Private staging unavailable. Uploads can be reviewed; preparation and execution await the operator.</div>{% endif %}
+<p><a href="{{ template_url }}">Download CSV template</a> · <a href="{{ sample_url }}">Illustrative sample</a> · <a href="{{ instructions_url }}">Instructions and operator runbook</a></p>
+<div class="table-responsive"><table class="table align-middle"><thead><tr><th>File / store</th><th>State</th><th>Uploaded</th><th>Review</th></tr></thead><tbody>{% for job in page %}<tr><td>{{ job.original_filename }}<br><span class="text-muted">{{ job.store.name }} · {{ job.store.store_code }}</span></td><td>{{ job.get_status_display }}</td><td>{{ job.created_at }}</td><td><a href="{{ job.detail_url }}">View import</a></td></tr>{% empty %}<tr><td colspan="4">No imports yet. Start with the template and instructions.</td></tr>{% endfor %}</tbody></table></div>
+<nav aria-label="Import pages">{% if page.has_previous %}<a class="btn btn-outline-secondary" href="?page={{ page.previous_page_number }}">Previous</a>{% endif %} <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span> {% if page.has_next %}<a class="btn btn-outline-secondary" href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>
+{% endblock %}

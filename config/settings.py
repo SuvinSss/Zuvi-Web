@@ -324,3 +324,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# Opt-in private local staging; empty means preparation/execution unavailable.
+CATALOG_IMPORT_ROOT = env('CATALOG_IMPORT_ROOT', default='')

@@ -567,3 +567,149 @@ class ProductPriceHistory(models.Model):
     def __str__(self):
         code = self.product.product_code if self.product_id else "new"
         return f"{code} price @ {self.created_at}"
+
+
+# Import inputs and receipts are retained independently of later Product edits.
+import uuid
+
+
+class ImportRecordQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValidationError('Import history cannot be deleted.')
+
+    def update(self, **kwargs):
+        changed = {self.model._meta.get_field(k).attname for k in kwargs}
+        if self.model.__name__ == 'ImportJob':
+            frozen = self.model.INPUT_FIELDS
+            if changed & frozen and self.filter(models.Q(fingerprint__isnull=False) | models.Q(approved_at__isnull=False) | models.Q(duplicate_of__isnull=False)).exists():
+                raise ValidationError('Prepared import input is immutable.')
+            if changed & self.model.APPROVAL_FIELDS and self.filter(approved_at__isnull=False).exists():
+                raise ValidationError('Import approval is immutable.')
+        else:
+            if self.filter(status__in=['SUCCEEDED', 'ALREADY_IMPORTED']).exists():
+                raise ValidationError('Committed import receipts are immutable.')
+            if changed & self.model.INPUT_FIELDS and self.filter(job__approved_at__isnull=False).exists():
+                raise ValidationError('Approved import rows are immutable.')
+        return super().update(**kwargs)
+
+
+def _guard_import_save(instance, fields, condition):
+    if instance._state.adding:
+        return
+    old = type(instance).objects.get(pk=instance.pk)
+    if condition(old) and any(getattr(old, f) != getattr(instance, f) for f in fields):
+        raise ValidationError('Prepared inputs, approvals and committed receipts are immutable.')
+
+
+class ImportJob(models.Model):
+    class Status(models.TextChoices):
+        UPLOADED = 'UPLOADED', 'Awaiting operator — image preparation'
+        PREPARING = 'PREPARING', 'Preparing images'
+        INVALID = 'INVALID', 'Validation errors'
+        READY = 'READY', 'Ready for review'
+        AWAITING_OPERATOR = 'AWAITING_OPERATOR', 'Import approved — Awaiting operator'
+        RUNNING = 'RUNNING', 'Executing'
+        PAUSED = 'PAUSED', 'Paused — operator attention required'
+        COMPLETED = 'COMPLETED', 'Completed'
+        COMPLETED_WITH_ERRORS = 'COMPLETED_WITH_ERRORS', 'Completed with errors'
+        DUPLICATE = 'DUPLICATE', 'Duplicate submission'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    store = models.ForeignKey('stores.Store', on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_catalog_imports')
+    original_filename = models.CharField(max_length=255)
+    template_version = models.CharField(max_length=16, default='v1')
+    csv_bytes = models.BinaryField(editable=False)
+    csv_sha256 = models.CharField(max_length=64, editable=False)
+    image_bundle_key = models.UUIDField(null=True, editable=False)
+    image_manifest = models.JSONField(default=dict, editable=False)
+    fingerprint = models.CharField(max_length=64, null=True, editable=False)
+    approved_snapshot = models.JSONField(null=True, editable=False)
+    approval_hash = models.CharField(max_length=64, blank=True, editable=False)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name='approved_catalog_imports')
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.UPLOADED)
+    duplicate_of = models.ForeignKey('self', on_delete=models.PROTECT, null=True, related_name='duplicate_submissions')
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name='operated_catalog_imports')
+    lease_token = models.UUIDField(null=True, editable=False)
+    lease_expires_at = models.DateTimeField(null=True)
+    heartbeat_at = models.DateTimeField(null=True)
+    last_error_code = models.CharField(max_length=64, blank=True)
+    last_error_detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    approved_at = models.DateTimeField(null=True)
+    started_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+    objects = ImportRecordQuerySet.as_manager()
+    INPUT_FIELDS = {'store_id', 'created_by_id', 'csv_bytes', 'csv_sha256', 'template_version', 'original_filename', 'image_bundle_key', 'image_manifest', 'fingerprint'}
+    APPROVAL_FIELDS = {'approved_snapshot', 'approval_hash', 'approved_by_id', 'approved_at'}
+
+    def save(self, *args, **kwargs):
+        _guard_import_save(self, self.INPUT_FIELDS, lambda old: old.fingerprint is not None or old.approved_at is not None or old.duplicate_of_id is not None)
+        _guard_import_save(self, self.APPROVAL_FIELDS, lambda old: old.approved_at is not None)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Import history cannot be deleted.')
+
+    class Meta:
+        ordering = ['-created_at']
+        default_permissions = ('add', 'view')
+        permissions = [('approve_importjob', 'Can approve import execution'), ('execute_importjob', 'Can prepare and execute imports')]
+        indexes = [models.Index(fields=['store', '-created_at'], name='cat_imp_store_created_idx'), models.Index(fields=['status', '-created_at'], name='cat_imp_status_created_idx')]
+        constraints = [
+            models.UniqueConstraint(fields=['fingerprint'], name='cat_imp_job_fingerprint_uq'),
+            models.CheckConstraint(condition=models.Q(status__in=['UPLOADED','PREPARING','INVALID','READY','AWAITING_OPERATOR','RUNNING','PAUSED','COMPLETED','COMPLETED_WITH_ERRORS','DUPLICATE']), name='cat_imp_job_status_ck'),
+            models.CheckConstraint(condition=~models.Q(status__in=['READY','AWAITING_OPERATOR','RUNNING','PAUSED','COMPLETED','COMPLETED_WITH_ERRORS']) | (models.Q(fingerprint__isnull=False, image_bundle_key__isnull=False) & ~models.Q(fingerprint='')), name='cat_imp_job_ready_bundle_ck'),
+            models.CheckConstraint(condition=~models.Q(status__in=['AWAITING_OPERATOR','RUNNING','PAUSED','COMPLETED','COMPLETED_WITH_ERRORS']) | (models.Q(approved_by__isnull=False, approved_at__isnull=False, approved_snapshot__isnull=False) & ~models.Q(approved_snapshot={}) & ~models.Q(approval_hash='')), name='cat_imp_job_approval_ck'),
+            models.CheckConstraint(condition=(models.Q(status__in=['PREPARING','RUNNING'], operator__isnull=False, lease_token__isnull=False, lease_expires_at__isnull=False) | (~models.Q(status__in=['PREPARING','RUNNING']) & models.Q(lease_token__isnull=True, lease_expires_at__isnull=True))), name='cat_imp_job_lease_ck'),
+            models.CheckConstraint(condition=(models.Q(status='DUPLICATE', duplicate_of__isnull=False, fingerprint__isnull=True) & ~models.Q(duplicate_of=models.F('id'))) | (~models.Q(status='DUPLICATE') & models.Q(duplicate_of__isnull=True)), name='cat_imp_job_duplicate_ck'),
+        ]
+
+
+class ImportRow(models.Model):
+    class Status(models.TextChoices):
+        INVALID = 'INVALID', 'Invalid'
+        READY = 'READY', 'Ready'
+        RUNNING = 'RUNNING', 'Unresolved attempt'
+        SUCCEEDED = 'SUCCEEDED', 'Created — pending product approval'
+        FAILED = 'FAILED', 'Failed'
+        ALREADY_IMPORTED = 'ALREADY_IMPORTED', 'Already imported — unchanged'
+
+    job = models.ForeignKey(ImportJob, on_delete=models.PROTECT, related_name='rows')
+    row_number = models.PositiveIntegerField()
+    external_sku = models.CharField(max_length=64, null=True)
+    payload = models.JSONField(default=dict)
+    row_fingerprint = models.CharField(max_length=64, blank=True)
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.READY)
+    attempts = models.PositiveIntegerField(default=0)
+    executed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, related_name='catalog_import_row_attempts')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, related_name='import_receipts')
+    result = models.JSONField(default=dict)
+    errors = models.JSONField(default=list)
+    last_attempt_at = models.DateTimeField(null=True)
+    completed_at = models.DateTimeField(null=True)
+    objects = ImportRecordQuerySet.as_manager()
+    INPUT_FIELDS = {'job_id', 'row_number', 'external_sku', 'payload', 'row_fingerprint'}
+
+    def save(self, *args, **kwargs):
+        _guard_import_save(self, self.INPUT_FIELDS, lambda old: old.job.approved_at is not None)
+        _guard_import_save(self, [f.attname for f in self._meta.concrete_fields], lambda old: old.status in ['SUCCEEDED', 'ALREADY_IMPORTED'])
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Import history cannot be deleted.')
+
+    class Meta:
+        ordering = ['row_number']
+        default_permissions = ()
+        indexes = [models.Index(fields=['job', 'status', 'row_number'], name='cat_imp_rows_status_idx')]
+        constraints = [
+            models.UniqueConstraint(fields=['job','row_number'], name='cat_imp_row_number_uq'),
+            models.UniqueConstraint(fields=['job','external_sku'], name='cat_imp_row_sku_uq'),
+            models.UniqueConstraint(fields=['product'], condition=models.Q(status='SUCCEEDED'), name='cat_imp_created_receipt_uq'),
+            models.CheckConstraint(condition=models.Q(row_number__gte=1), name='cat_imp_row_number_ck'),
+            models.CheckConstraint(condition=models.Q(status__in=['INVALID','READY','RUNNING','SUCCEEDED','FAILED','ALREADY_IMPORTED']), name='cat_imp_row_status_ck'),
+            models.CheckConstraint(condition=(models.Q(status='INVALID') | (models.Q(external_sku__isnull=False) & ~models.Q(external_sku=''))) & (~models.Q(status__in=['RUNNING','SUCCEEDED','FAILED','ALREADY_IMPORTED']) | ~models.Q(row_fingerprint='')), name='cat_imp_row_identity_ck'),
+            models.CheckConstraint(condition=models.Q(status__in=['SUCCEEDED','ALREADY_IMPORTED'], product__isnull=False, completed_at__isnull=False, executed_by__isnull=False) | (~models.Q(status__in=['SUCCEEDED','ALREADY_IMPORTED']) & models.Q(product__isnull=True)), name='cat_imp_row_receipt_ck'),
+        ]
