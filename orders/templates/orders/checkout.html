@@ -87,11 +87,11 @@
                     <div class="card-body">
                         <h2 class="h6">Fulfillment method</h2>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-delivery" value="DELIVERY" checked data-fulfillment-toggle>
+                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-delivery" value="DELIVERY" {% if selected_fulfillment == "DELIVERY" %}checked{% endif %} data-fulfillment-toggle>
                             <label class="form-check-label" for="fulfillment-delivery">Delivery</label>
                         </div>
                         <div class="form-check mb-3">
-                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-pickup" value="FACILITY_PICKUP" data-fulfillment-toggle>
+                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-pickup" value="FACILITY_PICKUP" {% if selected_fulfillment == "FACILITY_PICKUP" %}checked{% endif %} data-fulfillment-toggle>
                             <label class="form-check-label" for="fulfillment-pickup">Facility pickup</label>
                         </div>
 
@@ -107,7 +107,7 @@
                                             name="delivery_address_id"
                                             id="address-{{ address.pk }}"
                                             value="{{ address.pk }}"
-                                            {% if address.is_default %}checked{% endif %}
+                                            {% if selected_address_id == address.pk %}checked{% endif %}
                                         >
                                         <label class="form-check-label" for="address-{{ address.pk }}">
                                             <strong>{{ address.get_label_display }} · {{ address.recipient_name }}</strong>
@@ -126,11 +126,19 @@
                         </div>
 
                         <div id="pickup-panel" class="d-none">
-                            <h3 class="h6">Pickup locations</h3>
-                            <p class="small text-muted">Select one active pickup location for each store in your cart.</p>
+                            <h3 class="h6">Collection points</h3>
+                            <p class="small text-muted">Choose a collection point for each set of items listed below.</p>
                             {% for group in store_groups %}
-                                <div class="border rounded p-3 mb-3">
-                                    <div class="fw-semibold mb-2">{{ group.store_name }}</div>
+                                <fieldset class="border rounded p-3 mb-3">
+                                    <legend class="h6 float-none w-auto px-1">Choose a collection point for these items</legend>
+                                    <ul class="small">
+                                        {% for row in group.items %}
+                                            <li>{{ row.product_name }} — Qty: {{ row.quantity }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% if group.pickup_selection_error %}
+                                        <p class="text-danger small" role="alert">Choose an available collection point for these items. Your previous choice is missing or no longer available.</p>
+                                    {% endif %}
                                     {% if group.pickup_locations %}
                                         {% for pickup in group.pickup_locations %}
                                             <div class="form-check mb-2">
@@ -140,7 +148,7 @@
                                                     name="pickup_location_{{ group.store_id }}"
                                                     id="pickup-{{ pickup.id }}"
                                                     value="{{ pickup.id }}"
-                                                    {% if forloop.first %}checked{% endif %}
+                                                    {% if group.selected_pickup_id == pickup.id %}checked{% endif %}
                                                 >
                                                 <label class="form-check-label" for="pickup-{{ pickup.id }}">
                                                     <strong>{{ pickup.name }}</strong>
@@ -159,10 +167,10 @@
                                         {% endfor %}
                                     {% else %}
                                         <div class="alert alert-warning mb-0">
-                                            No active pickup locations are available for this store.
+                                            No collection points are available for these items.
                                         </div>
                                     {% endif %}
-                                </div>
+                                </fieldset>
                             {% endfor %}
                         </div>
                     </div>
@@ -174,17 +182,17 @@
                         <p class="small text-muted mb-2">Online payment is not supported in the MVP.</p>
                         <div id="payment-delivery">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod" value="COD" checked>
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod" value="COD" {% if selected_fulfillment == "DELIVERY" and selected_payment == "COD" %}checked{% endif %}>
                                 <label class="form-check-label" for="pay-cod">Cash on Delivery</label>
                             </div>
                         </div>
                         <div id="payment-pickup" class="d-none">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-pickup" value="PAY_AT_PICKUP">
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-pickup" value="PAY_AT_PICKUP" {% if selected_fulfillment == "FACILITY_PICKUP" and selected_payment == "PAY_AT_PICKUP" %}checked{% endif %}>
                                 <label class="form-check-label" for="pay-pickup">Pay at Pickup</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod-pickup" value="COD">
+                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod-pickup" value="COD" {% if selected_fulfillment == "FACILITY_PICKUP" and selected_payment == "COD" %}checked{% endif %}>
                                 <label class="form-check-label" for="pay-cod-pickup">Cash on Delivery</label>
                             </div>
                         </div>
@@ -194,7 +202,7 @@
                 <div class="card shadow-sm mb-3">
                     <div class="card-body">
                         <label class="form-label" for="id_customer_notes">Order note (optional)</label>
-                        <textarea class="form-control" name="customer_notes" id="id_customer_notes" rows="3" maxlength="2000"></textarea>
+                        <textarea class="form-control" name="customer_notes" id="id_customer_notes" rows="3" maxlength="2000">{{ customer_notes }}</textarea>
                     </div>
                 </div>
             </div>
@@ -240,7 +248,7 @@
             });
         }
 
-        function sync() {
+        function sync(resetPayment) {
             const selected = document.querySelector('input[name="fulfillment_type"]:checked');
             const isDelivery = selected && selected.value === "DELIVERY";
             deliveryPanel.classList.toggle("d-none", !isDelivery);
@@ -251,6 +259,7 @@
             setEnabled(pickupPanel, !isDelivery);
             setEnabled(paymentDelivery, isDelivery);
             setEnabled(paymentPickup, !isDelivery);
+            if (!resetPayment) return;
             if (isDelivery) {
                 document.getElementById("pay-cod").checked = true;
             } else {
@@ -259,9 +268,9 @@
         }
 
         toggles.forEach(function (el) {
-            el.addEventListener("change", sync);
+            el.addEventListener("change", function () { sync(true); });
         });
-        sync();
+        sync(false);
     })();
     </script>
 {% endif %}

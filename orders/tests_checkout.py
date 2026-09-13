@@ -543,3 +543,307 @@ class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
         response = self.client.get(self.preview_url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("checkout_token", self.client.session)
+
+
+class CheckoutRecoveryTests(CheckoutTestMixin, TestCase):
+    """Presentation and one-redirect recovery use existing commerce services."""
+
+    def setUp(self):
+        CheckoutViewIsolationTests.setUp(self)
+        self.store.name = "INTERNAL-MERCHANT-ALPHA-73"
+        self.store.save(update_fields=["name"])
+        self.other_store = self.create_store(name="INTERNAL-MERCHANT-BETA-91")
+        self.other_product = self.create_public_product(
+            store=self.other_store, name="Synthetic Notebook", stock=Decimal("10")
+        )
+        add_product_to_cart(
+            customer=self.customer_a, product_code=self.other_product.product_code,
+            quantity=Decimal("2"),
+        )
+        self.selected = self.create_pickup(
+            self.store, name="Z East Collection Counter", instructions="Use the east entrance"
+        )
+        self.other_pickup = self.create_pickup(
+            self.other_store, name="West Collection Counter", instructions="Use the west entrance"
+        )
+        self.client.force_login(self.user_a)
+        self.note = '<script>alert("synthetic")</script> Collect after lunch & call.'
+
+    def _data(self, preview, **changes):
+        data = {
+            "csrfmiddlewaretoken": self.client.cookies["csrftoken"].value,
+            "checkout_token": preview.context["checkout_token"],
+            "fulfillment_type": FulfillmentType.FACILITY_PICKUP,
+            "payment_method": PaymentMethod.PAY_AT_PICKUP,
+            f"pickup_location_{self.store.pk}": str(self.selected.pk),
+            "customer_notes": self.note,
+        }
+        data.update(changes)
+        return data
+
+    def _inputs(self, response):
+        from html.parser import HTMLParser
+        class Inputs(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.values = []
+            def handle_starttag(self, tag, attrs):
+                if tag == "input":
+                    self.values.append(dict(attrs))
+        parser = Inputs()
+        parser.feed(response.content.decode())
+        return parser.values
+
+    def _checked(self, response, name):
+        return [field.get("value") for field in self._inputs(response)
+                if field.get("name") == name and "checked" in field]
+
+    def _inventory_count(self):
+        from inventory.models import InventoryTransaction
+        return InventoryTransaction.objects.count()
+
+    def test_hidden_markup_has_neutral_groups_and_preserves_collection_information(self):
+        import re
+        response = self.client.get(self.preview_url)
+        for name in (self.store.name, self.other_store.name):
+            self.assertNotContains(response, name)
+        self.assertNotContains(response, "for each store")
+        self.assertNotContains(response, "for this store")
+        self.assertContains(response, 'id="pickup-panel" class="d-none"')
+        groups = re.findall(r"<fieldset\b.*?</fieldset>", response.content.decode(), re.S)
+        self.assertEqual(len(groups), 2)
+        for store, product, quantity, locations in (
+            (self.store, self.product, "1.000", [self.pickup, self.selected]),
+            (self.other_store, self.other_product, "2.000", [self.other_pickup]),
+        ):
+            group = next(g for g in groups if f'name="pickup_location_{store.pk}"' in g)
+            self.assertIn(product.name, group)
+            self.assertIn(f"Qty: {quantity}", group)
+            other = self.other_product if product == self.product else self.product
+            self.assertNotIn(other.name, group)
+            for pickup in locations:
+                for text in (pickup.name, str(pickup.address), pickup.contact_phone,
+                             pickup.hours, pickup.instructions,
+                             f'id="pickup-{pickup.pk}"', f'for="pickup-{pickup.pk}"',
+                             f'value="{pickup.pk}"'):
+                    self.assertIn(text, group)
+        self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.pickup.pk)])
+        # A real collection name must not be erased just because it names a shop.
+        self.selected.name = self.store.name + " shop counter"
+        self.selected.save(update_fields=["name"])
+        response = self.client.get(self.preview_url)
+        self.assertContains(response, self.selected.name)
+        self.assertEqual(response.content.decode().count(self.store.name), 1)
+
+    def test_missing_group_preserves_valid_choice_then_correction_creates_once(self):
+        preview = self.client.get(self.preview_url)
+        data = self._data(preview)
+        before = self._inventory_count()
+        response = self.client.post(self.place_url, data, follow=True)
+        self.assertEqual(response.redirect_chain, [(self.preview_url, 302)])
+        self.assertNotContains(response, "for each store")
+        self.assertNotContains(response, "for this store")
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(self._inventory_count(), before)
+        self.assertEqual(self._checked(response, "fulfillment_type"), ["FACILITY_PICKUP"])
+        self.assertEqual(self._checked(response, "payment_method"), ["PAY_AT_PICKUP"])
+        self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.selected.pk)])
+        self.assertEqual(self._checked(response, f"pickup_location_{self.other_store.pk}"), [])
+        self.assertContains(response, "Choose an available collection point for these items")
+        from django.utils.html import escape
+        self.assertContains(response, escape(self.note))
+        self.assertNotContains(response, self.note)
+        self.assertNotIn("checkout_recovery", self.client.session)
+        self.assertNotEqual(response.context["checkout_token"], data["checkout_token"])
+        corrected = self._data(response, **{
+            f"pickup_location_{self.other_store.pk}": str(self.other_pickup.pk),
+            "grand_total": "0.01", "customer_id": self.customer_b.pk,
+        })
+        done = self.client.post(self.place_url, corrected)
+        self.assertEqual(done.status_code, 302)
+        order = Order.objects.get()
+        self.assertEqual(order.customer_id, self.customer_a.pk)
+        self.assertEqual(order.customer_notes, self.note)
+        self.assertEqual(order.payment_method, PaymentMethod.PAY_AT_PICKUP)
+        self.assertEqual(order.grand_total, self.product.final_price + self.other_product.final_price * 2)
+        self.assertEqual(order.store_orders.get(store=self.store).pickup_location_id, self.selected.pk)
+        self.assertEqual(order.store_orders.get(store=self.other_store).pickup_location_id, self.other_pickup.pk)
+        self.assertEqual(self._inventory_count() - before, 2)
+        self.product.refresh_from_db(); self.other_product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, Decimal("9"))
+        self.assertEqual(self.other_product.stock_quantity, Decimal("8"))
+        self.assertNotIn("checkout_recovery", self.client.session)
+        self.assertNotIn("checkout_token", self.client.session)
+        self.client.post(self.place_url, corrected)
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(self._inventory_count() - before, 2)
+
+    def test_invalid_and_forged_choices_do_not_default_or_create_partial_orders(self):
+        inactive = self.create_pickup(self.other_store, name="Inactive point", is_active=False)
+        for invalid in (str(self.selected.pk), str(inactive.pk), "99999999", "forged", ""):
+            with self.subTest(choice=invalid):
+                preview = self.client.get(self.preview_url)
+                before = self._inventory_count()
+                data = self._data(preview, **{
+                    f"pickup_location_{self.other_store.pk}": invalid,
+                    "pickup_location_999999": str(self.other_pickup.pk),
+                    "customer_id": self.customer_b.pk, "stock_quantity": "999",
+                })
+                response = self.client.post(self.place_url, data, follow=True)
+                self.assertEqual(Order.objects.count(), 0)
+                self.assertEqual(self._inventory_count(), before)
+                self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.selected.pk)])
+                self.assertEqual(self._checked(response, f"pickup_location_{self.other_store.pk}"), [])
+
+    def test_point_becoming_inactive_is_revalidated_on_redisplay_and_resubmit(self):
+        preview = self.client.get(self.preview_url)
+        data = self._data(preview)
+        self.client.post(self.place_url, data)
+        self.selected.is_active = False
+        self.selected.save(update_fields=["is_active"])
+        response = self.client.get(self.preview_url)
+        self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [])
+        self.assertNotContains(response, self.selected.name)
+        # It was valid in the previous page, but remains invalid at resubmission.
+        stale = self._data(response, **{f"pickup_location_{self.other_store.pk}": self.other_pickup.pk})
+        before = self._inventory_count()
+        self.client.post(self.place_url, stale)
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(self._inventory_count(), before)
+
+    def test_changed_cart_groups_keep_only_current_choices(self):
+        from cart.models import CartItem
+        preview = self.client.get(self.preview_url)
+        self.client.post(self.place_url, self._data(preview))
+        CartItem.objects.filter(cart__customer=self.customer_a, product=self.other_product).delete()
+        third_store = self.create_store(name="INTERNAL-THIRD")
+        third_product = self.create_public_product(store=third_store, name="Newly added item")
+        third_pickup = self.create_pickup(third_store, name="New counter")
+        add_product_to_cart(customer=self.customer_a, product_code=third_product.product_code, quantity=Decimal("1"))
+        response = self.client.get(self.preview_url)
+        self.assertNotContains(response, f'name="pickup_location_{self.other_store.pk}"')
+        self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.selected.pk)])
+        self.assertEqual(self._checked(response, f"pickup_location_{third_store.pk}"), [])
+        self.assertContains(response, third_pickup.name)
+
+    def test_recovery_is_allowlisted_json_scoped_and_consumed_once(self):
+        import json
+        preview = self.client.get(self.preview_url)
+        session = self.client.session
+        session["unrelated"] = "keep"
+        session["delivery_location"] = {"label": "Synthetic existing location"}
+        session.save()
+        self.client.post(self.place_url, self._data(preview, password="never-retain", grand_total="1", permissions="all"))
+        state = self.client.session["checkout_recovery"]
+        self.assertEqual(set(state), {"customer_id", "cart_id", "token", "created_at", "fulfillment", "payment", "pickup_ids", "address_id", "note"})
+        self.assertNotIn("never-retain", json.dumps(state))
+        self.assertEqual(state["customer_id"], self.customer_a.pk)
+        first = self.client.get(self.preview_url)
+        self.assertEqual(first.context["customer_notes"], self.note)
+        self.assertNotIn("checkout_recovery", self.client.session)
+        fresh = self.client.get(self.preview_url)
+        self.assertEqual(fresh.context["customer_notes"], "")
+        self.assertEqual(self._checked(fresh, "fulfillment_type"), ["DELIVERY"])
+        self.assertEqual(self.client.session["unrelated"], "keep")
+        self.assertEqual(self.client.session["delivery_location"]["label"], "Synthetic existing location")
+
+    def test_stale_foreign_or_completed_attempt_is_not_recovered(self):
+        for kind in ("owner", "token", "expired", "cart", "completed"):
+            with self.subTest(kind=kind):
+                preview = self.client.get(self.preview_url)
+                self.client.post(self.place_url, self._data(preview))
+                session = self.client.session
+                state = dict(session["checkout_recovery"])
+                if kind == "owner": state["customer_id"] = self.customer_b.pk
+                if kind == "token": state["token"] = "stale-attempt"
+                if kind == "expired": state["created_at"] -= 601
+                if kind == "cart": state["cart_id"] = -1
+                session["checkout_recovery"] = state
+                session.save()
+                if kind == "completed":
+                    # Simulate an independently committed checkout before redirect.
+                    from .checkout import place_customer_order
+                    place_customer_order(customer=self.customer_a, actor=self.user_a,
+                        checkout_token=state["token"], fulfillment_type=FulfillmentType.DELIVERY,
+                        payment_method=PaymentMethod.COD, delivery_address_id=self.address_a.pk)
+                    add_product_to_cart(customer=self.customer_a, product_code=self.product.product_code, quantity=Decimal("1"))
+                response = self.client.get(self.preview_url)
+                self.assertEqual(response.context["customer_notes"], "")
+                self.assertFalse(response.context["recovering_checkout"])
+                self.assertNotIn("checkout_recovery", self.client.session)
+
+    def test_other_customer_session_cannot_see_recovery_or_cart(self):
+        preview = self.client.get(self.preview_url)
+        self.client.post(self.place_url, self._data(preview))
+        other = Client(enforce_csrf_checks=True)
+        other.force_login(self.user_b)
+        response = other.get(self.preview_url)
+        self.assertNotContains(response, self.product.name)
+        self.assertNotContains(response, "Collect after lunch")
+        self.assertNotIn("checkout_recovery", other.session)
+        self.client.force_login(self.user_b)
+        response = self.client.get(self.preview_url)
+        self.assertNotContains(response, "Collect after lunch")
+        self.assertNotIn("checkout_recovery", self.client.session)
+
+    def test_invalid_token_does_not_save_recovery_or_create_order(self):
+        preview = self.client.get(self.preview_url)
+        before = self._inventory_count()
+        response = self.client.post(self.place_url, self._data(preview, checkout_token="forged-token"), follow=True)
+        self.assertNotIn("checkout_recovery", self.client.session)
+        self.assertEqual(response.context["customer_notes"], "")
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(self._inventory_count(), before)
+
+    def test_form_failure_preserves_valid_note_and_enforces_note_length(self):
+        preview = self.client.get(self.preview_url)
+        valid_note = "x" * 2000
+        response = self.client.post(self.place_url, self._data(preview, payment_method="INVALID", customer_notes=valid_note), follow=True)
+        self.assertEqual(response.context["customer_notes"], valid_note)
+        self.assertEqual(self._checked(response, "payment_method"), [])
+        invalid = self.client.post(self.place_url, self._data(response, customer_notes="x" * 2001), follow=True)
+        self.assertContains(invalid, "at most 2000 characters")
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_pickup_cod_and_nondefault_delivery_address_are_retained(self):
+        preview = self.client.get(self.preview_url)
+        response = self.client.post(self.place_url, self._data(preview, payment_method="COD"), follow=True)
+        self.assertEqual(self._checked(response, "payment_method"), ["COD"])
+        # A valid delivery address must not be lost on another field's error.
+        alternate = create_customer_delivery_address(customer=self.customer_a, data={
+            "label": AddressLabel.WORK, "recipient_name": "Synthetic Work", "phone_number": "9000000301",
+            "line1": "Work address", "city": "Test", "state": "Test", "postal_code": "560001",
+            "latitude": "12.9", "longitude": "77.5", "is_default": False,
+        })
+        response = self.client.post(self.place_url, self._data(response,
+            fulfillment_type="DELIVERY", payment_method="COD", delivery_address_id=alternate.pk,
+            customer_notes="x" * 2001), follow=True)
+        self.assertEqual(self._checked(response, "delivery_address_id"), [str(alternate.pk)])
+        self.assertEqual(self._checked(response, "fulfillment_type"), ["DELIVERY"])
+        self.assertEqual(self._checked(response, "payment_method"), ["COD"])
+
+    def test_success_clears_recovery_without_clearing_other_session_data(self):
+        preview = self.client.get(self.preview_url)
+        self.client.post(self.place_url, self._data(preview))
+        # Submit a corrected request with the still-current token before GET.
+        session = self.client.session
+        session["unrelated"] = "keep"
+        session["delivery_location"] = {"label": "Keep location"}
+        session.save()
+        self.client.post(self.place_url, self._data(preview, **{f"pickup_location_{self.other_store.pk}": self.other_pickup.pk}))
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertNotIn("checkout_recovery", self.client.session)
+        self.assertNotIn("checkout_token", self.client.session)
+        self.assertEqual(self.client.session["unrelated"], "keep")
+        self.assertEqual(self.client.session["delivery_location"]["label"], "Keep location")
+
+
+    def test_unexpected_checkout_exception_is_not_converted_to_recovery(self):
+        from unittest.mock import patch
+        preview = self.client.get(self.preview_url)
+        data = self._data(preview, **{f"pickup_location_{self.other_store.pk}": self.other_pickup.pk})
+        with patch("orders.views.place_customer_order", side_effect=RuntimeError("synthetic unexpected failure")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(self.place_url, data)
+        self.assertNotIn("checkout_recovery", self.client.session)
+        self.assertEqual(Order.objects.count(), 0)
