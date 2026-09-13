@@ -349,3 +349,122 @@ class CustomerOrderPortalTests(CheckoutTestMixin, TestCase):
 
         with self.assertRaises(Http404):
             get_customer_order_or_404(self.customer_a, order_b.order_number)
+
+    def _presentation_order(self, *, pickup=False):
+        self.store.name = "PRIVATE-MERCHANT-ALPHA-73"
+        self.store.save(update_fields=["name"])
+        other_store = self.create_store(name="PRIVATE-MERCHANT-BETA-91")
+        other_product = self.create_public_product(store=other_store, name="Second snapshot item")
+        add_product_to_cart(customer=self.customer_a, product_code=other_product.product_code, quantity=Decimal("3.000"))
+        options = {}
+        if pickup:
+            other_pickup = self.create_pickup(other_store, name="West collection counter", instructions="Use the west entrance")
+            options = {
+                "fulfillment_type": FulfillmentType.FACILITY_PICKUP,
+                "payment_method": PaymentMethod.PAY_AT_PICKUP,
+                "delivery_address_id": None,
+                "pickup_post_data": {
+                    f"pickup_location_{self.store.pk}": str(self.pickup.pk),
+                    f"pickup_location_{other_store.pk}": str(other_pickup.pk),
+                },
+            }
+        order = self._place_for(self.customer_a, self.user_a, token="presentation", **options)
+        from .store_status import transition_store_order
+        transition_store_order(store_order=order.store_orders.get(store=self.store), store=self.store, action="accept")
+        order.refresh_from_db()
+        return order
+
+    def _assert_private_identifiers_absent(self, response, order):
+        # assertNotContains examines the entire response, including hidden markup,
+        # attributes and inline scripts, rather than only rendered visible text.
+        for group in order.store_orders.all():
+            for value in (group.store_name, group.store_code, group.store_order_number):
+                self.assertNotContains(response, value)
+        self.assertNotContains(response, "Store subtotal")
+        self.assertNotContains(response, "Store total")
+
+    def test_multi_store_customer_responses_hide_source_identifiers(self):
+        order = self._presentation_order()
+        self._login(self.user_a)
+        for url in (self.list_url, self._detail_url(order.order_number)):
+            response = self.client.get(url)
+            self._assert_private_identifiers_absent(response, order)
+            self.assertContains(response, order.order_number)
+            self.assertContains(response, f"₹{order.grand_total}")
+        detail = self.client.get(self._detail_url(order.order_number))
+        for group in order.store_orders.all():
+            self.assertContains(detail, group.get_status_display())
+            self.assertContains(detail, f"₹{group.items_subtotal}")
+            self.assertContains(detail, f"₹{group.store_total}")
+            for item in group.items.all():
+                for value in (item.product_name, item.product_code, item.sku, str(item.quantity), str(item.unit_price), str(item.line_total)):
+                    self.assertContains(detail, value)
+        self.assertContains(detail, "Status history")
+        self.assertContains(detail, "Cancel order")
+
+    def test_pickup_details_stay_with_relevant_items_without_source_headings(self):
+        order = self._presentation_order(pickup=True)
+        self._login(self.user_a)
+        response = self.client.get(self._detail_url(order.order_number))
+        self._assert_private_identifiers_absent(response, order)
+        # Inspect each existing item card independently to protect collection
+        # instructions from becoming detached from the products they apply to.
+        cards = response.content.decode().split('<div class="card shadow-sm mb-3">')[1:]
+        self.assertEqual(len(cards), 2)
+        for card, group in zip(cards, order.store_orders.order_by("pk")):
+            for item in group.items.all():
+                self.assertIn(item.product_name, card)
+            location = group.pickup_location
+            for value in (location.name, str(location.address), location.contact_phone, location.hours, location.instructions):
+                self.assertIn(value, card)
+        # A necessary collection name can itself identify a merchant. Preserve
+        # that instruction explicitly rather than claiming universal anonymity.
+        self.pickup.name = "PRIVATE-MERCHANT-ALPHA-73 collection counter"
+        self.pickup.save(update_fields=["name"])
+        response = self.client.get(self._detail_url(order.order_number))
+        self.assertContains(response, self.pickup.name)
+
+    def test_operational_identifiers_retained_with_role_and_store_isolation(self):
+        from stores.models import StoreUser
+        order = self._presentation_order()
+        group = order.store_orders.get(store=self.store)
+        foreign = order.store_orders.exclude(store=self.store).get()
+        management_url = reverse("orders:management_order_detail", args=[order.order_number])
+        staff = User.objects.create_user(username="presentation-super", email="presentation-super@example.com", role=Role.SUPER_ADMIN, is_staff=True, is_superuser=True)
+        self.client.force_login(staff)
+        response = self.client.get(management_url)
+        for item in (group, foreign):
+            for value in (item.store_name, item.store_code, item.store_order_number):
+                self.assertContains(response, value)
+        merchant = User.objects.create_user(username="presentation-merchant", email="presentation-merchant@example.com", role=Role.STORE_USER)
+        StoreUser.objects.create(store=self.store, user=merchant, is_active=True, can_manage_orders=True)
+        self.client.force_login(merchant)
+        response = self.client.get(reverse("orders:store_order_detail", args=[group.store_order_number]))
+        self.assertContains(response, group.store_order_number)
+        self.assertNotContains(response, foreign.store_order_number)
+        response = self.client.get(reverse("orders:store_order_list"))
+        self.assertContains(response, self.store.name)
+        self.assertEqual(self.client.get(reverse("orders:store_order_detail", args=[foreign.store_order_number])).status_code, 404)
+        self.assertEqual(self.client.get(management_url).status_code, 403)
+        self._login(self.user_a)
+        self.assertEqual(self.client.get(management_url).status_code, 403)
+        self.assertEqual(self.client.get(reverse("orders:store_order_detail", args=[group.store_order_number])).status_code, 403)
+
+    def test_browsing_location_does_not_replace_required_delivery_address(self):
+        from django.core.exceptions import ValidationError
+        self._login(self.user_a)
+        for location in (None, {"latitude": "12.9", "longitude": "77.5", "label": "Synthetic point"}):
+            session = self.client.session
+            if location:
+                session["delivery_location"] = location
+            else:
+                session.pop("delivery_location", None)
+            session.save()
+            before = Order.objects.count()
+            with self.assertRaises(ValidationError):
+                self._place_for(self.customer_a, self.user_a, token=f"missing-address-{bool(location)}", delivery_address_id=None)
+            self.assertEqual(Order.objects.count(), before)
+        self.address_a.is_active = False
+        self.address_a.save(update_fields=["is_active"])
+        with self.assertRaises(ValidationError):
+            self._place_for(self.customer_a, self.user_a, token="inactive-address")
