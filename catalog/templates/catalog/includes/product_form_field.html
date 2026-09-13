@@ -1,0 +1,17 @@
+<div class="entry-field{% if field.field.widget.input_type == 'checkbox' %} entry-check{% endif %}{% if field.name == 'description' or field.name == 'store' %} entry-wide{% endif %}" data-field="{{ field.html_name }}">
+  {% if field.field.widget.input_type == 'checkbox' %}
+    <label class="entry-check-label">{{ field }} <span>{{ field.label }}</span></label>
+  {% else %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="entry-required" aria-hidden="true"> *</span>{% endif %}</label>
+    {% if field.name == 'category' %}
+      <div class="entry-category-search" hidden>
+        <label for="category-search" class="visually-hidden">Search categories</label>
+        <input id="category-search" type="search" class="form-control" placeholder="Search departments or categories" autocomplete="off" aria-controls="{{ field.id_for_label }}">
+        <small id="category-search-status" role="status" aria-live="polite"></small>
+      </div>
+    {% endif %}
+    {{ field }}
+  {% endif %}
+  {% if field.help_text %}<div class="entry-help" id="{{ field.id_for_label }}_helptext">{{ field.help_text }}</div>{% endif %}
+  <div class="entry-field-errors" id="{{ field.id_for_label }}_errors" aria-live="polite">{% for error in field.errors %}<p>{{ error }}</p>{% endfor %}</div>
+</div>

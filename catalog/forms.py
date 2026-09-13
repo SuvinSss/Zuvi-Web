@@ -519,3 +519,74 @@ class ProductImageForm(forms.Form):
         except ValidationError as exc:
             raise forms.ValidationError(exc.messages)
         return image
+
+
+class ProductEntryMediaForm(forms.Form):
+    """Validate parent-scoped selections; the image service enforces locked limits."""
+    images = MultipleFileField(
+        label="Add photos", widget=MultipleFileInput(attrs={
+            "class": "form-control", "accept": ".jpg,.jpeg,.png,.webp", "multiple": True,
+        }), help_text="JPEG, PNG or WebP · up to 5 MB each. Select up to 5 photos in total.",
+    )
+    remove_images = forms.MultipleChoiceField(required=False, widget=forms.CheckboxSelectMultiple)
+    main_photo = forms.ChoiceField(required=False, label="Main photo")
+
+    def __init__(self, *args, product=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.existing_images = list(product.images.order_by("sort_order", "pk")) if product and product.pk else []
+        self.fields["remove_images"].choices = [(str(image.pk), str(image.pk)) for image in self.existing_images]
+        self.fields["main_photo"].choices = [("", "Keep current / choose automatically")] + [
+            (f"existing:{image.pk}", f"Existing photo {index + 1}")
+            for index, image in enumerate(self.existing_images)
+        ] + [(f"new:{index}", f"New photo {index + 1}") for index in range(5)]
+        _apply_bootstrap(self)
+
+    def clean_images(self):
+        from .validators import MAX_IMAGES_PER_PRODUCT, validate_product_image
+        files = self.cleaned_data.get("images", [])
+        if len(files) > MAX_IMAGES_PER_PRODUCT:
+            raise forms.ValidationError("A product may have at most 5 images.")
+        for upload in files:
+            validate_product_image(upload)
+        return files
+
+    def clean(self):
+        cleaned = super().clean()
+        files = cleaned.get("images", [])
+        removed = cleaned.get("remove_images", [])
+        if len(self.existing_images) - len(removed) + len(files) > 5:
+            self.add_error("images", "A product may have at most 5 images, including existing photos.")
+        main = cleaned.get("main_photo", "")
+        if main.startswith("existing:") and main.split(":")[1] in removed:
+            self.add_error("main_photo", "The main photo cannot also be removed.")
+        if main.startswith("new:") and int(main.split(":")[1]) >= len(files):
+            self.add_error("main_photo", "Select that new photo before making it the main photo.")
+        return cleaned
+
+    def mutations(self):
+        main = self.cleaned_data.get("main_photo", "")
+        updates = {}
+        if main.startswith("existing:"):
+            image_id = int(main.split(":")[1])
+            # Do not turn an unchanged primary choice into an unnecessary mutation.
+            if not any(image.pk == image_id and image.is_primary for image in self.existing_images):
+                updates[image_id] = {"is_primary": True}
+        next_order = max((image.sort_order for image in self.existing_images), default=-1) + 1
+        return {
+            "add": [{"image": upload, "sort_order": next_order + index,
+                     "is_primary": main == f"new:{index}"}
+                    for index, upload in enumerate(self.cleaned_data.get("images", []))],
+            "update": updates,
+            "delete": [int(pk) for pk in self.cleaned_data.get("remove_images", [])],
+        }
+
+
+class ProductEntryStockForm(forms.Form):
+    opening_stock = forms.DecimalField(required=False, max_digits=12, decimal_places=3,
+        min_value=Decimal("0.001"), label="Opening quantity",
+        help_text="Optional. Leave blank to record no stock. Opening stock can be recorded only once.")
+    opening_stock_reason = forms.CharField(required=False, max_length=255, label="Opening stock note")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_bootstrap(self)

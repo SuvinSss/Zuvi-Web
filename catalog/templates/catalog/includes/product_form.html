@@ -1,0 +1,81 @@
+{% load static %}
+<div class="product-entry">
+  <header class="entry-header">
+    <div><a class="entry-back" href="{{ back_url }}">← Back to products{% if editing %} / {{ product.product_code }}{% endif %}</a>
+      <div class="entry-eyebrow">ZuuVi · {% if merchant %}Store catalogue{% else %}Catalogue management{% endif %}</div>
+      <h1>{{ page_heading }}</h1>
+      <p>{% if editing %}Update the details and photos customers will see.{% else %}Start with the essentials. Add photos and get your product ready for review.{% endif %}</p>
+    </div>
+    <span class="entry-status">{% if editing %}{{ product.get_status_display }}{% else %}New product{% endif %}</span>
+  </header>
+  <form method="post" enctype="multipart/form-data" id="product-entry-form" data-list-url="{{ list_url }}">
+    {% csrf_token %}<input type="hidden" name="entry_token" value="{{ entry_token }}">
+    <div class="entry-error-summary" id="entry-error-summary" tabindex="-1" role="alert" {% if not entry_errors %}hidden{% endif %}>
+      <h2>Please check these details</h2><ul>{% for error in entry_errors %}<li>{{ error.label }}: {{ error.message }}</li>{% endfor %}</ul>
+      <a href="{{ list_url }}">Check the product list</a>
+    </div>
+    {% if full_reload %}<p class="entry-notice">The page reloaded. Your typed details and existing-photo choices are shown below; please select any new files again before saving.</p>{% endif %}
+    <div class="entry-columns">
+      <div class="entry-main-column">
+        <section class="entry-panel" aria-labelledby="basics-heading">
+          <div class="entry-section-title"><span class="entry-step">01</span><div><h2 id="basics-heading">Product basics</h2><p>A clear name and the right category help customers find it.</p></div></div>
+          <div class="entry-field-grid">{% for field in basics_fields %}{% include 'catalog/includes/product_form_field.html' with field=field %}{% endfor %}</div>
+        </section>
+        <section class="entry-panel" aria-labelledby="price-heading">
+          <div class="entry-section-title"><span class="entry-step">03</span><div><h2 id="price-heading">Pricing</h2><p>{% if merchant %}Enter your store price. Management handles the customer price.{% else %}Customer prices are calculated from the permitted inputs when you save.{% endif %}</p></div></div>
+          {% include 'catalog/includes/product_form_field.html' with field=form.store_price %}
+          {% if can_price %}
+            <label class="entry-check-label entry-pricing-toggle"><input type="checkbox" name="apply_pricing" id="apply-pricing" value="1" {% if apply_pricing %}checked{% endif %}> <span>Set or update management pricing with this save</span></label>
+            <div class="entry-help">Leave unchecked to retain current margin and discount settings.</div>
+            <fieldset id="entry-pricing-fields"><legend class="visually-hidden">Management pricing</legend>
+              <div class="entry-field-grid">{% for field in pricing_form %}{% include 'catalog/includes/product_form_field.html' with field=field %}{% endfor %}</div>
+            </fieldset>
+            <div class="entry-price-summary"><span>Current selling price <strong>{% if product.selling_price != None %}₹{{ product.selling_price|default:'—' }}{% else %}Not set{% endif %}</strong></span><span>Current final price <strong>{% if product.final_price != None %}₹{{ product.final_price|default:'—' }}{% else %}Not set{% endif %}</strong></span></div>
+            <p class="entry-help">These are saved prices. New values are calculated on the server after saving.</p>
+          {% endif %}
+        </section>
+        {% if can_open_stock %}
+          <section class="entry-panel" aria-labelledby="stock-heading">
+            <div class="entry-section-title"><span class="entry-step">04</span><div><h2 id="stock-heading">Opening stock <span class="entry-optional">Optional</span></h2><p>Record the quantity available when you first onboard this product.</p></div></div>
+            {% if has_opening %}<p class="entry-notice">Opening stock is already recorded. Use the inventory page for further movements or corrections.</p>{% else %}<div class="entry-field-grid">{% for field in stock_form %}{% include 'catalog/includes/product_form_field.html' with field=field %}{% endfor %}</div>{% endif %}
+          </section>
+        {% endif %}
+        <details class="entry-panel entry-advanced" id="entry-advanced" {% if advanced_errors %}open{% endif %}>
+          <summary>Advanced details <span>Tags, dates & catalogue settings</span></summary>
+          <div class="entry-field-grid">{% for field in advanced_fields %}{% include 'catalog/includes/product_form_field.html' with field=field %}{% endfor %}</div>
+        </details>
+      </div>
+      <aside class="entry-photo-column">
+        <section class="entry-panel entry-photos" aria-labelledby="photos-heading">
+          <div class="entry-section-title"><span class="entry-step">02</span><div><h2 id="photos-heading">Product photos</h2><p>Choose a clear main photo, then add other views.</p></div><output id="entry-photo-count" aria-live="polite">{{ image_count }}/5</output></div>
+          <div class="entry-photo-grid" id="entry-photo-grid">
+            {% for item in existing_photos %}
+              <div class="entry-photo{% if item.removed %} is-removed{% endif %}" data-existing-photo="{{ item.image.pk }}" data-primary="{% if item.image.is_primary %}true{% else %}false{% endif %}">
+                <img src="{{ item.image.image.url }}" alt="{% if item.image.alt_text %}{{ item.image.alt_text }}{% else %}Existing product photo {{ forloop.counter }}{% endif %}">
+                <span class="entry-photo-badge" {% if not item.image.is_primary %}hidden{% endif %}>Main photo</span>
+                <button type="button" class="entry-photo-primary" data-set-main="existing:{{ item.image.pk }}" hidden>Make main</button>
+                <label class="entry-photo-remove"><input type="checkbox" name="remove_images" value="{{ item.image.pk }}" {% if item.removed %}checked{% endif %}> Remove photo {{ forloop.counter }}</label>
+              </div>
+            {% endfor %}
+          </div>
+          <div id="entry-photo-empty" class="entry-photo-empty" {% if existing_photos %}hidden{% endif %}><span aria-hidden="true">＋</span><strong>Your product, in focus</strong><p>Add front, back and detail photos.<br>The first photo is the main photo by default.</p></div>
+          <div class="entry-upload">{% include 'catalog/includes/product_form_field.html' with field=media_form.images %}</div>
+          {% include 'catalog/includes/product_form_field.html' with field=media_form.main_photo %}
+          <div data-field="remove_images" class="entry-field-errors" role="alert">{{ media_form.remove_images.errors }}</div>
+          <noscript><p class="entry-help">Thumbnails appear after saving. To choose a main photo now, use the selection above. Files must be selected again if the page reloads.</p></noscript>
+          {% if editing %}<a class="entry-secondary-link" href="{{ images_url }}">Open separate image manager →</a><p class="entry-help">Save your changes before leaving this form.</p>{% endif %}
+        </section>
+        <div class="entry-review-note"><strong>Ready for review, not publication</strong><p>Submitting sends the product to management for approval. Photo changes to an approved product require review again.</p></div>
+      </aside>
+    </div>
+    <footer class="entry-actions">
+      <div><span id="entry-save-status" role="status" aria-live="polite">{% if editing %}Changes are saved together.{% else %}You can finish the details later as a draft.{% endif %}</span><a href="{{ back_url }}" class="entry-cancel">Cancel</a></div>
+      <div class="entry-action-buttons">
+        {% if can_draft %}<button type="submit" name="entry_action" value="draft" class="entry-button entry-button-secondary">Save draft</button>{% endif %}
+        {% if editing %}<button type="submit" name="entry_action" value="save" class="entry-button entry-button-primary">Save changes</button>{% endif %}
+        {% if can_submit %}<button type="submit" name="entry_action" value="submit" class="entry-button {% if editing %}entry-button-secondary{% else %}entry-button-primary{% endif %}">Submit for approval</button><button type="submit" name="entry_action" value="submit_another" class="entry-button entry-button-secondary">Submit and add another</button>{% endif %}
+      </div>
+      {% if can_submit %}<p class="entry-action-help">“Submit and add another” submits this product for approval, then opens a new product form.</p>{% endif %}
+    </footer>
+  </form>
+</div>
