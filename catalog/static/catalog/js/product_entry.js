@@ -47,7 +47,19 @@
     summary.hidden = !errors.length;
     if (errors.length) summary.focus();
   };
-  const setMain = value => { main.value = value; renderPhotos(); };
+  const setMain = (value, control) => {
+    // Restore only focus held by this control; pointer activation must not steal
+    // focus on browsers that do not focus buttons when clicked.
+    const restoreFocus = document.activeElement === control;
+    main.value = value;
+    renderPhotos();
+    if (restoreFocus) {
+      const equivalent = value.startsWith('existing:')
+        ? existing.find(photo => `existing:${photo.dataset.existingPhoto}` === value)?.querySelector('[data-set-main]')
+        : grid.querySelector(`[data-new-photo="${value.split(':')[1]}"] .entry-photo-primary`);
+      (equivalent && !equivalent.disabled ? equivalent : main).focus({preventScroll: true});
+    }
+  };
   function renderPhotos() {
     const current = main.value;
     main.replaceChildren(new Option('Keep current / choose automatically', ''));
@@ -64,7 +76,7 @@
       photo.querySelector('.entry-photo-badge').hidden = removed || effectiveMain !== key;
       const button = photo.querySelector('[data-set-main]');
       button.hidden = false;
-      button.disabled = removed || effectiveMain === key;
+      button.disabled = removed;
       button.textContent = effectiveMain === key && !removed ? 'Main photo selected' : 'Make main';
       button.setAttribute('aria-pressed', String(effectiveMain === key && !removed));
     });
@@ -75,10 +87,10 @@
       const image = element('img'); image.src = upload.url; image.alt = `New photo ${index + 1}: ${upload.file.name}`;
       const badge = element('span', 'Main photo', 'entry-photo-badge'); badge.hidden = effectiveMain !== `new:${index}`;
       const choose = element('button', effectiveMain === `new:${index}` ? 'Main photo selected' : 'Make main', 'entry-photo-primary');
-      choose.type = 'button'; choose.disabled = effectiveMain === `new:${index}`;
+      choose.type = 'button';
       choose.setAttribute('aria-label', `Make new photo ${index + 1} main`);
       choose.setAttribute('aria-pressed', String(effectiveMain === `new:${index}`));
-      choose.addEventListener('click', () => setMain(`new:${index}`));
+      choose.addEventListener('click', event => setMain(`new:${index}`, event.currentTarget));
       const remove = element('button', `Remove new photo ${index + 1}`, 'entry-photo-remove'); remove.type = 'button';
       remove.addEventListener('click', () => {
         const previous = main.value;
@@ -97,7 +109,7 @@
   }
   existing.forEach(photo => {
     photo.querySelector('input[name="remove_images"]').addEventListener('change', renderPhotos);
-    photo.querySelector('[data-set-main]').addEventListener('click', event => setMain(event.currentTarget.dataset.setMain));
+    photo.querySelector('[data-set-main]').addEventListener('click', event => setMain(event.currentTarget.dataset.setMain, event.currentTarget));
   });
   main.addEventListener('change', renderPhotos);
   input.addEventListener('change', () => {

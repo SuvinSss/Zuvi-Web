@@ -847,3 +847,106 @@ class CheckoutRecoveryTests(CheckoutTestMixin, TestCase):
                 self.client.post(self.place_url, data)
         self.assertNotIn("checkout_recovery", self.client.session)
         self.assertEqual(Order.objects.count(), 0)
+
+
+    def _focus_elements(self, response):
+        from html.parser import HTMLParser
+
+        class Elements(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.values = []
+
+            def handle_starttag(self, tag, attrs):
+                self.values.append((tag, dict(attrs)))
+
+        parser = Elements()
+        parser.feed(response.content.decode())
+        ids = [attrs["id"] for _tag, attrs in parser.values if "id" in attrs]
+        self.assertEqual(len(ids), len(set(ids)), "Focus targets must have unique IDs")
+        return parser.values
+
+    def _assert_collection_focus_contract(self, response, invalid_store_ids):
+        elements = self._focus_elements(response)
+        by_id = {attrs["id"]: attrs for _tag, attrs in elements if "id" in attrs}
+        summary = by_id["checkout-error-summary"]
+        self.assertEqual(summary["tabindex"], "-1")
+        self.assertIn(summary["aria-labelledby"], by_id)
+        links = [attrs["href"] for tag, attrs in elements
+                 if tag == "a" and attrs.get("href", "").startswith("#collection-group-")]
+        expected_links = []
+        for index, group in enumerate(response.context["store_groups"], start=1):
+            group_id = f"collection-group-{index}"
+            error_id = f"collection-error-{index}"
+            fieldset = by_id[group_id]
+            self.assertIn(fieldset["aria-labelledby"], by_id)
+            radios = [attrs for tag, attrs in elements if tag == "input"
+                      and attrs.get("name") == f"pickup_location_{group['store_id']}"]
+            if group["store_id"] in invalid_store_ids:
+                expected_links.append(f"#{group_id}")
+                self.assertEqual(fieldset["tabindex"], "-1")
+                self.assertEqual(fieldset["aria-describedby"], error_id)
+                self.assertIn(error_id, by_id)
+                for radio in radios:
+                    self.assertEqual(radio["aria-invalid"], "true")
+                    self.assertEqual(radio["aria-describedby"], error_id)
+                    self.assertNotIn("checked", radio)
+            else:
+                self.assertNotIn(error_id, by_id)
+                self.assertNotIn("aria-describedby", fieldset)
+                for radio in radios:
+                    self.assertNotIn("aria-invalid", radio)
+                    self.assertNotIn("aria-describedby", radio)
+        self.assertEqual(links, expected_links)
+        for name in (self.store.name, self.other_store.name):
+            self.assertNotContains(response, name)
+
+    def test_fresh_checkout_has_no_error_focus_target_or_invalid_radios(self):
+        response = self.client.get(self.preview_url)
+        elements = self._focus_elements(response)
+        self.assertFalse(any(attrs.get("id") == "checkout-error-summary"
+                             for _tag, attrs in elements))
+        self.assertFalse(any("aria-invalid" in attrs for _tag, attrs in elements))
+        self.assertFalse(any(attrs.get("href", "").startswith("#collection-group-")
+                             for _tag, attrs in elements))
+        self.assertEqual(self._checked(response, "fulfillment_type"), ["DELIVERY"])
+
+    def test_recovered_summary_links_only_invalid_group_and_preserves_valid_input(self):
+        from django.utils.html import escape
+        self.other_product.name = "Synthetic <Notebook> & paper"
+        self.other_product.save(update_fields=["name"])
+        preview = self.client.get(self.preview_url)
+        before = self._inventory_count()
+        response = self.client.post(self.place_url, self._data(preview), follow=True)
+        self._assert_collection_focus_contract(response, {self.other_store.pk})
+        self.assertContains(response, escape(self.other_product.name))
+        self.assertNotContains(response, self.other_product.name)
+        self.assertContains(response, escape(self.note))
+        self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.selected.pk)])
+        self.assertEqual(self._checked(response, "payment_method"), ["PAY_AT_PICKUP"])
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(self._inventory_count(), before)
+
+    def test_multiple_invalid_groups_include_focusable_group_with_no_options(self):
+        preview = self.client.get(self.preview_url)
+        self.other_pickup.is_active = False
+        self.other_pickup.save(update_fields=["is_active"])
+        response = self.client.post(self.place_url, self._data(preview, **{
+            f"pickup_location_{self.store.pk}": "",
+            f"pickup_location_{self.other_store.pk}": str(self.other_pickup.pk),
+        }), follow=True)
+        self._assert_collection_focus_contract(response, {self.store.pk, self.other_store.pk})
+        self.assertNotContains(response, f'id="pickup-{self.other_pickup.pk}"')
+        self.assertContains(response, "No collection points are available for these items.")
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_delivery_recovery_summary_does_not_mark_collection_options_invalid(self):
+        preview = self.client.get(self.preview_url)
+        response = self.client.post(self.place_url, self._data(preview,
+            fulfillment_type="DELIVERY", payment_method="COD",
+            delivery_address_id=self.address_a.pk, customer_notes="x" * 2001,
+        ), follow=True)
+        self._assert_collection_focus_contract(response, set())
+        self.assertContains(response, "at most 2000 characters")
+        self.assertEqual(self._checked(response, "delivery_address_id"), [str(self.address_a.pk)])
+        self.assertEqual(self._checked(response, "fulfillment_type"), ["DELIVERY"])

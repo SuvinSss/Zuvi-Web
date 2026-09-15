@@ -34,6 +34,20 @@
         </div>
     {% endif %}
 
+    {% if recovering_checkout %}
+        <section id="checkout-error-summary" class="alert alert-danger" tabindex="-1" aria-labelledby="checkout-error-title">
+            <h2 id="checkout-error-title" class="h6">Check your checkout details</h2>
+            <p class="mb-2">Review the errors on this page before placing your order again.</p>
+            {% for group in store_groups %}
+                {% if group.pickup_selection_error %}
+                    <p class="mb-1" data-pickup-error-link>
+                        <a href="#collection-group-{{ forloop.counter }}">Choose a collection point for {% for row in group.items %}{{ row.product_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</a>
+                    </p>
+                {% endif %}
+            {% endfor %}
+        </section>
+    {% endif %}
+
     <div class="card shadow-sm mb-3">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h2 class="h6 mb-0">Order items</h2>
@@ -129,15 +143,15 @@
                             <h3 class="h6">Collection points</h3>
                             <p class="small text-muted">Choose a collection point for each set of items listed below.</p>
                             {% for group in store_groups %}
-                                <fieldset class="border rounded p-3 mb-3">
-                                    <legend class="h6 float-none w-auto px-1">Choose a collection point for these items</legend>
+                                <fieldset id="collection-group-{{ forloop.counter }}" class="border rounded p-3 mb-3" aria-labelledby="collection-title-{{ forloop.counter }}"{% if group.pickup_selection_error %} tabindex="-1" aria-describedby="collection-error-{{ forloop.counter }}"{% endif %}>
+                                    <legend id="collection-title-{{ forloop.counter }}" class="h6 float-none w-auto px-1">Choose a collection point for these items</legend>
                                     <ul class="small">
                                         {% for row in group.items %}
                                             <li>{{ row.product_name }} — Qty: {{ row.quantity }}</li>
                                         {% endfor %}
                                     </ul>
                                     {% if group.pickup_selection_error %}
-                                        <p class="text-danger small" role="alert">Choose an available collection point for these items. Your previous choice is missing or no longer available.</p>
+                                        <p id="collection-error-{{ forloop.counter }}" class="text-danger small" role="alert">Choose an available collection point for these items. Your previous choice is missing or no longer available.</p>
                                     {% endif %}
                                     {% if group.pickup_locations %}
                                         {% for pickup in group.pickup_locations %}
@@ -149,6 +163,7 @@
                                                     id="pickup-{{ pickup.id }}"
                                                     value="{{ pickup.id }}"
                                                     {% if group.selected_pickup_id == pickup.id %}checked{% endif %}
+                                                    {% if group.pickup_selection_error %}aria-invalid="true" aria-describedby="collection-error-{{ forloop.parentloop.counter }}"{% endif %}
                                                 >
                                                 <label class="form-check-label" for="pickup-{{ pickup.id }}">
                                                     <strong>{{ pickup.name }}</strong>
@@ -259,6 +274,9 @@
             setEnabled(pickupPanel, !isDelivery);
             setEnabled(paymentDelivery, isDelivery);
             setEnabled(paymentPickup, !isDelivery);
+            document.querySelectorAll("[data-pickup-error-link]").forEach(function (link) {
+                link.hidden = isDelivery;
+            });
             if (!resetPayment) return;
             if (isDelivery) {
                 document.getElementById("pay-cod").checked = true;
@@ -271,6 +289,19 @@
             el.addEventListener("change", function () { sync(true); });
         });
         sync(false);
+        const errorSummary = document.getElementById("checkout-error-summary");
+        if (errorSummary) {
+            errorSummary.querySelectorAll("a[href^='#collection-group-']").forEach(function (link) {
+                link.addEventListener("click", function (event) {
+                    event.preventDefault();
+                    const group = document.getElementById(link.hash.slice(1));
+                    if (!group || pickupPanel.classList.contains("d-none")) return;
+                    const control = group.querySelector("input[aria-invalid='true']:not(:disabled)");
+                    (control || group).focus();
+                });
+            });
+            errorSummary.focus();
+        }
     })();
     </script>
 {% endif %}
