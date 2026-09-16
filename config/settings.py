@@ -90,6 +90,10 @@ for origin in CSRF_TRUSTED_ORIGINS:
 if env.bool('DJANGO_TRUST_PROXY_SSL_HEADER', default=False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = env.bool('DJANGO_SECURE_SSL_REDIRECT', default=HOSTED)
+SECURE_REDIRECT_EXEMPT = [
+    r'^health/live/$',
+    r'^health/ready/$',
+]
 SESSION_COOKIE_SECURE = env.bool('DJANGO_SESSION_COOKIE_SECURE', default=HOSTED)
 CSRF_COOKIE_SECURE = env.bool('DJANGO_CSRF_COOKIE_SECURE', default=HOSTED)
 CSRF_COOKIE_HTTPONLY = False  # Cart and location JavaScript read csrftoken.

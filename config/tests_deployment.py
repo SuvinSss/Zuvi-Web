@@ -120,7 +120,7 @@ class DeploymentSettingsTests(SimpleTestCase):
             for name in ('SECURE_SSL_REDIRECT', 'SESSION_COOKIE_SECURE', 'CSRF_COOKIE_SECURE'):
                 self.assertTrue(parsed[name])
             self.assertFalse(parsed['CSRF_COOKIE_HTTPONLY'])
-            self.assertEqual(parsed['SECURE_REDIRECT_EXEMPT'], [])
+            self.assertEqual(parsed['SECURE_REDIRECT_EXEMPT'], [r'^health/live/$', r'^health/ready/$'])
 
     def test_local_defaults_and_explicit_security_overrides(self):
         # Explicit overrides isolate parsing from the developer's local .env.
@@ -324,7 +324,7 @@ class GunicornContractTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
-@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver'])
+@override_settings(SECURE_SSL_REDIRECT=True, SECURE_PROXY_SSL_HEADER=None, ALLOWED_HOSTS=['testserver'])
 class HealthEndpointTests(SimpleTestCase):
     def assert_uncached(self, response):
         for directive in ('no-cache', 'no-store', 'must-revalidate', 'max-age=0', 'private'):
@@ -362,19 +362,57 @@ class HealthEndpointTests(SimpleTestCase):
                 self.assertNotIn(diagnostic.encode(), response.content)
                 self.assertNotIn(b'Traceback', response.content)
                 self.assert_uncached(response)
-                self.assertEqual(self.client.head(reverse('health_ready')).content, b'')
+                self.assertNotIn('Location', response.headers)
+                head = self.client.head(reverse('health_ready'))
+                self.assertEqual(head.status_code, 503)
+                self.assertEqual(head.content, b'')
+                self.assertNotIn('Location', head.headers)
 
     def test_unexpected_programming_errors_are_not_swallowed(self):
         with patch('config.health.database_ready', side_effect=ValueError('programming error')):
             with self.assertRaises(ValueError):
                 self.client.get(reverse('health_ready'))
 
-    @override_settings(SECURE_SSL_REDIRECT=True, SECURE_PROXY_SSL_HEADER=None)
-    def test_health_uses_normal_https_redirect_when_proxy_trust_is_off(self):
-        for route in ('health_live', 'health_ready'):
-            response = self.client.get(reverse(route), HTTP_X_FORWARDED_PROTO='https')
-            self.assertEqual(response.status_code, 301)
-            self.assertEqual(response.headers['Location'], f'https://testserver{reverse(route)}')
+    def test_exact_health_paths_bypass_ssl_redirect_for_get_and_head(self):
+        with patch('config.health.database_ready', return_value=True):
+            for route in ('health_live', 'health_ready'):
+                for method in ('get', 'head'):
+                    with self.subTest(route=route, method=method):
+                        response = getattr(self.client, method)(reverse(route))
+                        self.assertEqual(response.status_code, 200)
+                        self.assertEqual(response.content, b'ok\n' if method == 'get' else b'')
+                        self.assertNotIn('Location', response.headers)
+                        self.assert_uncached(response)
+
+    def test_ordinary_http_routes_still_redirect_to_exact_https_location(self):
+        paths = (
+            '/', reverse('customers:customer_portal_login'),
+            reverse('customers:customer_portal_dashboard'),
+            reverse('accounts:management_login'),
+            reverse('accounts:management_dashboard'), reverse('admin:index'),
+        )
+        for path in paths:
+            for method in ('get', 'head'):
+                with self.subTest(path=path, method=method):
+                    # An untrusted forwarded header must not bypass HTTPS.
+                    response = getattr(self.client, method)(
+                        f'{path}?next=%2Fcart%2F', HTTP_X_FORWARDED_PROTO='https',
+                    )
+                    self.assertEqual(response.status_code, 301)
+                    self.assertEqual(
+                        response.headers['Location'], f'https://testserver{path}?next=%2Fcart%2F',
+                    )
+
+    def test_health_like_paths_still_redirect_to_exact_https_location(self):
+        for path in (
+            '/health/', '/health/live/extra/', '/health/ready/extra/',
+            '/health/live', '/health/ready', '/prefix/health/live/',
+        ):
+            for method in ('get', 'head'):
+                with self.subTest(path=path, method=method):
+                    response = getattr(self.client, method)(path)
+                    self.assertEqual(response.status_code, 301)
+                    self.assertEqual(response.headers['Location'], f'https://testserver{path}')
 
     @override_settings(SECURE_SSL_REDIRECT=True, SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'))
     def test_health_respects_explicit_proxy_trust(self):
@@ -384,12 +422,21 @@ class HealthEndpointTests(SimpleTestCase):
 
     def test_railway_health_hostname_must_be_explicitly_allowed(self):
         client = Client(HTTP_HOST='healthcheck.railway.app')
-        self.assertEqual(client.get(reverse('health_live')).status_code, 400)
-        with override_settings(ALLOWED_HOSTS=['healthcheck.railway.app']):
-            self.assertEqual(client.get(reverse('health_live')).status_code, 200)
+        with patch('config.health.database_ready', return_value=True):
+            for route in ('health_live', 'health_ready'):
+                for method in ('get', 'head'):
+                    with self.subTest(route=route, method=method):
+                        self.assertEqual(getattr(client, method)(reverse(route)).status_code, 400)
+                        with override_settings(ALLOWED_HOSTS=['healthcheck.railway.app']):
+                            response = getattr(client, method)(reverse(route))
+                            self.assertEqual(response.status_code, 200)
+                            self.assertNotIn('Location', response.headers)
+                        for host in ('untrusted.example.test', 'invalid host'):
+                            response = getattr(self.client, method)(reverse(route), HTTP_HOST=host)
+                            self.assertEqual(response.status_code, 400)
 
 
-@override_settings(SECURE_SSL_REDIRECT=False, ALLOWED_HOSTS=['testserver'])
+@override_settings(SECURE_SSL_REDIRECT=True, SECURE_PROXY_SSL_HEADER=None, ALLOWED_HOSTS=['testserver'])
 class PostgreSQLReadinessTests(TestCase):
     def test_ready_get_and_head_against_disposable_postgresql(self):
         self.assertEqual(settings.DATABASES['default']['ENGINE'], 'django.db.backends.postgresql')
