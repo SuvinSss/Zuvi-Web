@@ -9,13 +9,14 @@ from accounts.models import Role
 from cart.services import add_product_to_cart
 from catalog.models import Product, ProductCategory, ProductStatus, ProductUnit
 from catalog.pricing import MarginType
-from customers.models import AddressLabel, RegistrationSource
+from customers.models import AddressLabel, CustomerAddress, RegistrationSource
 from customers.services import create_customer_delivery_address, create_customer_with_user
+from inventory.models import InventoryTransaction
 from inventory.services import record_manual_stock_in
 from locations.models import Address
 from stores.models import Store, StoreCategory, StoreStatus, StoreType
 
-from .models import FulfillmentType, Order, PaymentMethod, PickupLocation
+from .models import FulfillmentType, Order, OrderItem, PaymentMethod, PaymentStatus, PickupLocation, StoreOrder
 from .services import (
     build_checkout_preview,
     get_owned_active_delivery_address,
@@ -484,7 +485,7 @@ class CheckoutViewIsolationTests(CheckoutTestMixin, TestCase):
 
 class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = Client(enforce_csrf_checks=True)
         self.customer, self.user = create_customer_with_user(
             user_data={
                 "username": "no-address-customer",
@@ -498,26 +499,184 @@ class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
         )
         self.store = self.create_store(name="Gate Mart")
         self.product = self.create_public_product(store=self.store, name="Gate Item")
+        self.pickup = self.create_pickup(self.store)
         add_product_to_cart(
             customer=self.customer,
             product_code=self.product.product_code,
             quantity=Decimal("1.000"),
         )
         self.preview_url = reverse("orders:checkout_preview")
+        self.place_url = reverse("orders:checkout_place")
         self.dashboard_url = reverse("customers:customer_portal_dashboard")
 
     def _login(self):
         self.client.force_login(self.user)
         self.client.get(self.dashboard_url)
 
-    def test_redirects_to_add_address_when_none_exist(self):
+    def _pickup_data(self, preview, **changes):
+        data = {
+            "csrfmiddlewaretoken": self.client.cookies["csrftoken"].value,
+            "checkout_token": preview.context["checkout_token"],
+            "fulfillment_type": FulfillmentType.FACILITY_PICKUP,
+            "payment_method": PaymentMethod.PAY_AT_PICKUP,
+            f"pickup_location_{self.store.pk}": self.pickup.pk,
+            "customer_notes": "Synthetic collection note",
+        }
+        data.update(changes)
+        return data
+
+    def _assert_no_order_effects(self, inventory_before):
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(StoreOrder.objects.count(), 0)
+        self.assertEqual(OrderItem.objects.count(), 0)
+        self.assertEqual(InventoryTransaction.objects.count(), inventory_before)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, Decimal("10.000"))
+        preview = build_checkout_preview(self.customer)
+        self.assertFalse(preview["is_empty"])
+        self.assertEqual(preview["item_count"], 1)
+
+    def _create_address(self, customer=None):
+        return create_customer_delivery_address(
+            customer=customer or self.customer,
+            data={
+                "label": AddressLabel.HOME, "recipient_name": "Synthetic recipient",
+                "phone_number": "9000000401", "line1": "Synthetic delivery address",
+                "city": "Test", "state": "Test", "postal_code": "560001",
+                "latitude": "12.971600", "longitude": "77.594600",
+                "is_default": True,
+            },
+        )
+
+    def test_addressless_preview_offers_pickup_and_delivery_warning(self):
         self._login()
         response = self.client.get(self.preview_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "orders/checkout.html")
+        self.assertTrue(response.context["checkout_token"])
+        self.assertIn("checkout_token", self.client.session)
+        self.assertEqual(response.context["selected_fulfillment"], FulfillmentType.DELIVERY)
+        self.assertEqual(response.context["selected_payment"], PaymentMethod.COD)
+        self.assertContains(response, "Facility pickup")
+        for detail in (self.pickup.name, str(self.pickup.address), self.pickup.hours,
+                       self.pickup.instructions, "You have no active delivery addresses.",
+                       "before placing a delivery order."):
+            self.assertContains(response, detail)
+        self.assertEqual(CustomerAddress.objects.count(), 0)
+
+    def test_addressless_pickup_creates_once_without_delivery_address(self):
+        self._login()
+        preview = self.client.get(self.preview_url)
+        before = InventoryTransaction.objects.count()
+        data = self._pickup_data(preview, grand_total="0.01", customer_id="999999",
+                                 delivery_address_id="999999")
+        response = self.client.post(self.place_url, data)
+        order = Order.objects.get()
+        self.assertRedirects(response, reverse("orders:customer_order_detail",
+                             kwargs={"order_number": order.order_number}))
+        self.assertEqual(order.customer_id, self.customer.pk)
+        self.assertEqual(order.fulfillment_type, FulfillmentType.FACILITY_PICKUP)
+        self.assertEqual(order.payment_method, PaymentMethod.PAY_AT_PICKUP)
+        self.assertEqual(order.payment_status, PaymentStatus.PENDING)
+        self.assertEqual(order.grand_total, self.product.final_price)
+        self.assertIsNone(order.delivery_address_id)
+        self.assertIsNone(order.delivery_latitude)
+        self.assertIsNone(order.delivery_longitude)
+        for field in ("recipient_name", "phone_number", "line1", "line2", "landmark",
+                      "city", "district", "state", "postal_code", "country", "instructions"):
+            self.assertEqual(getattr(order, f"delivery_{field}"), "")
+        self.assertEqual(CustomerAddress.objects.count(), 0)
+        store_order = order.store_orders.get()
+        self.assertEqual(store_order.store_id, self.store.pk)
+        self.assertEqual(store_order.pickup_location_id, self.pickup.pk)
+        self.assertEqual(OrderItem.objects.count(), 1)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, Decimal("9.000"))
+        self.assertEqual(InventoryTransaction.objects.count(), before + 1)
+        self.client.post(self.place_url, data)
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(StoreOrder.objects.count(), 1)
+        self.assertEqual(OrderItem.objects.count(), 1)
+        self.assertEqual(InventoryTransaction.objects.count(), before + 1)
+
+    def test_addressless_delivery_is_rejected_without_order_effects(self):
+        self._login()
+        preview = self.client.get(self.preview_url)
+        before = InventoryTransaction.objects.count()
+        response = self.client.post(self.place_url, self._pickup_data(preview,
+            fulfillment_type=FulfillmentType.DELIVERY, payment_method=PaymentMethod.COD), follow=True)
+        self.assertEqual(response.redirect_chain, [(self.preview_url, 302)])
+        self.assertContains(response, "Select a delivery address.")
+        self.assertEqual(response.context["selected_fulfillment"], FulfillmentType.DELIVERY)
+        self._assert_no_order_effects(before)
+
+    def test_switch_to_delivery_requires_address_and_cod(self):
+        self._login()
+        preview = self.client.get(self.preview_url)
+        before = InventoryTransaction.objects.count()
+        # Start with a failed pickup attempt, then change its recovered mode.
+        response = self.client.post(self.place_url, self._pickup_data(preview,
+            **{f"pickup_location_{self.store.pk}": ""}), follow=True)
+        self.assertEqual(response.context["selected_fulfillment"], FulfillmentType.FACILITY_PICKUP)
+        response = self.client.post(self.place_url, self._pickup_data(response,
+            fulfillment_type=FulfillmentType.DELIVERY), follow=True)
+        self.assertContains(response, "Select a delivery address.")
+        self.assertContains(response, "Cash on Delivery is required for delivery orders.")
+        self._assert_no_order_effects(before)
+        address = self._create_address()
+        response = self.client.post(self.place_url, self._pickup_data(response,
+            fulfillment_type=FulfillmentType.DELIVERY, delivery_address_id=address.pk), follow=True)
+        self.assertContains(response, "Cash on Delivery is required for delivery orders.")
+        self._assert_no_order_effects(before)
+        response = self.client.post(self.place_url, self._pickup_data(response,
+            fulfillment_type=FulfillmentType.DELIVERY, delivery_address_id=address.pk,
+            payment_method=PaymentMethod.COD))
         self.assertEqual(response.status_code, 302)
-        expected_prefix = reverse("customers:customer_portal_address_create")
-        self.assertTrue(response.url.startswith(expected_prefix))
-        self.assertIn(f"next={self.preview_url}", response.url)
-        self.assertNotIn("checkout_token", self.client.session)
+        order = Order.objects.get()
+        self.assertEqual(order.delivery_address_id, address.pk)
+        self.assertEqual(order.payment_method, PaymentMethod.COD)
+        self.assertEqual(order.payment_status, PaymentStatus.PENDING)
+        self.assertEqual(order.grand_total, self.product.final_price)
+        self.assertIsNone(order.store_orders.get().pickup_location_id)
+        self.assertEqual(InventoryTransaction.objects.count(), before + 1)
+
+    def test_invalid_delivery_addresses_remain_rejected(self):
+        other_customer, _ = create_customer_with_user(user_data={
+            "username": "gate-other", "email": "gate-other@example.invalid",
+            "first_name": "Synthetic", "last_name": "Other", "phone_number": "9000000402",
+            "password": "test-password-only-123",
+        }, registration_source=RegistrationSource.WEBSITE)
+        foreign = self._create_address(other_customer)
+        inactive = self._create_address()
+        inactive.is_active = False
+        inactive.save(update_fields=["is_active"])
+        self._login()
+        before = InventoryTransaction.objects.count()
+        for address_id in (foreign.pk, inactive.pk, 99999999, "malformed"):
+            with self.subTest(address=address_id):
+                preview = self.client.get(self.preview_url)
+                response = self.client.post(self.place_url, self._pickup_data(preview,
+                    fulfillment_type=FulfillmentType.DELIVERY, payment_method=PaymentMethod.COD,
+                    delivery_address_id=address_id), follow=True)
+                self.assertEqual(response.redirect_chain, [(self.preview_url, 302)])
+                self.assertTrue(response.context["recovering_checkout"])
+                self.assertIsNone(response.context["selected_address_id"])
+                self._assert_no_order_effects(before)
+
+    def test_addressless_invalid_pickups_have_no_order_effects(self):
+        inactive = self.create_pickup(self.store, is_active=False)
+        foreign = self.create_pickup(self.create_store())
+        self._login()
+        before = InventoryTransaction.objects.count()
+        for point_id in ("", inactive.pk, 99999999, "malformed", foreign.pk):
+            with self.subTest(pickup=point_id):
+                preview = self.client.get(self.preview_url)
+                response = self.client.post(self.place_url, self._pickup_data(preview,
+                    **{f"pickup_location_{self.store.pk}": point_id}), follow=True)
+                self.assertEqual(response.redirect_chain, [(self.preview_url, 302)])
+                self.assertContains(response, "Choose an available collection point")
+                self._assert_no_order_effects(before)
+                self.assertEqual(CustomerAddress.objects.count(), 0)
 
     def test_can_reach_checkout_once_address_exists(self):
         create_customer_delivery_address(
@@ -636,6 +795,22 @@ class CheckoutRecoveryTests(CheckoutTestMixin, TestCase):
         self.assertEqual(response.content.decode().count(self.store.name), 1)
 
     def test_missing_group_preserves_valid_choice_then_correction_creates_once(self):
+        self._check_missing_group_recovery()
+
+    def test_addressless_multistore_recovery_then_pickup_creates_once(self):
+        CustomerAddress.objects.filter(customer=self.customer_a).delete()
+        address_count = CustomerAddress.objects.count()
+        self._check_missing_group_recovery()
+        order = Order.objects.get()
+        self.assertIsNone(order.delivery_address_id)
+        self.assertEqual(order.delivery_line1, "")
+        self.assertEqual(order.payment_status, PaymentStatus.PENDING)
+        self.assertEqual(order.store_orders.count(), 2)
+        self.assertEqual(OrderItem.objects.count(), 2)
+        self.assertEqual(CustomerAddress.objects.count(), address_count)
+        self.assertFalse(CustomerAddress.objects.filter(customer=self.customer_a).exists())
+
+    def _check_missing_group_recovery(self):
         preview = self.client.get(self.preview_url)
         data = self._data(preview)
         before = self._inventory_count()
@@ -649,6 +824,7 @@ class CheckoutRecoveryTests(CheckoutTestMixin, TestCase):
         self.assertEqual(self._checked(response, "payment_method"), ["PAY_AT_PICKUP"])
         self.assertEqual(self._checked(response, f"pickup_location_{self.store.pk}"), [str(self.selected.pk)])
         self.assertEqual(self._checked(response, f"pickup_location_{self.other_store.pk}"), [])
+        self._assert_collection_focus_contract(response, {self.other_store.pk})
         self.assertContains(response, "Choose an available collection point for these items")
         from django.utils.html import escape
         self.assertContains(response, escape(self.note))

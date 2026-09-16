@@ -1,5 +1,4 @@
 from time import time
-from urllib.parse import quote
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -159,15 +158,6 @@ def checkout_preview_view(request):
     customer = request.customer
     preview = build_checkout_preview(customer)
     redisplay = _checkout_redisplay(request, preview)
-
-    if not preview["delivery_addresses"]:
-        messages.info(
-            request, "Add a delivery address before you can check out."
-        )
-        return redirect(
-            f"{reverse('customers:customer_portal_address_create')}"
-            f"?next={quote(request.get_full_path())}"
-        )
 
     checkout_token = issue_checkout_token(request, customer)
 
