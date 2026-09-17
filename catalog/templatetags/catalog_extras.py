@@ -4,6 +4,12 @@ register = template.Library()
 
 # Checked in order — first keyword found in the (lowercased) category name wins.
 _CATEGORY_ICONS = (
+    ("jewellery", "✦"),
+    ("mobile", "▯"),
+    ("accessories", "✦"),
+    ("groceries", "◈"),
+    ("fashion", "◇"),
+    ("beauty", "❋"),
     ("fruit", "\U0001F966"),
     ("veg", "\U0001F966"),
     ("atta", "\U0001F33E"),
@@ -42,3 +48,11 @@ def category_icon(name):
         if keyword in lowered:
             return icon
     return _DEFAULT_ICON
+
+
+@register.inclusion_tag("public/_department_navigation.html", takes_context=True)
+def department_navigation(context):
+    from catalog.public import public_category_navigation
+    request = context["request"]
+    return {"departments": public_category_navigation(request)["departments"],
+            "active_category_slug": context.get("active_category_slug", "")}

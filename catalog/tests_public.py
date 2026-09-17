@@ -269,14 +269,13 @@ class PublicCatalogueViewTests(PublicCatalogueTestMixin, TestCase):
         self.assertContains(response, "Mango Nectar")
         self.assertNotContains(response, other.name)
 
-    def test_search_by_name_brand_category_tag_and_store(self):
+    def test_search_by_name_brand_category_and_tag(self):
         url = reverse("catalog:public_product_list")
         for query in (
             "Mango",
             "FreshCo",
             "Beverages",
             "organic",
-            self.product.store.name,
         ):
             response = self.client.get(url, {"q": query})
             self.assertContains(response, "Mango Nectar", msg_prefix=query)

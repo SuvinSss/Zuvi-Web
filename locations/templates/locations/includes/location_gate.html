@@ -1,54 +1,54 @@
 {% load static %}
 <div
-    class="modal fade"
+    class="modal"
     id="deliveryLocationModal"
     tabindex="-1"
     aria-hidden="true"
     aria-labelledby="deliveryLocationModalLabel"
-    data-bs-backdrop="static"
-    data-bs-keyboard="false"
+    aria-describedby="deliveryLocationHelp"
 >
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content location-gate-content">
+            <div class="d-flex justify-content-end p-3 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-location-close aria-label="Close location selection"></button>
+            </div>
             <div class="modal-body text-center p-4 p-md-5">
                 <div class="location-gate-icon mb-3"><i class="bi bi-geo-alt-fill"></i></div>
                 <h2 class="h5 fw-bold mb-2" id="deliveryLocationModalLabel">Select delivery location</h2>
-                <p class="text-muted mb-4">We'll use this to show what's available near you.</p>
+                <p class="text-muted mb-4" id="deliveryLocationHelp">Choose a location or continue browsing. Selecting a point does not confirm delivery availability; your delivery address is checked at checkout.</p>
 
                 <button type="button" class="btn btn-brand w-100 mb-2" data-location-use-current>
                     <i class="bi bi-crosshair"></i> Use my current location
                 </button>
-                <button type="button" class="btn btn-outline-brand w-100" data-location-toggle-manual>
+                <button type="button" class="btn btn-outline-brand w-100" data-location-toggle-manual aria-expanded="false" aria-controls="locationManualPanel">
                     Enter location manually
                 </button>
 
-                <div class="d-none text-start mt-3" data-location-manual-panel>
-                    <div class="rounded border overflow-hidden location-gate-map" data-location-gate-map></div>
-                    <div class="form-text mt-2" data-location-gate-coords>Tap the map to drop a pin.</div>
+                <div class="d-none text-start mt-3" id="locationManualPanel" data-location-manual-panel>
+                    <div class="rounded border overflow-hidden location-gate-map" data-location-gate-map
+                        data-map-css="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+                        data-map-css-integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+                        data-map-script="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+                        data-map-script-integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+                    ></div>
+                    <div class="form-text mt-2" data-location-gate-coords>Select an identifiable place on the map. The initial map centre is not a selection.</div>
                     <button type="button" class="btn btn-brand w-100 mt-2" data-location-confirm-manual disabled>
                         Confirm this location
                     </button>
                 </div>
 
+                <p class="small text-muted mt-3 mb-0" data-location-gate-status role="status" aria-live="polite"></p>
+                {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+                    <p class="small mt-3 mb-0"><a href="{% url 'customers:customer_portal_address_list' %}">Manage saved delivery addresses</a>. You can select an existing address at checkout.</p>
+                {% endif %}
+                <button type="button" class="btn btn-outline-secondary w-100 mt-3" data-bs-dismiss="modal">Continue browsing</button>
                 <div class="text-danger small mt-3 d-none" data-location-gate-error role="alert"></div>
             </div>
         </div>
     </div>
 </div>
 
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
->
-<script
-    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-></script>
 <script>
-    window.ZOOP_HAS_DELIVERY_LOCATION = {{ delivery_location|yesno:"true,false" }};
     window.ZOOP_LOCATION_SET_URL = "{% url 'locations:set_delivery_location' %}";
 </script>
 <script src="{% static 'locations/js/location_gate.js' %}"></script>

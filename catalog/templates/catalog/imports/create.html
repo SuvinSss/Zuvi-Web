@@ -1,0 +1,12 @@
+{% extends base_template %}
+{% block title %}New bulk import · ZuuVi{% endblock %}
+{% block content %}
+<a href="{{ list_url }}">← All imports</a><h1 class="h3 mt-3">Prepare your catalogue import</h1>
+<p>1. Download the template. 2. Enter verified product data. 3. Upload for validation. An operator prepares matching photos before you can approve execution.</p>
+<div class="row g-4"><div class="col-lg-7"><div class="card card-body">
+<h2 class="h5">Upload CSV v1</h2><p><a href="{{ template_url }}">Download CSV template</a> · <a href="{{ sample_url }}">Illustrative sample</a></p>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.non_field_errors }}{{ form.nonce }}{{ form.nonce.errors }}{% for field in form.visible_fields %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="form-text">{{ field.help_text }}</div>{{ field.errors }}</div>{% endfor %}<button class="btn btn-primary" type="submit">Upload and validate CSV</button></form>
+</div></div><div class="col-lg-5"><h2 class="h5">Before uploading</h2><ul><li>Keep all 25 headers in the exact order. Optional values may be blank.</li><li>Required: store_code, external_sku, name, category_path, unit, unit_value, store_price.</li><li>Use exact existing category paths, separated by <code> / </code>. No new categories are created.</li><li>Units: PIECE, PACK, BOX, DOZEN, KG, GRAM, LITER, ML, METER.</li><li>Photos: up to 5 JPEG, PNG or WebP files per product, 5 MiB each. Exact flat filenames, including letter case; list from image_1 without gaps.</li><li>CSV: 5 MiB / 1,000 rows maximum. Prepared distinct image content: 2 GiB per job.</li><li>Blank opening_stock and opening_stock_reason create no stock movement. The sample leaves both blank.</li><li>Merchant requests must leave all four management-pricing values blank.</li></ul><p>Sample values are illustrative. Replace them with verified data and your selected store code.</p><a href="{{ instructions_url }}">Read complete instructions and operator runbook</a></div></div>
+{% if not staging_available %}<div class="alert alert-warning mt-4">Private staging unavailable — awaiting operator preparation. Uploading does not start an import.</div>{% endif %}
+<p class="text-muted mt-4">All imported products remain PENDING. Import execution approval does not publish products.</p>
+{% endblock %}

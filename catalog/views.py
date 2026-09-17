@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import F, Prefetch, Q
 from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
@@ -191,73 +192,174 @@ def product_detail_view(request, pk):
     )
 
 
+
+@transaction.atomic
+def _product_entry_view(request, *, merchant, product=None):
+    """Shared HTTP form experience, retaining the separate portal authorization."""
+    from django.db import IntegrityError
+    from django.http import JsonResponse
+    from django.urls import reverse
+    from config.storage_errors import STORAGE_ERRORS, STORAGE_ERROR_MESSAGE, logger as storage_logger
+    from .forms import ProductEntryMediaForm, ProductEntryStockForm
+    from .product_entry import (entry_permissions, may_set_status, opening_recorded, save_product_entry,
+                                issue_entry_token, lock_entry_receipt, store_entry_receipt)
+
+    if request.method not in {"GET", "POST", "HEAD"}:
+        return HttpResponseNotAllowed(["GET", "POST", "HEAD"])
+    editing = product is not None
+    permissions = entry_permissions(request, merchant=merchant)
+    if merchant and editing and product.status == ProductStatus.INACTIVE:
+        messages.error(request, "Inactive products cannot be edited from the store portal.")
+        return redirect("catalog:store_product_detail", pk=product.pk)
+    post = request.POST if request.method == "POST" else None
+    files = request.FILES if request.method == "POST" else None
+    ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    form_class = ((StoreProductForm if editing else StoreProductCreateForm) if merchant
+                  else (ManagementProductForm if editing else ManagementProductCreateForm))
+    form = form_class(post, files, instance=product)
+    # Images are validated once, together with the existing image selections.
+    form.fields.pop("images", None)
+    form.fields["sku"].label = "SKU"
+    media = ProductEntryMediaForm(post, files, product=product)
+    stock = ProductEntryStockForm(post)
+    apply_pricing = bool(post and post.get("apply_pricing"))
+    pricing = (ProductPricingForm(post, prefix="pricing", product=product) if apply_pricing
+               else ProductPricingForm(prefix="pricing", product=product))
+    pricing.use_required_attribute = False
+    action = (post.get("entry_action") if post else None) or (
+        "save" if editing else ("draft" if post and post.get("save_as_draft") else "submit")
+    )
+    has_opening = opening_recorded(product)
+    response_status = 200
+
+    locked_receipt = fingerprint = None
+    token_error = None
+    if post is not None:
+        try:
+            locked_receipt, fingerprint, receipt = lock_entry_receipt(request)
+        except ValidationError as exc:
+            token_error = exc
+        else:
+            if receipt:
+                result = receipt["result"]
+                if ajax:
+                    return JsonResponse(result)
+                return redirect(result["redirect"])
+        # Pricing is validated by its form/service against the proposed inputs.
+        # Binding must not recompute an old discount, or bypass the merchant
+        # service's preservation of approved prices during resubmission.
+        form.instance._freeze_calculated_prices = True
+        try:
+            valid = form.is_valid()
+        finally:
+            if hasattr(form.instance, "_freeze_calculated_prices"):
+                delattr(form.instance, "_freeze_calculated_prices")
+        valid = media.is_valid() and valid
+        valid = stock.is_valid() and valid
+        if token_error:
+            form.add_error(None, token_error)
+            valid = False
+        if not permissions["can_price"] and (apply_pricing or any(
+            key.startswith("pricing-") and value for key, value in post.items()
+        )):
+            form.add_error(None, "You do not have permission to change management pricing.")
+            valid = False
+        if not permissions["can_open_stock"] and any(post.get(key) for key in stock.fields):
+            stock.add_error("opening_stock", "You do not have permission to record opening stock.")
+            valid = False
+        if has_opening and post.get("opening_stock"):
+            stock.add_error("opening_stock", "Opening stock has already been recorded. Use inventory movements for corrections.")
+            valid = False
+        if apply_pricing and permissions["can_price"]:
+            pricing.product = form.instance
+            valid = pricing.is_valid() and valid
+        if valid:
+            try:
+                saved = save_product_entry(request=request, form=form, media=media, stock=stock,
+                    pricing=pricing if apply_pricing else None, action=action, merchant=merchant)
+            except ValidationError as exc:
+                for field, errors in getattr(exc, "message_dict", {"__all__": exc.messages}).items():
+                    destination = next((candidate for candidate in (form, media, stock) + ((pricing,) if apply_pricing else ())
+                                        if field in candidate.fields), form)
+                    for error in errors:
+                        destination.add_error(field if field in destination.fields else None, error)
+            except IntegrityError:
+                form.add_error(None, "The product could not be saved because of a data conflict. Check the product list for this SKU before trying again.")
+            except STORAGE_ERRORS:
+                storage_logger.exception("Product entry image storage operation failed")
+                # Preserve the established response for older clients of this route.
+                if not ajax and "entry_action" not in post:
+                    messages.error(request, STORAGE_ERROR_MESSAGE)
+                    return redirect(request.path)
+                media.add_error("images", "Photos could not be stored. No product changes were saved. Your selected files remain available on this page.")
+                response_status = 503
+            else:
+                route_prefix = "store_product_" if merchant else "product_"
+                destination = (reverse("catalog:" + route_prefix + "create") if action == "submit_another"
+                               else reverse("catalog:" + route_prefix + "detail", args=[saved.pk]))
+                success = ("Product submitted for approval." if action in {"submit", "submit_another"}
+                           else "Product saved as draft." if action == "draft" else "Product changes saved.")
+                messages.success(request, success)
+                result = {"ok": True, "redirect": destination,
+                          "product_code": saved.product_code, "status": saved.status}
+                store_entry_receipt(request, locked_receipt, fingerprint, result)
+                if ajax:
+                    return JsonResponse(result)
+                return redirect(destination)
+
+    active_forms = [form, media, stock] + ([pricing] if apply_pricing else [])
+    errors = []
+    for candidate in active_forms:
+        if not candidate.is_bound:
+            continue
+        for field, details in candidate.errors.items():
+            label = candidate.fields[field].label or field.replace("_", " ").capitalize() if field in candidate.fields else "Product"
+            key = candidate.add_prefix(field) if field != "__all__" else "__all__"
+            for detail in details:
+                errors.append({"field": key, "label": label, "message": str(detail)})
+    if post is not None and ajax:
+        return JsonResponse({"ok": False, "errors": errors}, status=response_status if response_status != 200 else 422)
+
+    def fields(names):
+        return [form[name] for name in names if name in form.fields]
+
+    prefix = "store_product_" if merchant else "product_"
+    can_draft = not editing or may_set_status(request, product, ProductStatus.DRAFT, merchant=merchant)
+    can_submit = not editing or (product.status != ProductStatus.PENDING and may_set_status(
+        request, product, ProductStatus.PENDING, merchant=merchant))
+    removed = set(post.getlist("remove_images")) if post else set()
+    context = {
+        "form": form, "media_form": media, "stock_form": stock, "pricing_form": pricing,
+        "product": product, "editing": editing, "merchant": merchant, **permissions,
+        "has_opening": has_opening, "apply_pricing": apply_pricing,
+        "can_draft": can_draft, "can_submit": can_submit,
+        "basics_fields": fields(("store", "name", "sku", "category", "brand", "description", "unit", "unit_value")),
+        "advanced_fields": fields(("tags", "slug", "low_stock_threshold", "manufacturing_date", "expiry_date", "is_active", "is_featured")),
+        "advanced_errors": any(form[name].errors for name in (
+            "tags", "slug", "low_stock_threshold", "manufacturing_date", "expiry_date", "is_active", "is_featured"
+        ) if name in form.fields) if post is not None else False,
+        "entry_errors": errors,
+        "existing_photos": [{"image": img, "removed": str(img.pk) in removed} for img in media.existing_images],
+        "image_count": len(media.existing_images) - len(removed),
+        "list_url": reverse("catalog:" + prefix + "list"),
+        "back_url": reverse("catalog:" + prefix + "detail", args=[product.pk]) if editing else reverse("catalog:" + prefix + "list"),
+        "images_url": reverse("catalog:" + prefix + "images", args=[product.pk]) if editing else "",
+        "page_heading": "Edit product" if editing else "Add product",
+        "full_reload": post is not None,
+        "entry_token": post.get("entry_token", "") if post is not None else issue_entry_token(request),
+    }
+    template = ("store_portal" if merchant else "management") + "/products/" + ("edit.html" if editing else "create.html")
+    return render(request, template, context, status=response_status)
+
+
 @catalog_permission_required("catalog.add_product")
 def product_create_view(request):
-    form = ManagementProductCreateForm(
-        request.POST or None,
-        request.FILES or None,
-    )
-    if request.method == "POST" and form.is_valid():
-        data = form.cleaned_data.copy()
-        save_as_draft = data.pop("save_as_draft", False)
-        store = data.pop("store")
-        tags = data.pop("tags", [])
-        data.pop("selling_price", None)
-        data.pop("final_price", None)
-        initial_status = (
-            ProductStatus.DRAFT if save_as_draft else ProductStatus.PENDING
-        )
-        product = create_product(
-            store=store,
-            product_data=data,
-            created_by=request.user,
-            tag_ids=[t.pk for t in tags],
-            initial_status=initial_status,
-            request=request,
-        )
-        messages.success(
-            request,
-            f"Product {product.product_code} created successfully.",
-        )
-        return redirect("catalog:product_detail", pk=product.pk)
-
-    return render(
-        request,
-        "management/products/create.html",
-        {"form": form},
-    )
+    return _product_entry_view(request, merchant=False)
 
 
 @catalog_permission_required("catalog.change_product")
 def product_edit_view(request, pk):
-    product = _get_product_or_404(pk)
-    form = ManagementProductForm(
-        request.POST or None,
-        request.FILES or None,
-        instance=product,
-    )
-    if request.method == "POST" and form.is_valid():
-        data = form.cleaned_data.copy()
-        data.pop("store", None)
-        tags = data.pop("tags", [])
-        data.pop("selling_price", None)
-        data.pop("final_price", None)
-        update_product(
-            product=product,
-            product_data=data,
-            updated_by=request.user,
-            tag_ids=[t.pk for t in tags],
-            request=request,
-            actor_is_store_user=False,
-        )
-        messages.success(request, "Product updated successfully.")
-        return redirect("catalog:product_detail", pk=product.pk)
-
-    return render(
-        request,
-        "management/products/edit.html",
-        {"product": product, "form": form},
-    )
+    return _product_entry_view(request, merchant=False, product=_get_product_or_404(pk))
 
 
 @catalog_permission_required("catalog.manage_product_pricing")
@@ -645,111 +747,13 @@ def store_product_detail_view(request, pk):
 
 
 @store_portal_required
-@image_request_errors
 def store_product_create_view(request):
-    # Always pass POST/FILES objects when bound — never use `or None` on
-    # MultiValueDict (empty dicts are falsy and break file handling).
-    if request.method == "POST":
-        form = StoreProductCreateForm(request.POST, request.FILES)
-    else:
-        form = StoreProductCreateForm()
-    if request.method == "POST" and form.is_valid():
-        data = form.cleaned_data.copy()
-        save_as_draft = data.pop("save_as_draft", False)
-        tags = data.pop("tags", [])
-        images = data.pop("images", [])
-        # Never accept management-only or foreign-store fields from the portal.
-        for blocked in (
-            "store",
-            "store_id",
-            "profit_margin_type",
-            "profit_margin",
-            "selling_price",
-            "discount_type",
-            "discount_value",
-            "final_price",
-            "status",
-            "is_featured",
-            "is_active",
-            "rejection_reason",
-            "product_code",
-        ):
-            data.pop(blocked, None)
-        initial_status = (
-            ProductStatus.DRAFT if save_as_draft else ProductStatus.PENDING
-        )
-        product = create_product(
-            store=request.store,
-            product_data=data,
-            created_by=request.user,
-            tag_ids=[t.pk for t in tags],
-            images=images,
-            initial_status=initial_status,
-            request=request,
-        )
-        messages.success(
-            request,
-            f"Product {product.product_code} created.",
-        )
-        return redirect("catalog:store_product_detail", pk=product.pk)
-
-    return render(
-        request,
-        "store_portal/products/create.html",
-        {"form": form},
-    )
+    return _product_entry_view(request, merchant=True)
 
 
 @store_portal_required
 def store_product_edit_view(request, pk):
-    product = get_portal_product_or_404(request, pk)
-    if product.status == ProductStatus.INACTIVE:
-        messages.error(
-            request,
-            "Inactive products cannot be edited from the store portal.",
-        )
-        return redirect("catalog:store_product_detail", pk=product.pk)
-
-    form = StoreProductForm(
-        request.POST or None,
-        request.FILES or None,
-        instance=product,
-    )
-    if request.method == "POST" and form.is_valid():
-        data = form.cleaned_data.copy()
-        tags = data.pop("tags", [])
-        for blocked in (
-            "store",
-            "store_id",
-            "profit_margin_type",
-            "profit_margin",
-            "selling_price",
-            "discount_type",
-            "discount_value",
-            "final_price",
-            "status",
-            "is_featured",
-            "is_active",
-            "rejection_reason",
-            "product_code",
-        ):
-            data.pop(blocked, None)
-        update_product(
-            product=product,
-            product_data=data,
-            updated_by=request.user,
-            tag_ids=[t.pk for t in tags],
-            request=request,
-            actor_is_store_user=True,
-        )
-        messages.success(request, "Product updated.")
-        return redirect("catalog:store_product_detail", pk=product.pk)
-
-    return render(
-        request,
-        "store_portal/products/edit.html",
-        {"product": product, "form": form},
-    )
+    return _product_entry_view(request, merchant=True, product=get_portal_product_or_404(request, pk))
 
 
 @store_portal_required

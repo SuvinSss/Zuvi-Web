@@ -1,0 +1,38 @@
+{% load catalog_extras %}
+<header class="sf-header">
+    <div class="sf-container sf-header-main">
+        <a class="sf-brand" href="{% url 'catalog:public_home' %}" aria-label="ZuuVi home">ZuuVi<span aria-hidden="true">.</span></a>
+        <button type="button" class="sf-location" data-open-location-gate aria-label="Change delivery location">
+            <i class="bi bi-geo-alt" aria-hidden="true"></i>
+            <span><small>Delivery location</small><strong>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select location{% endif %}</strong></span>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+        <form class="sf-search" method="get" action="{% url 'catalog:public_product_list' %}" role="search">
+            <label class="visually-hidden" for="sf-search">Search products</label>
+            <input id="sf-search" type="search" name="q" placeholder="Search products, brands and categories" value="{{ request.GET.q|default:'' }}">
+            <button type="submit" aria-label="Search products"><i class="bi bi-search" aria-hidden="true"></i></button>
+        </form>
+        <div class="sf-header-actions">
+            {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
+                <details class="sf-account" data-sf-disclosure>
+                    <summary aria-label="Account menu"><i class="bi bi-person" aria-hidden="true"></i><span>Account</span></summary>
+                    <nav aria-label="Your account">
+                        <a href="{% url 'customers:customer_portal_dashboard' %}">Account</a>
+                        <a href="{% url 'orders:customer_order_list' %}">Orders</a>
+                        <a href="{% url 'customers:customer_portal_profile' %}">Profile</a>
+                        <a href="{% url 'customers:customer_portal_address_list' %}">Addresses</a>
+                        <form method="post" action="{% url 'customers:customer_portal_logout' %}">{% csrf_token %}<button type="submit">Logout</button></form>
+                    </nav>
+                </details>
+                <button type="button" class="sf-cart-trigger cart-nav-btn" data-bs-toggle="offcanvas" data-bs-target="#miniCartOffcanvas" aria-controls="miniCartOffcanvas" aria-label="Open cart">
+                    <i class="bi bi-bag" aria-hidden="true"></i><span>Cart</span><span class="cart-badge {% if not cart_item_count %}d-none{% endif %}">{{ cart_item_count }}</span>
+                </button>
+            {% else %}
+                <a class="sf-account-link d-md-inline-flex mobile-nav-link" href="{% url 'customers:customer_portal_login' %}"><i class="bi bi-person" aria-hidden="true"></i><span>Login</span></a>
+                <a class="sf-account-link d-md-inline-flex mobile-nav-link" href="{% url 'customers:customer_register' %}">Sign up</a>
+                <a class="sf-cart-trigger" href="{% url 'cart:cart_detail' %}"><i class="bi bi-bag" aria-hidden="true"></i><span>Cart</span></a>
+            {% endif %}
+        </div>
+    </div>
+    {% department_navigation %}
+</header>

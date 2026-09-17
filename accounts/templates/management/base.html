@@ -50,6 +50,7 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'catalog:product_list' %}">Products</a>
                             </li>
+                        {% if perms.catalog.view_importjob %}<li class="nav-item"><a class="nav-link" href="{% url 'catalog:import_list' %}">Bulk product import</a></li>{% endif %}
                         {% endif %}
                         {% if request.user|can_access_module:"inventory" %}
                             <li class="nav-item">

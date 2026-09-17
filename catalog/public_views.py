@@ -12,7 +12,7 @@ from .public import (
     apply_public_search,
     apply_public_sort,
     get_public_product_by_slug,
-    public_categories_queryset,
+    public_category_navigation,
     public_product_card,
     public_product_detail_context,
     public_products_queryset,
@@ -69,22 +69,17 @@ def _active_filter_chips(request, data, *, brands):
 
 
 def _list_context(request, *, queryset, page_title, active_category=None):
-    form = PublicProductFilterForm(request.GET or None)
-    if form.is_valid():
-        data = form.cleaned_data
-    else:
-        data = {
-            "q": request.GET.get("q", ""),
-            "category": request.GET.get("category", ""),
-            "brand": request.GET.get("brand", ""),
-            "min_price": request.GET.get("min_price") or None,
-            "max_price": request.GET.get("max_price") or None,
-            "sort": request.GET.get("sort") or "newest",
-        }
-
-    category_slug = data.get("category") or (
-        active_category.slug if active_category else ""
-    )
+    navigation = public_category_navigation(request)
+    brands = list(Brand.objects.filter(is_active=True).order_by("name"))
+    # Bind even an empty query so defaults and validation follow one path.
+    form = PublicProductFilterForm(request.GET, categories=navigation["categories"], brands=brands)
+    valid_filters = form.is_valid()
+    data = form.cleaned_data
+    if not valid_filters:
+        # Do not silently discard invalid price/category constraints and show a
+        # broader catalogue. Keep the bound form and give a correction path.
+        queryset = queryset.none()
+    category_slug = active_category.slug if active_category else data.get("category", "")
     queryset = apply_public_search(queryset, data.get("q"))
     queryset = apply_public_filters(
         queryset,
@@ -102,8 +97,6 @@ def _list_context(request, *, queryset, page_title, active_category=None):
     query = request.GET.copy()
     query.pop("page", None)
 
-    brands = list(Brand.objects.filter(is_active=True).order_by("name"))
-
     return {
         "page_title": page_title,
         "filter_form": form,
@@ -111,7 +104,10 @@ def _list_context(request, *, queryset, page_title, active_category=None):
         "page_obj": page_obj,
         "paginator": paginator,
         "querystring": query.urlencode(),
-        "categories": public_categories_queryset(),
+        "categories": navigation["categories"],
+        "departments": navigation["departments"],
+        "subcategories": navigation["nodes"].get(active_category.pk, {}).get("children", []) if active_category else [],
+        "valid_filters": valid_filters,
         "brands": brands,
         "active_category": active_category,
         "active_category_slug": category_slug,
@@ -140,7 +136,7 @@ def public_home_view(request):
             "page_title": "ZuuVi",
             "featured_products": featured,
             "newest_products": newest,
-            "categories": public_categories_queryset()[:12],
+            "departments": public_category_navigation(request)["departments"],
         },
     )
 
@@ -182,7 +178,7 @@ def public_category_detail_view(request, slug):
         ProductCategory.objects.filter(is_active=True),
         slug=slug,
     )
-    queryset = public_products_queryset().filter(category=category)
+    queryset = public_products_queryset()
     context = _list_context(
         request,
         queryset=queryset,

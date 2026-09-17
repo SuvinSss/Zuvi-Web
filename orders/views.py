@@ -1,4 +1,4 @@
-from urllib.parse import quote
+from time import time
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -20,7 +20,7 @@ from .forms import (
     StoreOrderRejectForm,
     StoreOrderStatusNoteForm,
 )
-from .models import FulfillmentType, PaymentMethod
+from .models import FulfillmentType, Order, PaymentMethod
 from .portal import (
     customer_can_cancel_order,
     customer_orders_queryset,
@@ -30,6 +30,7 @@ from .services import (
     build_checkout_preview,
     clear_checkout_token,
     issue_checkout_token,
+    peek_checkout_token,
     verify_checkout_token,
 )
 from .store_portal import (
@@ -47,6 +48,104 @@ def _validation_message(exc):
     return "; ".join(exc.messages)
 
 
+CHECKOUT_RECOVERY_KEY = "checkout_recovery"
+CHECKOUT_RECOVERY_MAX_AGE = 600
+
+
+def _remember_checkout_recovery(request, form):
+    """Keep only display selections for a valid, unfinished checkout attempt."""
+    request.session.pop(CHECKOUT_RECOVERY_KEY, None)
+    data = form.cleaned_data
+    try:
+        token = verify_checkout_token(request, request.customer, data.get("checkout_token"))
+    except ValidationError:
+        return
+    if Order.objects.filter(checkout_token=token).exists():
+        return
+    preview = build_checkout_preview(request.customer)
+    if preview["is_empty"]:
+        return
+    fulfillment = data.get("fulfillment_type")
+    if fulfillment not in FulfillmentType.values:
+        return
+    payment_options = preview[
+        "payment_methods_delivery" if fulfillment == FulfillmentType.DELIVERY
+        else "payment_methods_pickup"
+    ]
+    payment = data.get("payment_method")
+    if payment not in {value for value, _label in payment_options}:
+        payment = None
+    pickups = {}
+    groups = preview["store_groups"]
+    for group in groups:
+        raw = request.POST.get(f"pickup_location_{group['store_id']}")
+        if raw in (None, "") and len(groups) == 1:
+            raw = request.POST.get("pickup_location_id")
+        # Retain only an option actually offered for this current cart group.
+        pickups[str(group["store_id"])] = next(
+            (option["id"] for option in group["pickup_locations"]
+             if str(option["id"]) == raw), None
+        )
+    address_id = data.get("delivery_address_id")
+    if address_id not in {address.pk for address in preview["delivery_addresses"]}:
+        address_id = None
+    request.session[CHECKOUT_RECOVERY_KEY] = {
+        "customer_id": request.customer.pk,
+        "cart_id": preview["cart"].pk,
+        "token": token,
+        "created_at": time(),
+        "fulfillment": fulfillment,
+        "payment": payment,
+        "pickup_ids": pickups,
+        "address_id": address_id,
+        # cleaned_data contains notes only if existing length validation passed.
+        "note": data.get("customer_notes", ""),
+    }
+
+
+def _checkout_redisplay(request, preview):
+    """Consume recovery once, before the existing preview rotates its token."""
+    recovery = request.session.pop(CHECKOUT_RECOVERY_KEY, None)
+    if recovery:
+        token = peek_checkout_token(request, request.customer)
+        if (
+            recovery.get("customer_id") != request.customer.pk
+            or recovery.get("cart_id") != preview["cart"].pk
+            or not token or recovery.get("token") != token
+            or not 0 <= time() - recovery.get("created_at", 0) <= CHECKOUT_RECOVERY_MAX_AGE
+            or preview["is_empty"]
+            or Order.objects.filter(checkout_token=token).exists()
+        ):
+            recovery = None
+    fulfillment = recovery["fulfillment"] if recovery else FulfillmentType.DELIVERY
+    payment = recovery["payment"] if recovery else PaymentMethod.COD
+    address_ids = {address.pk for address in preview["delivery_addresses"]}
+    address_id = recovery.get("address_id") if recovery else next(
+        (address.pk for address in preview["delivery_addresses"] if address.is_default), None
+    )
+    if address_id not in address_ids:
+        address_id = None
+    for group in preview["store_groups"]:
+        options = group["pickup_locations"]
+        if recovery:
+            chosen = recovery["pickup_ids"].get(str(group["store_id"]))
+            # Revalidate after the redirect: a point may have changed meanwhile.
+            chosen = chosen if chosen in {option["id"] for option in options} else None
+        else:
+            chosen = options[0]["id"] if options else None
+        group["selected_pickup_id"] = chosen
+        group["pickup_selection_error"] = bool(
+            recovery and fulfillment == FulfillmentType.FACILITY_PICKUP and chosen is None
+        )
+    return {
+        "selected_fulfillment": fulfillment,
+        "selected_payment": payment,
+        "selected_address_id": address_id,
+        "customer_notes": recovery["note"] if recovery else "",
+        "recovering_checkout": bool(recovery),
+    }
+
+
 @never_cache
 @require_GET
 @customer_portal_required
@@ -58,28 +157,21 @@ def checkout_preview_view(request):
     """
     customer = request.customer
     preview = build_checkout_preview(customer)
-
-    if not preview["delivery_addresses"]:
-        messages.info(
-            request, "Add a delivery address before you can check out."
-        )
-        return redirect(
-            f"{reverse('customers:customer_portal_address_create')}"
-            f"?next={quote(request.get_full_path())}"
-        )
+    redisplay = _checkout_redisplay(request, preview)
 
     checkout_token = issue_checkout_token(request, customer)
 
     form = CheckoutPlaceForm(
         initial={
             "checkout_token": checkout_token,
-            "fulfillment_type": FulfillmentType.DELIVERY,
-            "payment_method": PaymentMethod.COD,
+            "fulfillment_type": redisplay["selected_fulfillment"],
+            "payment_method": redisplay["selected_payment"],
         }
     )
 
     context = {
         **preview,
+        **redisplay,
         "checkout_token": checkout_token,
         "form": form,
         "can_place_order": (
@@ -103,6 +195,7 @@ def checkout_place_view(request):
     customer = request.customer
     form = CheckoutPlaceForm(request.POST)
     if not form.is_valid():
+        _remember_checkout_recovery(request, form)
         for _field, errors in form.errors.items():
             for error in errors:
                 messages.error(request, error)
@@ -127,8 +220,13 @@ def checkout_place_view(request):
             request=request,
         )
         clear_checkout_token(request)
+        request.session.pop(CHECKOUT_RECOVERY_KEY, None)
     except ValidationError as exc:
-        messages.error(request, _validation_message(exc))
+        _remember_checkout_recovery(request, form)
+        if "pickup_location_id" in getattr(exc, "message_dict", {}):
+            messages.error(request, "Choose an available collection point for each set of items.")
+        else:
+            messages.error(request, _validation_message(exc))
         return redirect("orders:checkout_preview")
 
     messages.success(

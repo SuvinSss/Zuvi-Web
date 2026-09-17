@@ -45,6 +45,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'catalog:store_product_list' %}">Products</a>
                     </li>
+                        {% if perms.catalog.view_importjob %}<li class="nav-item"><a class="nav-link" href="{% url 'catalog:store_import_list' %}">Bulk product import</a></li>{% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'inventory:store_inventory_list' %}">Inventory</a>
                     </li>

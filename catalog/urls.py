@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import public_views, views
+from . import import_views, public_views, views
 
 app_name = "catalog"
 
@@ -124,3 +124,17 @@ urlpatterns = [
         name="store_product_image_set_primary",
     ),
 ]
+
+# Import operations are isolated from public catalogue routes.
+for portal, prefix in [('management', 'import_'), ('store', 'store_import_')]:
+    root = f'{portal}/catalog-imports/'
+    for suffix, view, name in [
+        ('', import_views.import_list, 'list'),
+        ('create/', import_views.import_create, 'create'),
+        ('download/<str:kind>/', import_views.import_download, 'download'),
+        ('<uuid:pk>/', import_views.import_detail, 'detail'),
+        ('<uuid:pk>/report/', import_views.import_report, 'report'),
+        ('<uuid:pk>/rows/<int:row_number>/images/<int:position>/', import_views.import_image, 'image'),
+    ]:
+        urlpatterns.append(path(root + suffix, view, {'portal': portal}, name=prefix + name))
+urlpatterns.append(path('management/catalog-imports/<uuid:pk>/approve/', import_views.import_approve, name='import_approve'))
