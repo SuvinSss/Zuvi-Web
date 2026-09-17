@@ -188,9 +188,10 @@
                 }
                 try {
                     map = L.map(mapEl).setView([20.5937, 78.9629], 5);
-                    var layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    var layer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                         maxZoom: 19,
-                        attribution: '&copy; OpenStreetMap contributors',
+                        referrerPolicy: "strict-origin",
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                     });
                     layer.on("tileerror", function () { mapFailure("The map could not load."); });
                     layer.on("tileload", function () {

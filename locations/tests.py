@@ -1,10 +1,49 @@
 from decimal import Decimal
+from pathlib import Path
+import re
 
+from django.conf import settings
+from django.contrib.staticfiles import finders
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from locations.models import Address
+
+
+class MapTileConfigurationTests(SimpleTestCase):
+    """Static integration contracts only; usable provider tiles require browser QA."""
+
+    def _assert_tile_contract(self, filename):
+        source = Path(finders.find(f"locations/js/{filename}")).read_text()
+        layers = re.findall(
+            r'L\.tileLayer\("([^"]+)",\s*\{(.*?)\}\)', source, re.DOTALL
+        )
+        self.assertEqual(len(layers), 1)
+        url, options = layers[0]
+        self.assertEqual(url, "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+        self.assertRegex(options, r'maxZoom:\s*19\s*,')
+        self.assertRegex(options, r'referrerPolicy:\s*"strict-origin"\s*,')
+        self.assertIn(
+            '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            options,
+        )
+        # No second provider, key-bearing URL or additional TileLayer option.
+        option_names = re.findall(r'^\s*(\w+):', options, re.MULTILINE)
+        self.assertCountEqual(option_names, ["maxZoom", "referrerPolicy", "attribution"])
+        self.assertNotIn("{s}.tile.openstreetmap.org", source)
+
+    def test_location_gate_tile_contract(self):
+        self._assert_tile_contract("location_gate.js")
+
+    def test_location_picker_tile_contract(self):
+        self._assert_tile_contract("location_picker.js")
+
+    def test_document_referrer_policy_remains_same_origin(self):
+        self.assertEqual(settings.SECURE_REFERRER_POLICY, "same-origin")
+        response = self.client.get("/health/live/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Referrer-Policy"], "same-origin")
 
 
 class AddressModelTests(TestCase):
