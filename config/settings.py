@@ -176,6 +176,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# Browser key: restrict to allowed website referrers and Maps JavaScript API.
+GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY', default='')
+GOOGLE_MAPS_MAP_ID = env('GOOGLE_MAPS_MAP_ID', default='DEMO_MAP_ID' if DEBUG else '')
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

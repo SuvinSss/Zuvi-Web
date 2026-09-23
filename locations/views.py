@@ -1,9 +1,34 @@
 from decimal import Decimal, InvalidOperation
 
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+
+from customers.decorators import customer_portal_required, portal_customer_addresses_queryset
+
+
+def select_customer_address(request, customer_address):
+    address = customer_address.address
+    request.session["delivery_location"] = {
+        "latitude": str(address.latitude),
+        "longitude": str(address.longitude),
+        "label": str(address)[:255],
+        "address_id": customer_address.pk,
+        "address_type": customer_address.get_label_display(),
+    }
+
+
+@require_POST
+@customer_portal_required
+def select_saved_address_view(request, pk):
+    address = get_object_or_404(
+        portal_customer_addresses_queryset(request.user), pk=pk, is_active=True
+    )
+    select_customer_address(request, address)
+    if _is_ajax(request):
+        return JsonResponse({"ok": True})
+    return redirect(_safe_next(request))
 
 
 def _safe_next(request, fallback="/"):
@@ -38,8 +63,11 @@ def set_delivery_location_view(request):
             return JsonResponse({"ok": False, "error": "Invalid coordinates."}, status=400)
         return redirect(_safe_next(request))
 
-    if not (Decimal("-90") <= latitude <= Decimal("90")) or not (
-        Decimal("-180") <= longitude <= Decimal("180")
+    if (
+        not latitude.is_finite()
+        or not longitude.is_finite()
+        or not Decimal("-90") <= latitude <= Decimal("90")
+        or not Decimal("-180") <= longitude <= Decimal("180")
     ):
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "Coordinates out of range."}, status=400)

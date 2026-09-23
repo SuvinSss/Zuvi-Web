@@ -1,0 +1,4 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'locations/css/addresses.css' %}">
+{{ google_maps_config|json_script:"google-maps-config" }}
+<script src="{% static 'locations/js/google_maps.js' %}"></script>

@@ -495,12 +495,22 @@ def customer_portal_address_list_view(request):
 @customer_portal_required
 def customer_portal_address_create_view(request):
     customer = _get_portal_customer(request.user)
-    form = CustomerPortalAddressForm(request.POST or None)
+    from_location = request.POST.get("from_location") == "1" or request.GET.get("from_location") == "1"
+    selected = request.session.get("delivery_location", {}) if from_location else {}
+    form = CustomerPortalAddressForm(request.POST or None, initial={
+        "recipient_name": request.user.get_full_name(),
+        "phone_number": request.user.phone_number,
+        "latitude": selected.get("latitude"),
+        "longitude": selected.get("longitude"),
+    })
     if request.method == "POST" and form.is_valid():
-        create_customer_delivery_address(
+        saved_address = create_customer_delivery_address(
             customer=customer,
             data=form.cleaned_address_data(),
         )
+        if from_location:
+            from locations.views import select_customer_address
+            select_customer_address(request, saved_address)
         messages.success(request, "Delivery address added.")
         return _safe_customer_redirect(
             request, fallback_name="customers:customer_portal_address_list"
@@ -513,6 +523,7 @@ def customer_portal_address_create_view(request):
             "form": form,
             "form_title": "Add delivery address",
             "submit_label": "Save address",
+            "from_location": from_location,
         },
     )
 

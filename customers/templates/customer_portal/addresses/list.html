@@ -39,6 +39,11 @@
                         {% endif %}
                         {% if item.is_active %}
                             <div class="d-flex flex-wrap gap-2">
+                                <form method="post" action="{% url 'locations:select_saved_address' item.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.path }}">
+                                    <button type="submit" class="btn btn-brand btn-sm">Deliver here</button>
+                                </form>
                                 <a href="{% url 'customers:customer_portal_address_edit' item.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
                                 {% if not item.is_default %}
                                     <form method="post" action="{% url 'customers:customer_portal_address_set_default' item.pk %}">

@@ -355,7 +355,7 @@
     <div class="container">
         <div class="app-header-row1">
             <a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a>
-            <button type="button" class="loc-trigger d-none d-md-inline-flex" data-open-location-gate>
+            <button type="button" class="loc-trigger" data-open-location-gate aria-label="Change delivery location">
                 <i class="bi bi-geo-alt-fill"></i>
                 <span>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select delivery location{% endif %}</span>
                 <i class="bi bi-chevron-down small"></i>

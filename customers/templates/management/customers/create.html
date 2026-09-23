@@ -3,15 +3,6 @@
 
 {% block title %}Create Customer{% endblock %}
 
-{% block extra_head %}
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
->
-{% endblock %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Create Customer</h1>
@@ -69,10 +60,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script
-    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-></script>
+{% include "locations/includes/google_maps.html" %}
 <script src="{% static 'locations/js/location_picker.js' %}"></script>
 {% endblock %}

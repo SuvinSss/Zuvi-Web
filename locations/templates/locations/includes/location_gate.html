@@ -1,54 +1,58 @@
 {% load static %}
-<div
-    class="modal fade"
-    id="deliveryLocationModal"
-    tabindex="-1"
-    aria-hidden="true"
-    aria-labelledby="deliveryLocationModalLabel"
-    data-bs-backdrop="static"
-    data-bs-keyboard="false"
->
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content location-gate-content">
-            <div class="modal-body text-center p-4 p-md-5">
-                <div class="location-gate-icon mb-3"><i class="bi bi-geo-alt-fill"></i></div>
-                <h2 class="h5 fw-bold mb-2" id="deliveryLocationModalLabel">Select delivery location</h2>
-                <p class="text-muted mb-4">We'll use this to show what's available near you.</p>
-
-                <button type="button" class="btn btn-brand w-100 mb-2" data-location-use-current>
-                    <i class="bi bi-crosshair"></i> Use my current location
-                </button>
-                <button type="button" class="btn btn-outline-brand w-100" data-location-toggle-manual>
-                    Enter location manually
-                </button>
-
-                <div class="d-none text-start mt-3" data-location-manual-panel>
-                    <div class="rounded border overflow-hidden location-gate-map" data-location-gate-map></div>
-                    <div class="form-text mt-2" data-location-gate-coords>Tap the map to drop a pin.</div>
-                    <button type="button" class="btn btn-brand w-100 mt-2" data-location-confirm-manual disabled>
-                        Confirm this location
+<div class="modal fade address-sheet" id="deliveryLocationModal" tabindex="-1" aria-hidden="true"
+     aria-labelledby="deliveryLocationModalLabel" data-set-url="{% url 'locations:set_delivery_location' %}"
+     data-add-url="{% url 'customers:customer_portal_address_create' %}?from_location=1"
+     data-has-location="{{ delivery_location|yesno:'true,false' }}">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="address-sheet-handle" aria-hidden="true"></div>
+            <div class="modal-header">
+                <div><span class="address-eyebrow">DELIVERING TO YOU</span><h2 class="h4 mb-0" id="deliveryLocationModalLabel">Your delivery location</h2></div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close location selector"></button>
+            </div>
+            <div class="modal-body">
+                <div data-location-choose>
+                    <p class="text-muted small">Choose where you’d like your order delivered.</p>
+                    <div class="address-search" data-location-search><span class="text-muted small"><i class="bi bi-search me-2"></i>Loading location search…</span></div>
+                    <button type="button" class="address-action" data-location-use-current>
+                        <span class="address-action-icon"><i class="bi bi-crosshair"></i></span>
+                        <span><strong>Use my current location</strong><small>Find me using my device</small></span><i class="bi bi-chevron-right ms-auto"></i>
                     </button>
+                    <button type="button" class="address-action" data-location-toggle-manual>
+                        <span class="address-action-icon"><i class="bi bi-pin-map"></i></span>
+                        <span><strong>Select location manually</strong><small>Drop a pin at your doorstep</small></span><i class="bi bi-chevron-right ms-auto"></i>
+                    </button>
+                    {% if location_customer %}
+                    <a class="address-action" href="{% url 'customers:customer_portal_address_create' %}?from_location=1">
+                        <span class="address-action-icon"><i class="bi bi-plus-lg"></i></span><span><strong>Add a new address</strong><small>Save your home, work or another place</small></span><i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                    <div class="address-section-heading"><span>SAVED ADDRESSES</span><a href="{% url 'customers:customer_portal_address_list' %}">Manage</a></div>
+                    {% for item in location_addresses %}
+                    <button type="button" class="saved-address-option" data-saved-address-url="{% url 'locations:select_saved_address' item.pk %}">
+                        <i class="bi {% if item.label == 'HOME' %}bi-house-door{% elif item.label == 'WORK' %}bi-briefcase{% else %}bi-geo-alt{% endif %}"></i>
+                        <span><strong>{{ item.get_label_display }} {% if item.is_default %}<span class="address-default">Default</span>{% endif %}</strong><small>{{ item.address }}</small><small>{{ item.recipient_name }} · {{ item.phone_number }}</small></span><i class="bi bi-chevron-right ms-auto"></i>
+                    </button>
+                    {% empty %}
+                    <div class="address-empty"><i class="bi bi-house-heart"></i><strong>A place for every delivery</strong><p>Save an address to make your next order quicker.</p></div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="address-signin"><i class="bi bi-bookmark-heart"></i><div><strong>Your favourite places, saved</strong><p>Log in to add and choose saved addresses.</p><a href="{% url 'customers:customer_portal_login' %}?next={% url 'customers:customer_portal_address_create' %}" class="btn btn-outline-brand btn-sm">Log in to add an address</a></div></div>
+                    {% endif %}
                 </div>
-
-                <div class="text-danger small mt-3 d-none" data-location-gate-error role="alert"></div>
+                <div class="d-none" data-location-manual-panel>
+                    <button type="button" class="address-back" data-location-back><i class="bi bi-arrow-left"></i> All locations</button>
+                    <div class="address-map-wrap"><div class="location-gate-map" data-location-gate-map aria-label="Choose your delivery point on the map"></div><div class="address-map-hint">Move the pin to your doorstep</div></div>
+                    <div class="address-pin-summary"><i class="bi bi-geo-alt-fill"></i><div><strong>Deliver here</strong><p data-location-gate-coords aria-live="polite">Tap the map to choose a location.</p></div></div>
+                    <button type="button" class="btn btn-brand w-100 address-confirm" data-location-confirm-manual disabled>Confirm location</button>
+                    {% if location_customer %}<button type="button" class="btn btn-outline-brand w-100 mt-2" data-location-save-address disabled>Add address details &amp; save</button>{% endif %}
+                </div>
+                <div class="text-muted small mt-3" data-location-status role="status" aria-live="polite"></div>
+                <div class="alert alert-danger small mt-3 d-none" data-location-gate-error role="alert"></div>
+                <div hidden>{% csrf_token %}</div>
             </div>
         </div>
     </div>
 </div>
-
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
->
-<script
-    src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-></script>
-<script>
-    window.ZOOP_HAS_DELIVERY_LOCATION = {{ delivery_location|yesno:"true,false" }};
-    window.ZOOP_LOCATION_SET_URL = "{% url 'locations:set_delivery_location' %}";
-</script>
+{{ delivery_location|json_script:"selected-delivery-location" }}
+{% include "locations/includes/google_maps.html" %}
 <script src="{% static 'locations/js/location_gate.js' %}"></script>
