@@ -85,15 +85,7 @@
             <div class="col-lg-8">
                 <div class="card shadow-sm mb-3">
                     <div class="card-body">
-                        <h2 class="h6">Fulfillment method</h2>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-delivery" value="DELIVERY" checked data-fulfillment-toggle>
-                            <label class="form-check-label" for="fulfillment-delivery">Delivery</label>
-                        </div>
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="radio" name="fulfillment_type" id="fulfillment-pickup" value="FACILITY_PICKUP" data-fulfillment-toggle>
-                            <label class="form-check-label" for="fulfillment-pickup">Facility pickup</label>
-                        </div>
+                        <input type="hidden" name="fulfillment_type" value="DELIVERY">
 
                         <div id="delivery-panel">
                             <h3 class="h6">Delivery address</h3>
@@ -124,47 +116,6 @@
                                 </div>
                             {% endif %}
                         </div>
-
-                        <div id="pickup-panel" class="d-none">
-                            <h3 class="h6">Pickup locations</h3>
-                            <p class="small text-muted">Select one active pickup location for each store in your cart.</p>
-                            {% for group in store_groups %}
-                                <div class="border rounded p-3 mb-3">
-                                    <div class="fw-semibold mb-2">{{ group.store_name }}</div>
-                                    {% if group.pickup_locations %}
-                                        {% for pickup in group.pickup_locations %}
-                                            <div class="form-check mb-2">
-                                                <input
-                                                    class="form-check-input"
-                                                    type="radio"
-                                                    name="pickup_location_{{ group.store_id }}"
-                                                    id="pickup-{{ pickup.id }}"
-                                                    value="{{ pickup.id }}"
-                                                    {% if forloop.first %}checked{% endif %}
-                                                >
-                                                <label class="form-check-label" for="pickup-{{ pickup.id }}">
-                                                    <strong>{{ pickup.name }}</strong>
-                                                    <div class="small text-muted">{{ pickup.address_display }}</div>
-                                                    {% if pickup.contact_phone %}
-                                                        <div class="small text-muted">Contact: {{ pickup.contact_phone }}</div>
-                                                    {% endif %}
-                                                    {% if pickup.hours %}
-                                                        <div class="small text-muted">Hours: {{ pickup.hours }}</div>
-                                                    {% endif %}
-                                                    {% if pickup.instructions %}
-                                                        <div class="small text-muted">{{ pickup.instructions }}</div>
-                                                    {% endif %}
-                                                </label>
-                                            </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <div class="alert alert-warning mb-0">
-                                            No active pickup locations are available for this store.
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
                     </div>
                 </div>
 
@@ -172,21 +123,9 @@
                     <div class="card-body">
                         <h2 class="h6">Payment</h2>
                         <p class="small text-muted mb-2">Online payment is not supported in the MVP.</p>
-                        <div id="payment-delivery">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod" value="COD" checked>
-                                <label class="form-check-label" for="pay-cod">Cash on Delivery</label>
-                            </div>
-                        </div>
-                        <div id="payment-pickup" class="d-none">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-pickup" value="PAY_AT_PICKUP">
-                                <label class="form-check-label" for="pay-pickup">Pay at Pickup</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_method" id="pay-cod-pickup" value="COD">
-                                <label class="form-check-label" for="pay-cod-pickup">Cash on Delivery</label>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="pay-cod" value="COD" checked>
+                            <label class="form-check-label" for="pay-cod">Cash on Delivery</label>
                         </div>
                     </div>
                 </div>
@@ -225,44 +164,5 @@
             </div>
         </div>
     </form>
-
-    <script>
-    (function () {
-        const deliveryPanel = document.getElementById("delivery-panel");
-        const pickupPanel = document.getElementById("pickup-panel");
-        const paymentDelivery = document.getElementById("payment-delivery");
-        const paymentPickup = document.getElementById("payment-pickup");
-        const toggles = document.querySelectorAll("[data-fulfillment-toggle]");
-
-        function setEnabled(container, enabled) {
-            container.querySelectorAll("input, select, textarea").forEach(function (el) {
-                el.disabled = !enabled;
-            });
-        }
-
-        function sync() {
-            const selected = document.querySelector('input[name="fulfillment_type"]:checked');
-            const isDelivery = selected && selected.value === "DELIVERY";
-            deliveryPanel.classList.toggle("d-none", !isDelivery);
-            pickupPanel.classList.toggle("d-none", isDelivery);
-            paymentDelivery.classList.toggle("d-none", !isDelivery);
-            paymentPickup.classList.toggle("d-none", isDelivery);
-            setEnabled(deliveryPanel, isDelivery);
-            setEnabled(pickupPanel, !isDelivery);
-            setEnabled(paymentDelivery, isDelivery);
-            setEnabled(paymentPickup, !isDelivery);
-            if (isDelivery) {
-                document.getElementById("pay-cod").checked = true;
-            } else {
-                document.getElementById("pay-pickup").checked = true;
-            }
-        }
-
-        toggles.forEach(function (el) {
-            el.addEventListener("change", sync);
-        });
-        sync();
-    })();
-    </script>
 {% endif %}
 {% endblock %}

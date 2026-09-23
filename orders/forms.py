@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import FulfillmentType, OrderStatus, PaymentMethod, PaymentStatus
+from .services import CHECKOUT_FULFILLMENT_TYPES
 
 
 class CheckoutPlaceForm(forms.Form):
@@ -11,7 +12,13 @@ class CheckoutPlaceForm(forms.Form):
     """
 
     checkout_token = forms.CharField(max_length=64)
-    fulfillment_type = forms.ChoiceField(choices=FulfillmentType.choices)
+    fulfillment_type = forms.ChoiceField(
+        choices=[
+            (value, label)
+            for value, label in FulfillmentType.choices
+            if value in CHECKOUT_FULFILLMENT_TYPES
+        ]
+    )
     payment_method = forms.ChoiceField(choices=PaymentMethod.choices)
     delivery_address_id = forms.IntegerField(required=False)
     customer_notes = forms.CharField(
@@ -31,10 +38,6 @@ class CheckoutPlaceForm(forms.Form):
                 "delivery_address_id",
                 "Select a delivery address.",
             )
-        if fulfillment == FulfillmentType.FACILITY_PICKUP and address_id:
-            # Address is ignored for pickup; clear so it is never applied.
-            cleaned["delivery_address_id"] = None
-
         if (
             fulfillment == FulfillmentType.DELIVERY
             and payment

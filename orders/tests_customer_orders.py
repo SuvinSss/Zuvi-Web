@@ -3,6 +3,7 @@ Customer order history / detail / cancel pages and cross-customer isolation.
 """
 
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -189,17 +190,23 @@ class CustomerOrderPortalTests(CheckoutTestMixin, TestCase):
         self.assertNotContains(response, "stock_restored")
 
     def test_detail_shows_pickup_location_for_pickup_orders(self):
-        order = self._place_for(
-            self.customer_a,
-            self.user_a,
-            token="tok-pickup-detail",
-            fulfillment_type=FulfillmentType.FACILITY_PICKUP,
-            payment_method=PaymentMethod.PAY_AT_PICKUP,
-            delivery_address_id=None,
-            pickup_post_data={
-                f"pickup_location_{self.store.pk}": str(self.pickup.pk),
-            },
-        )
+        # Facility pickup is disabled at checkout for the MVP; simulate an
+        # order placed while it was enabled to keep its detail page covered.
+        with mock.patch(
+            "orders.services.CHECKOUT_FULFILLMENT_TYPES",
+            (FulfillmentType.DELIVERY, FulfillmentType.FACILITY_PICKUP),
+        ):
+            order = self._place_for(
+                self.customer_a,
+                self.user_a,
+                token="tok-pickup-detail",
+                fulfillment_type=FulfillmentType.FACILITY_PICKUP,
+                payment_method=PaymentMethod.PAY_AT_PICKUP,
+                delivery_address_id=None,
+                pickup_post_data={
+                    f"pickup_location_{self.store.pk}": str(self.pickup.pk),
+                },
+            )
         self._login(self.user_a)
         response = self.client.get(self._detail_url(order.order_number))
         self.assertEqual(response.status_code, 200)

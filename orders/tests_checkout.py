@@ -459,9 +459,11 @@ class CheckoutViewIsolationTests(CheckoutTestMixin, TestCase):
         self.assertEqual(order.customer_notes, "Ring bell")
         self.assertNotIn("checkout_token", self.client.session)
 
-    def test_successful_pickup_place(self):
+    def test_facility_pickup_is_disabled_at_checkout(self):
         self._login(self.user_a)
         preview = self.client.get(self.preview_url)
+        self.assertNotContains(preview, "FACILITY_PICKUP")
+        self.assertNotContains(preview, "Pay at Pickup")
         token = preview.context["checkout_token"]
         csrf = preview.cookies["csrftoken"].value
         response = self.client.post(
@@ -475,12 +477,18 @@ class CheckoutViewIsolationTests(CheckoutTestMixin, TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        order = Order.objects.get()
-        self.assertEqual(order.fulfillment_type, FulfillmentType.FACILITY_PICKUP)
-        self.assertEqual(order.payment_method, PaymentMethod.PAY_AT_PICKUP)
-        store_order = order.store_orders.get()
-        self.assertEqual(store_order.pickup_location_id, self.pickup.pk)
+        self.assertEqual(Order.objects.count(), 0)
 
+        with self.assertRaises(ValidationError) as ctx:
+            place_order(
+                customer=self.customer_a,
+                checkout_token=token,
+                fulfillment_type=FulfillmentType.FACILITY_PICKUP,
+                payment_method=PaymentMethod.PAY_AT_PICKUP,
+                pickup_post_data={f"pickup_location_{self.store.pk}": self.pickup.pk},
+            )
+        self.assertIn("fulfillment_type", ctx.exception.message_dict)
+        self.assertEqual(Order.objects.count(), 0)
 
 class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
     def setUp(self):

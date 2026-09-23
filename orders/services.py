@@ -138,6 +138,12 @@ def active_delivery_addresses_for_customer(customer):
     )
 
 
+# Fulfillment types customers may choose at checkout. Facility pickup is
+# disabled for the MVP; the model, pickup locations and existing pickup
+# orders are kept so it can be re-enabled by adding it back here.
+CHECKOUT_FULFILLMENT_TYPES = (FulfillmentType.DELIVERY,)
+
+
 def active_pickup_locations_for_stores(store_ids):
     store_ids = [sid for sid in store_ids if sid]
     if not store_ids:
@@ -296,17 +302,12 @@ def build_checkout_preview(customer):
                 group_subtotal += row["line_total"]
                 items_subtotal += row["line_total"]
 
-        pickups = [
-            _pickup_presentation(loc)
-            for loc in active_pickup_locations_for_stores([store_id])
-        ]
         store_groups.append(
             {
                 "store_id": store_id,
                 "store_name": store_name,
                 "items": group_items,
                 "items_subtotal": group_subtotal.quantize(Decimal("0.01")),
-                "pickup_locations": pickups,
             }
         )
 
@@ -330,12 +331,11 @@ def build_checkout_preview(customer):
         "has_blocking_issues": has_blocking_issues,
         "blocking_messages": blocking_messages,
         "is_empty": not presentations,
-        "fulfillment_types": FulfillmentType.choices,
-        "payment_methods_delivery": [
-            (PaymentMethod.COD, PaymentMethod.COD.label),
+        "fulfillment_types": [
+            (value, FulfillmentType(value).label)
+            for value in CHECKOUT_FULFILLMENT_TYPES
         ],
-        "payment_methods_pickup": [
-            (PaymentMethod.PAY_AT_PICKUP, PaymentMethod.PAY_AT_PICKUP.label),
+        "payment_methods_delivery": [
             (PaymentMethod.COD, PaymentMethod.COD.label),
         ],
         "location_eligibility_notice": (
@@ -346,6 +346,18 @@ def build_checkout_preview(customer):
 
 
 def _validate_payment_for_fulfillment(fulfillment_type, payment_method):
+    if (
+        fulfillment_type in FulfillmentType.values
+        and fulfillment_type not in CHECKOUT_FULFILLMENT_TYPES
+    ):
+        raise ValidationError(
+            {
+                "fulfillment_type": (
+                    f"{FulfillmentType(fulfillment_type).label} is not "
+                    "available at checkout."
+                )
+            }
+        )
     if fulfillment_type == FulfillmentType.DELIVERY:
         if payment_method != PaymentMethod.COD:
             raise ValidationError(
