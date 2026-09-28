@@ -11,18 +11,20 @@
 </div>
 
 <form method="get" class="card card-body mb-3">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-4">
-            <input
+            <label class="form-label small" for="filter-q">Search</label>
+<input
                 type="text"
-                name="q"
+                name="q" id="filter-q"
                 class="form-control"
                 placeholder="Search code, name, username, email or phone"
                 value="{{ search_query }}"
             >
         </div>
         <div class="col-md-2">
-            <select name="registration_source" class="form-select">
+            <label class="form-label small" for="filter-registration_source">Registration source</label>
+<select name="registration_source" id="filter-registration_source" class="form-select">
                 <option value="">All sources</option>
                 {% for value, label in registration_source_choices %}
                     <option value="{{ value }}" {% if source_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -30,7 +32,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="verification_status" class="form-select">
+            <label class="form-label small" for="filter-verification_status">Verification status</label>
+<select name="verification_status" id="filter-verification_status" class="form-select">
                 <option value="">All verification</option>
                 {% for value, label in verification_status_choices %}
                     <option value="{{ value }}" {% if verification_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -38,7 +41,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="is_active" class="form-select">
+            <label class="form-label small" for="filter-is_active">Is active</label>
+<select name="is_active" id="filter-is_active" class="form-select">
                 <option value="">Active?</option>
                 <option value="true" {% if is_active_filter == "true" %}selected{% endif %}>Active</option>
                 <option value="false" {% if is_active_filter == "false" %}selected{% endif %}>Inactive</option>

@@ -349,17 +349,20 @@
     </style>
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
+    <link href="{% static 'css/zuvi-ui.css' %}" rel="stylesheet">
 </head>
-<body>
+<body class="customer-ui">
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="app-header mb-4">
     <div class="container">
         <div class="app-header-row1">
             <a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a>
             <button type="button" class="loc-trigger" data-open-location-gate aria-label="Change delivery location">
                 <i class="bi bi-geo-alt-fill"></i>
-                <span>{% if delivery_location %}{{ delivery_location.label }}{% else %}Select delivery location{% endif %}</span>
+                <span><small class="delivery-caption">Delivery location</small>{% if delivery_location %}{{ delivery_location.label }}{% else %}Choose your location{% endif %}</span>
                 <i class="bi bi-chevron-down small"></i>
             </button>
+            <a class="desktop-shop-link d-none d-lg-inline-flex" href="{% url 'catalog:public_product_list' %}">Shop all</a>
             <div class="app-header-actions">
                 {% if request.user.is_authenticated and request.user.role == "CUSTOMER" %}
                     <button
@@ -370,7 +373,7 @@
                         aria-controls="miniCartOffcanvas"
                         aria-label="Open cart"
                     >
-                        <i class="bi bi-cart3"></i>
+                        <i class="bi bi-cart3" aria-hidden="true"></i><span class="d-none d-lg-inline">Cart</span>
                         <span class="cart-badge {% if not cart_item_count %}d-none{% endif %}">{{ cart_item_count }}</span>
                     </button>
                     <div class="dropdown d-none d-lg-block">
@@ -380,6 +383,10 @@
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'orders:customer_order_list' %}">Orders</a></li>
                             <li><a class="dropdown-item" href="{% url 'customers:customer_portal_dashboard' %}">Account</a></li>
+                            <li><a class="dropdown-item" href="{% url 'customers:customer_portal_profile' %}">Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'customers:customer_portal_address_list' %}">Addresses</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><form method="post" action="{% url 'customers:customer_portal_logout' %}">{% csrf_token %}<button class="dropdown-item" type="submit">Logout</button></form></li>
                         </ul>
                     </div>
                 {% else %}
@@ -405,6 +412,7 @@
             <form class="header-search" method="get" action="{% url 'catalog:public_product_list' %}" role="search">
                 <i class="bi bi-search"></i>
                 <input type="search" name="q" placeholder='Search &quot;milk&quot;, &quot;bread&quot;, &quot;snacks&quot;…' value="{{ request.GET.q|default:'' }}" aria-label="Search products">
+                <button class="header-search-submit" type="submit" aria-label="Submit product search"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
             </form>
         </div>
         <div class="collapse d-lg-none" id="publicNav">
@@ -419,6 +427,8 @@
                     <a class="mobile-nav-link" href="{% url 'cart:cart_detail' %}"><i class="bi bi-cart3"></i> Cart</a>
                     <a class="mobile-nav-link" href="{% url 'orders:customer_order_list' %}"><i class="bi bi-receipt"></i> Orders</a>
                     <a class="mobile-nav-link" href="{% url 'customers:customer_portal_dashboard' %}"><i class="bi bi-person"></i> Account</a>
+                    <a class="mobile-nav-link" href="{% url 'customers:customer_portal_address_list' %}">Addresses</a>
+                    <form method="post" action="{% url 'customers:customer_portal_logout' %}">{% csrf_token %}<button class="mobile-nav-link" type="submit">Logout</button></form>
                 {% else %}
                     <a class="mobile-nav-link" href="{% url 'customers:customer_portal_login' %}"><i class="bi bi-person"></i> Login</a>
                     <a class="mobile-nav-link" href="{% url 'customers:customer_register' %}"><i class="bi bi-person-plus"></i> Sign up</a>
@@ -427,14 +437,16 @@
         </div>
     </div>
 </header>
-<main class="container pb-5">
+<main id="main-content" tabindex="-1" class="{% block main_class %}container pb-5{% endblock %}">
+    {% block before_content %}{% endblock %}
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+            <div role="alert" class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">{{ message }}</div>
         {% endfor %}
     {% endif %}
     {% block content %}{% endblock %}
 </main>
+<footer class="zuvi-footer"><div class="container"><a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a><span>Your everyday, a little easier.</span><span>Cash on Delivery</span></div></footer>
 <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
@@ -442,6 +454,7 @@
 ></script>
 {% include "locations/includes/location_gate.html" %}
 {% include "cart/includes/mini_cart_drawer.html" %}
+<script src="{% static 'js/zuvi-ui.js' %}" defer></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -60,7 +60,7 @@
             <div class="card-body d-flex flex-column">
                 <i class="bi bi-bag text-brand fs-3 mb-2" style="color: var(--zoop-leaf);"></i>
                 <h2 class="h5 mb-2">Browse Products</h2>
-                <p class="text-muted flex-grow-1">Browse approved products from active stores.</p>
+                <p class="text-muted flex-grow-1">Find groceries and everyday essentials from local stores.</p>
                 <a href="{% url 'catalog:public_product_list' %}" class="btn btn-outline-brand">Browse products</a>
             </div>
         </div>
@@ -92,11 +92,11 @@
             <div class="card-body d-flex flex-column">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <i class="bi bi-geo-alt fs-3" style="color: var(--zoop-leaf);"></i>
-                    <span class="badge text-bg-warning">Coming Soon</span>
+
                 </div>
-                <h2 class="h5 mb-2">Order Tracking</h2>
-                <p class="text-muted flex-grow-1">Live order tracking will appear here later.</p>
-                <button type="button" class="btn btn-outline-secondary" disabled>Coming Soon</button>
+                <h2 class="h5 mb-2">Saved addresses</h2>
+                <p class="text-muted flex-grow-1">Keep your delivery details ready for your next order.</p>
+                <a class="btn btn-outline-brand" href="{% url 'customers:customer_portal_address_list' %}">Manage addresses</a>
             </div>
         </div>
     </div>

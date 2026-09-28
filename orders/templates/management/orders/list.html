@@ -8,18 +8,20 @@
 </div>
 
 <form method="get" class="card card-body mb-3">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-4">
-            <input
+            <label class="form-label small" for="filter-q">Search</label>
+<input
                 type="text"
-                name="q"
+                name="q" id="filter-q"
                 class="form-control"
                 placeholder="Search order #, store order #, name, email, phone"
                 value="{{ search_query }}"
             >
         </div>
         <div class="col-md-2">
-            <select name="status" class="form-select">
+            <label class="form-label small" for="filter-status">Status</label>
+<select name="status" id="filter-status" class="form-select">
                 <option value="">All statuses</option>
                 {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -27,7 +29,8 @@
             </select>
         </div>
         <div class="col-md-3">
-            <select name="store" class="form-select">
+            <label class="form-label small" for="filter-store">Store</label>
+<select name="store" id="filter-store" class="form-select">
                 <option value="">All stores</option>
                 {% for store in stores %}
                     <option value="{{ store.pk }}" {% if store_filter == store.pk|stringformat:"s" %}selected{% endif %}>
@@ -37,7 +40,8 @@
             </select>
         </div>
         <div class="col-md-3">
-            <select name="customer" class="form-select">
+            <label class="form-label small" for="filter-customer">Customer</label>
+<select name="customer" id="filter-customer" class="form-select">
                 <option value="">All customers</option>
                 {% for customer in customers %}
                     <option value="{{ customer.pk }}" {% if customer_filter == customer.pk|stringformat:"s" %}selected{% endif %}>
@@ -47,7 +51,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="fulfillment_type" class="form-select">
+            <label class="form-label small" for="filter-fulfillment_type">Fulfillment type</label>
+<select name="fulfillment_type" id="filter-fulfillment_type" class="form-select">
                 <option value="">All fulfillment</option>
                 {% for value, label in fulfillment_choices %}
                     <option value="{{ value }}" {% if fulfillment_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -55,7 +60,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="payment_method" class="form-select">
+            <label class="form-label small" for="filter-payment_method">Payment method</label>
+<select name="payment_method" id="filter-payment_method" class="form-select">
                 <option value="">All payment methods</option>
                 {% for value, label in payment_method_choices %}
                     <option value="{{ value }}" {% if payment_method_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -63,7 +69,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="payment_status" class="form-select">
+            <label class="form-label small" for="filter-payment_status">Payment status</label>
+<select name="payment_status" id="filter-payment_status" class="form-select">
                 <option value="">All payment statuses</option>
                 {% for value, label in payment_status_choices %}
                     <option value="{{ value }}" {% if payment_status_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -71,10 +78,12 @@
             </select>
         </div>
         <div class="col-md-2">
-            <input type="date" name="date_from" class="form-control" value="{{ date_from }}" title="From date">
+            <label class="form-label small" for="filter-date_from">From date</label>
+<input type="date" name="date_from" id="filter-date_from" class="form-control" value="{{ date_from }}" title="From date">
         </div>
         <div class="col-md-2">
-            <input type="date" name="date_to" class="form-control" value="{{ date_to }}" title="To date">
+            <label class="form-label small" for="filter-date_to">To date</label>
+<input type="date" name="date_to" id="filter-date_to" class="form-control" value="{{ date_to }}" title="To date">
         </div>
         <div class="col-md-2 d-grid">
             <button class="btn btn-outline-primary" type="submit">Apply</button>

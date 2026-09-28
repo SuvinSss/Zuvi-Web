@@ -152,9 +152,8 @@
             button.addEventListener("click", function () { modal.show(); });
         });
         window.addEventListener("zuuvi:maps-error", function () { showError(window.ZuuviMaps.unavailable); });
-        // Do not interrupt a customer's address-entry flow with a second picker.
-        if (root.dataset.hasLocation !== "true" && !document.querySelector("[data-location-picker]") &&
-                !window.location.pathname.startsWith("/customer/")) modal.show();
+        // Delivery selection stays available in the header and at checkout.
+        // Browsing does not require dismissing a modal on each page.
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
     else init();

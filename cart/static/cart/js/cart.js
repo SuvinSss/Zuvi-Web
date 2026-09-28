@@ -50,6 +50,8 @@
             container = document.createElement("div");
             container.id = "zoopToastContainer";
             container.className = "zoop-toast-container";
+            container.setAttribute("role", "status");
+            container.setAttribute("aria-live", "polite");
             document.body.appendChild(container);
         }
         var toast = document.createElement("div");
@@ -81,7 +83,7 @@
         var onCartPage =
             window.ZOOP_CART_DETAIL_URL &&
             window.location.pathname === window.ZOOP_CART_DETAIL_URL;
-        if (count > 0 && !onCartPage) {
+        if (count > 0 && !onCartPage && !document.getElementById("checkout-form")) {
             var countEl = document.getElementById("cartBottomBarCount");
             var totalEl = document.getElementById("cartBottomBarTotal");
             if (countEl) countEl.textContent = count + (count === 1 ? " item" : " items");
@@ -168,6 +170,7 @@
     function setBusy(el, busy) {
         if (!el) return;
         el.classList.toggle("is-busy", busy);
+        el.setAttribute("aria-busy", String(busy));
         el.querySelectorAll("button").forEach(function (btn) {
             btn.disabled = busy;
         });
@@ -292,6 +295,7 @@
             .then(function (result) {
                 if (result.data.ok) {
                     renderStepperInto(inner, result.data.cart_item_id, result.data.quantity);
+                    showToast("Added to your cart");
                     updateBadge(result.data.item_count);
                     updateBottomBar(result.data.item_count, result.data.preview_subtotal);
                 } else if (result.data.login_required) {
@@ -302,7 +306,8 @@
                 }
             })
             .catch(function () {
-                form.submit();
+                if (submitBtn) submitBtn.disabled = false;
+                showToast("We could not confirm the update. Check your cart before trying again.");
             });
     }
 
