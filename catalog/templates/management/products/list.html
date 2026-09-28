@@ -22,12 +22,14 @@
 </div>
 
 <form method="get" class="card card-body mb-3">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-3">
-            <input type="text" name="q" class="form-control" placeholder="Code, SKU, name, store, brand" value="{{ search_query }}">
+            <label class="form-label small" for="filter-q">Search</label>
+<input type="text" name="q" id="filter-q" class="form-control" placeholder="Code, SKU, name, store, brand" value="{{ search_query }}">
         </div>
         <div class="col-md-2">
-            <select name="store" class="form-select">
+            <label class="form-label small" for="filter-store">Store</label>
+<select name="store" id="filter-store" class="form-select">
                 <option value="">All stores</option>
                 {% for store in stores %}
                     <option value="{{ store.pk }}" {% if store_filter == store.pk|stringformat:"s" %}selected{% endif %}>{{ store.name }}</option>
@@ -35,7 +37,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="category" class="form-select">
+            <label class="form-label small" for="filter-category">Category</label>
+<select name="category" id="filter-category" class="form-select">
                 <option value="">All categories</option>
                 {% for category in categories %}
                     <option value="{{ category.pk }}" {% if category_filter == category.pk|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
@@ -43,7 +46,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="brand" class="form-select">
+            <label class="form-label small" for="filter-brand">Brand</label>
+<select name="brand" id="filter-brand" class="form-select">
                 <option value="">All brands</option>
                 {% for brand in brands %}
                     <option value="{{ brand.pk }}" {% if brand_filter == brand.pk|stringformat:"s" %}selected{% endif %}>{{ brand.name }}</option>
@@ -51,7 +55,8 @@
             </select>
         </div>
         <div class="col-md-1">
-            <select name="status" class="form-select">
+            <label class="form-label small" for="filter-status">Status</label>
+<select name="status" id="filter-status" class="form-select">
                 <option value="">Status</option>
                 {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -59,14 +64,16 @@
             </select>
         </div>
         <div class="col-md-1">
-            <select name="stock" class="form-select">
+            <label class="form-label small" for="filter-stock">Stock</label>
+<select name="stock" id="filter-stock" class="form-select">
                 <option value="">Stock</option>
                 <option value="in_stock" {% if stock_filter == "in_stock" %}selected{% endif %}>In stock</option>
                 <option value="out_of_stock" {% if stock_filter == "out_of_stock" %}selected{% endif %}>Out of stock</option>
             </select>
         </div>
         <div class="col-md-1">
-            <select name="is_active" class="form-select">
+            <label class="form-label small" for="filter-is_active">Is active</label>
+<select name="is_active" id="filter-is_active" class="form-select">
                 <option value="">Active?</option>
                 <option value="true" {% if is_active_filter == "true" %}selected{% endif %}>Active</option>
                 <option value="false" {% if is_active_filter == "false" %}selected{% endif %}>Inactive</option>
@@ -133,7 +140,7 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="14" class="text-muted">No products found.</td></tr>
+                <tr><td colspan="14" class="text-muted">No products match this view. <a href="{% url 'catalog:product_list' %}">Clear filters</a></td></tr>
             {% endfor %}
         </tbody>
     </table>

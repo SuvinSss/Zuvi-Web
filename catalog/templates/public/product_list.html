@@ -259,17 +259,17 @@
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
         <div class="search-input-group">
             <i class="bi bi-search"></i>
-            {{ filter_form.q }}
+            <label class="visually-hidden" for="id_q">Search this catalogue</label>{{ filter_form.q }}
         </div>
         <div class="sort-select">
-            {{ filter_form.sort }}
+            <label class="visually-hidden" for="id_sort">Sort products</label>{{ filter_form.sort }}
         </div>
         <button
             type="button"
             class="btn filters-toggle-btn"
             data-bs-toggle="collapse"
             data-bs-target="#moreFiltersPanel"
-            aria-expanded="false"
+            aria-expanded="{% if filter_form.errors %}true{% else %}false{% endif %}"
             aria-controls="moreFiltersPanel"
         >
             <i class="bi bi-sliders"></i> Filters
@@ -277,20 +277,23 @@
         <button type="submit" class="btn btn-brand">Search</button>
     </div>
 
-    <div class="collapse mb-2" id="moreFiltersPanel">
+    <div class="collapse mb-2 {% if filter_form.errors %}show{% endif %}" id="moreFiltersPanel">
         <div class="more-filters-panel p-3">
             <div class="row g-3 align-items-end">
                 <div class="col-sm-6">
                     <label class="form-label small" for="id_brand">Brand</label>
                     {{ filter_form.brand }}
+                    {% if filter_form.brand.errors %}<div id="id_brand_error" class="text-danger small" role="alert">{{ filter_form.brand.errors }}</div>{% endif %}
                 </div>
                 <div class="col-6 col-sm-3">
                     <label class="form-label small" for="id_min_price">Min price</label>
                     {{ filter_form.min_price }}
+                    {% if filter_form.min_price.errors %}<div id="id_min_price_error" class="text-danger small" role="alert">{{ filter_form.min_price.errors }}</div>{% endif %}
                 </div>
                 <div class="col-6 col-sm-3">
                     <label class="form-label small" for="id_max_price">Max price</label>
                     {{ filter_form.max_price }}
+                    {% if filter_form.max_price.errors %}<div id="id_max_price_error" class="text-danger small" role="alert">{{ filter_form.max_price.errors }}</div>{% endif %}
                 </div>
             </div>
             {% if filter_form.non_field_errors %}
@@ -307,7 +310,7 @@
 {% if active_filters %}
     <div class="d-flex flex-wrap gap-2 mb-3">
         {% for chip in active_filters %}
-            <a href="?{{ chip.remove_querystring }}" class="filter-chip">
+            <a href="?{{ chip.remove_querystring }}" class="filter-chip" aria-label="Remove filter: {{ chip.label }}">
                 {{ chip.label }} <i class="bi bi-x"></i>
             </a>
         {% endfor %}

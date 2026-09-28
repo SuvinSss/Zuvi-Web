@@ -11,18 +11,20 @@
 </div>
 
 <form method="get" class="card card-body mb-3">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-4">
-            <input
+            <label class="form-label small" for="filter-q">Search</label>
+<input
                 type="text"
-                name="q"
+                name="q" id="filter-q"
                 class="form-control"
                 placeholder="Search code, name, email or contact"
                 value="{{ search_query }}"
             >
         </div>
         <div class="col-md-2">
-            <select name="store_type" class="form-select">
+            <label class="form-label small" for="filter-store_type">Store type</label>
+<select name="store_type" id="filter-store_type" class="form-select">
                 <option value="">All types</option>
                 {% for value, label in store_type_choices %}
                     <option value="{{ value }}" {% if store_type_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -30,7 +32,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="category" class="form-select">
+            <label class="form-label small" for="filter-category">Category</label>
+<select name="category" id="filter-category" class="form-select">
                 <option value="">All categories</option>
                 {% for category in categories %}
                     <option value="{{ category.pk }}" {% if category_filter == category.pk|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
@@ -38,7 +41,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="status" class="form-select">
+            <label class="form-label small" for="filter-status">Status</label>
+<select name="status" id="filter-status" class="form-select">
                 <option value="">All statuses</option>
                 {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -46,7 +50,8 @@
             </select>
         </div>
         <div class="col-md-1">
-            <select name="is_active" class="form-select">
+            <label class="form-label small" for="filter-is_active">Is active</label>
+<select name="is_active" id="filter-is_active" class="form-select">
                 <option value="">Active?</option>
                 <option value="true" {% if is_active_filter == "true" %}selected{% endif %}>Active</option>
                 <option value="false" {% if is_active_filter == "false" %}selected{% endif %}>Inactive</option>

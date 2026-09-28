@@ -9,12 +9,14 @@
 </div>
 
 <form method="get" class="card card-body mb-3">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-3">
-            <input type="text" name="q" class="form-control" placeholder="Name, SKU or code" value="{{ search_query }}">
+            <label class="form-label small" for="filter-q">Search</label>
+<input type="text" name="q" id="filter-q" class="form-control" placeholder="Name, SKU or code" value="{{ search_query }}">
         </div>
         <div class="col-md-2">
-            <select name="category" class="form-select">
+            <label class="form-label small" for="filter-category">Category</label>
+<select name="category" id="filter-category" class="form-select">
                 <option value="">All categories</option>
                 {% for category in categories %}
                     <option value="{{ category.pk }}" {% if category_filter == category.pk|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
@@ -22,7 +24,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="brand" class="form-select">
+            <label class="form-label small" for="filter-brand">Brand</label>
+<select name="brand" id="filter-brand" class="form-select">
                 <option value="">All brands</option>
                 {% for brand in brands %}
                     <option value="{{ brand.pk }}" {% if brand_filter == brand.pk|stringformat:"s" %}selected{% endif %}>{{ brand.name }}</option>
@@ -30,7 +33,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="status" class="form-select">
+            <label class="form-label small" for="filter-status">Status</label>
+<select name="status" id="filter-status" class="form-select">
                 <option value="">All statuses</option>
                 {% for value, label in status_choices %}
                     <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -38,7 +42,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select name="stock" class="form-select">
+            <label class="form-label small" for="filter-stock">Stock</label>
+<select name="stock" id="filter-stock" class="form-select">
                 <option value="">All stock</option>
                 <option value="in_stock" {% if stock_filter == "in_stock" %}selected{% endif %}>In stock</option>
                 <option value="out_of_stock" {% if stock_filter == "out_of_stock" %}selected{% endif %}>Out of stock</option>
@@ -98,7 +103,7 @@
                     <td><a href="{% url 'catalog:store_product_detail' product.pk %}" class="btn btn-sm btn-outline-primary">View</a></td>
                 </tr>
             {% empty %}
-                <tr><td colspan="14" class="text-muted">No products yet.</td></tr>
+                <tr><td colspan="14" class="text-muted">No products match this view. <a href="{% url 'catalog:store_product_list' %}">Clear filters</a></td></tr>
             {% endfor %}
         </tbody>
     </table>

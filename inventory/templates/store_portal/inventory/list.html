@@ -15,12 +15,14 @@
 </div>
 
 <form method="get" class="card card-body mb-3 shadow-sm">
-    <div class="row g-2">
+    <div class="row g-2 align-items-end">
         <div class="col-md-6">
-            <input type="text" name="q" class="form-control" placeholder="Name, SKU or code" value="{{ search_query }}">
+            <label class="form-label small" for="filter-q">Search</label>
+<input type="text" name="q" id="filter-q" class="form-control" placeholder="Name, SKU or code" value="{{ search_query }}">
         </div>
         <div class="col-md-4">
-            <select name="stock" class="form-select">
+            <label class="form-label small" for="filter-stock">Stock</label>
+<select name="stock" id="filter-stock" class="form-select">
                 <option value="">All stock statuses</option>
                 <option value="in_stock" {% if stock_filter == "in_stock" %}selected{% endif %}>In stock</option>
                 <option value="out_of_stock" {% if stock_filter == "out_of_stock" %}selected{% endif %}>Out of stock</option>

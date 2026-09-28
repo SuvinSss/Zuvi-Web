@@ -14,11 +14,13 @@
     >
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
+    <link href="{% static 'css/zuvi-ui.css' %}" rel="stylesheet">
 </head>
-<body class="bg-light">
+<body class="portal-ui management-ui">
+<a class="skip-link" href="#main-content">Skip to content</a>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'accounts:management_dashboard' %}">Management Portal</a>
+            <a class="navbar-brand" href="{% url 'accounts:management_dashboard' %}">ZuuVi <span class="portal-label">Management Portal</span></a>
             <button
                 class="navbar-toggler"
                 type="button"
@@ -102,10 +104,10 @@
             </div>
         </div>
     </nav>
-    <main class="container py-4">
+    <main id="main-content" tabindex="-1" class="container py-4">
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-info">{{ message }}</div>
+                <div role="alert" class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">{{ message }}</div>
             {% endfor %}
         {% endif %}
         {% block content %}{% endblock %}
@@ -115,6 +117,7 @@
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"
     ></script>
-    {% block extra_js %}{% endblock %}
+    <script src="{% static 'js/zuvi-ui.js' %}" defer></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

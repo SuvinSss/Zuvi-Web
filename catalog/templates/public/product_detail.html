@@ -1,5 +1,6 @@
 {% extends "public/base.html" %}
 
+{% load catalog_extras %}
 {% block title %}{{ product.name }} · ZuuVi{% endblock %}
 
 {% block content %}
@@ -20,7 +21,7 @@
             <div class="mb-3">
                 {% with first=product.images.0 %}
                     {% if first.url %}
-                        <img src="{{ first.url }}" alt="{{ first.alt }}" class="img-fluid rounded shadow-sm pd-hero-img">
+                        <img src="{{ first.url }}" alt="{{ first.alt }}" class="img-fluid rounded pd-hero-img" id="product-gallery-main">
                     {% endif %}
                 {% endwith %}
             </div>
@@ -28,16 +29,17 @@
                 <div class="d-flex flex-wrap gap-2">
                     {% for image in product.images %}
                         {% if image.url %}
-                            <img src="{{ image.url }}" alt="{{ image.alt }}" class="rounded pd-thumb">
+                            <button type="button" class="gallery-thumb" data-gallery-src="{{ image.url }}" data-gallery-alt="{{ image.alt }}" aria-label="View image {{ forloop.counter }} of {{ product.name }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"><img src="{{ image.url }}" alt="" class="rounded pd-thumb"></button>
                         {% endif %}
                     {% endfor %}
                 </div>
             {% endif %}
         {% else %}
-            <div class="rounded d-flex align-items-center justify-content-center text-muted pd-placeholder">No images</div>
+            <div class="rounded d-flex flex-column gap-3 align-items-center justify-content-center text-muted pd-placeholder"><span class="product-category-art" aria-hidden="true">{{ product.category_name|category_icon }}</span><span>Photo coming soon</span></div>
         {% endif %}
     </div>
     <div class="col-lg-6">
+        <p class="eyebrow">{{ product.category_name }}</p>
         <h1 class="h2 mb-2">{{ product.name }}</h1>
         {% if product.brand_name %}<div class="mb-2">Brand: {{ product.brand_name }}</div>{% endif %}
         <div class="mb-2 text-muted">{{ product.category_name }} · {{ product.unit_label }}</div>
@@ -85,7 +87,7 @@
                                     <button type="button" class="qty-btn" data-picker-step="inc" aria-label="Increase quantity">+</button>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-dark">Add to cart</button>
+                            <button type="submit" class="btn btn-brand w-100">Add to cart</button>
                         </div>
                     </form>
                     <form
@@ -96,7 +98,7 @@
                         {% csrf_token %}
                         <input type="hidden" name="quantity" value="1">
                         <input type="hidden" name="redirect_to" value="checkout">
-                        <button type="submit" class="btn btn-outline-dark w-100">
+                        <button type="submit" class="btn btn-outline-brand w-100">
                             <i class="bi bi-lightning-charge-fill"></i> Buy it now
                         </button>
                     </form>

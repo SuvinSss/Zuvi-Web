@@ -81,7 +81,7 @@
 <div class="row g-0 auth-shell">
     <div class="col-lg-6 d-none d-lg-flex flex-column justify-content-center auth-hero">
         <a href="{% url 'catalog:public_home' %}" class="text-white text-decoration-none mb-4 d-inline-block fw-bold fs-4">ZuuVi</a>
-        <h1 class="mb-3">Welcome back to your ZuuVi account</h1>
+        <h2 class="mb-3">Welcome back to your ZuuVi account</h2>
         <p class="mb-5" style="color: rgba(255,255,255,0.75); max-width: 28rem;">
             Sign in to track orders, manage your delivery addresses, and check out faster on every visit.
         </p>
@@ -89,8 +89,8 @@
             <div class="auth-feature">
                 <i class="bi bi-truck"></i>
                 <div>
-                    <div class="fw-semibold">Fast, trackable delivery</div>
-                    <div class="small" style="color: rgba(255,255,255,0.65);">Follow every order from checkout to doorstep.</div>
+                    <div class="fw-semibold">Your orders in one place</div>
+                    <div class="small" style="color: rgba(255,255,255,0.65);">Check your order history and current status.</div>
                 </div>
             </div>
             <div class="auth-feature">
@@ -131,15 +131,15 @@
                         <i class="bi bi-person"></i>
                         <input
                             type="text"
-                            name="username"
+                            name="username" autocomplete="username"
                             class="form-control form-control-lg"
                             required
                             autofocus
-                            id="{{ form.username.id_for_label }}"
+                            id="{{ form.username.id_for_label }}" {% if form.username.errors %}aria-invalid="true" aria-describedby="username-error"{% endif %}
                             value="{{ form.username.value|default:'' }}"
                         >
                     </div>
-                    {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    {% if form.username.errors %}<div id="username-error" class="text-danger small mt-1" role="alert">{{ form.username.errors }}</div>{% endif %}
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
@@ -147,16 +147,16 @@
                         <i class="bi bi-lock"></i>
                         <input
                             type="password"
-                            name="password"
+                            name="password" autocomplete="current-password"
                             class="form-control form-control-lg"
                             required
-                            id="{{ form.password.id_for_label }}"
+                            id="{{ form.password.id_for_label }}" {% if form.password.errors %}aria-invalid="true" aria-describedby="password-error"{% endif %}
                         >
                         <button type="button" class="toggle-password" data-target="{{ form.password.id_for_label }}" aria-label="Show password">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
-                    {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    {% if form.password.errors %}<div id="password-error" class="text-danger small mt-1" role="alert">{{ form.password.errors }}</div>{% endif %}
                 </div>
                 <button type="submit" class="btn btn-brand btn-lg w-100 mt-2">Sign in</button>
             </form>
@@ -182,9 +182,11 @@
             var icon = btn.querySelector("i");
             if (input.type === "password") {
                 input.type = "text";
+                btn.setAttribute("aria-label", "Hide password");
                 icon.classList.replace("bi-eye", "bi-eye-slash");
             } else {
                 input.type = "password";
+                btn.setAttribute("aria-label", "Show password");
                 icon.classList.replace("bi-eye-slash", "bi-eye");
             }
         });
