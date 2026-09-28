@@ -22,6 +22,7 @@ def _bootstrap(form):
 
 class PublicProductFilterForm(forms.Form):
     SORT_CHOICES = (
+        ("relevance", "Best match"),
         ("newest", "Newest"),
         ("name", "Name A–Z"),
         ("name_desc", "Name Z–A"),
@@ -31,6 +32,7 @@ class PublicProductFilterForm(forms.Form):
 
     q = forms.CharField(
         required=False,
+        max_length=100,
         label="Search",
         widget=forms.TextInput(attrs={"placeholder": "Search for products, brands, stores…"}),
     )

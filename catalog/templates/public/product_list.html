@@ -252,12 +252,13 @@
     </div>
 {% endif %}
 
+{% if search_query %}<p class="search-results-note">Results for “{{ search_query }}”{% if has_close_matches %} · Includes close spelling matches.{% endif %}</p>{% endif %}
 <form method="get" class="mb-2" id="productFilterForm">
     {% if active_category %}
         <input type="hidden" name="category" value="{{ active_category.slug }}">
     {% endif %}
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-        <div class="search-input-group">
+        <div class="search-input-group" data-search-suggestions="{% url 'catalog:public_search_suggestions' %}">
             <i class="bi bi-search"></i>
             <label class="visually-hidden" for="id_q">Search this catalogue</label>{{ filter_form.q }}
         </div>

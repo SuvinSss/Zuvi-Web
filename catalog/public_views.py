@@ -1,6 +1,9 @@
 from django.core.exceptions import MultipleObjectsReturned
 from django.core.paginator import Paginator
-from django.http import Http404
+from django.http import Http404, JsonResponse
+from django.urls import reverse
+from django.views.decorators.http import require_GET
+from urllib.parse import urlencode
 from django.shortcuts import get_object_or_404, render
 
 from accounts.models import Role
@@ -69,7 +72,10 @@ def _active_filter_chips(request, data, *, brands):
 
 
 def _list_context(request, *, queryset, page_title, active_category=None):
-    form = PublicProductFilterForm(request.GET or None)
+    params = request.GET.copy()
+    if params.get("q") and not params.get("sort"):
+        params["sort"] = "relevance"
+    form = PublicProductFilterForm(params or None)
     if form.is_valid():
         data = form.cleaned_data
     else:
@@ -79,7 +85,7 @@ def _list_context(request, *, queryset, page_title, active_category=None):
             "brand": request.GET.get("brand", ""),
             "min_price": request.GET.get("min_price") or None,
             "max_price": request.GET.get("max_price") or None,
-            "sort": request.GET.get("sort") or "newest",
+            "sort": params.get("sort") or "newest",
         }
 
     category_slug = data.get("category") or (
@@ -118,7 +124,37 @@ def _list_context(request, *, queryset, page_title, active_category=None):
         "active_filters": _active_filter_chips(request, data, brands=brands),
         "active_sort": data.get("sort") or "newest",
         "result_count": paginator.count,
+        "search_query": data.get("q", ""),
+        "has_close_matches": any(not getattr(p, "search_exact", 1) for p in page_obj.object_list),
     }
+
+
+@require_GET
+def public_search_suggestions_view(request):
+    query = " ".join(request.GET.get("q", "").split())[:100]
+    results = []
+    if query:
+        products = apply_public_search(public_products_queryset().prefetch_related(None), query).order_by(
+            "-search_exact", "-search_score", "name", "pk"
+        )[:6]
+        categories = {}
+        for product in products:
+            # Search links avoid ambiguous per-store product slugs and expose no
+            # merchant, cost, margin or inventory information.
+            results.append({
+                "label": product.name,
+                "detail": f"₹{product.final_price:.2f}",
+                "kind": "Product",
+                "url": reverse("catalog:public_product_list") + "?" + urlencode({"q": product.name}),
+            })
+            if query.casefold() in product.category.name.casefold():
+                categories[product.category.slug] = product.category.name
+        results = [{"label": name, "detail": "Browse category", "kind": "Category",
+                    "url": reverse("catalog:public_category_detail", args=[slug])}
+                   for slug, name in list(categories.items())[:2]] + results
+    response = JsonResponse({"query": query, "results": results})
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 def public_home_view(request):

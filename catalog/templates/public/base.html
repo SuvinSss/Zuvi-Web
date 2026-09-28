@@ -409,7 +409,7 @@
             </div>
         </div>
         <div class="app-header-row2">
-            <form class="header-search" method="get" action="{% url 'catalog:public_product_list' %}" role="search">
+            <form class="header-search" method="get" action="{% url 'catalog:public_product_list' %}" role="search" data-search-suggestions="{% url 'catalog:public_search_suggestions' %}">
                 <i class="bi bi-search"></i>
                 <input type="search" name="q" placeholder='Search &quot;milk&quot;, &quot;bread&quot;, &quot;snacks&quot;…' value="{{ request.GET.q|default:'' }}" aria-label="Search products">
                 <button class="header-search-submit" type="submit" aria-label="Submit product search"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
@@ -455,6 +455,7 @@
 {% include "locations/includes/location_gate.html" %}
 {% include "cart/includes/mini_cart_drawer.html" %}
 <script src="{% static 'js/zuvi-ui.js' %}" defer></script>
+<script src="{% static 'js/search-suggestions.js' %}" defer></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

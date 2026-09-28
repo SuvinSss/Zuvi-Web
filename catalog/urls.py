@@ -8,6 +8,7 @@ urlpatterns = [
     # Public catalogue
     path("", public_views.public_home_view, name="public_home"),
     path("products/", public_views.public_product_list_view, name="public_product_list"),
+    path("search/suggestions/", public_views.public_search_suggestions_view, name="public_search_suggestions"),
     path(
         "products/<slug:slug>/",
         public_views.public_product_detail_view,

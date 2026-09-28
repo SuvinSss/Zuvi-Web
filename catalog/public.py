@@ -6,7 +6,8 @@ Templates must never be the sole gate for what customers can see.
 
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Prefetch, Q
+from django.contrib.postgres.search import TrigramWordSimilarity
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.shortcuts import get_object_or_404
 
 from inventory.status import (
@@ -95,16 +96,30 @@ def public_categories_queryset():
 
 
 def apply_public_search(queryset, query):
-    query = (query or "").strip()
+    query = " ".join((query or "").split())[:100]
     if not query:
         return queryset
-    return queryset.filter(
+    exact = (
         Q(name__icontains=query)
         | Q(category__name__icontains=query)
         | Q(brand__name__icontains=query)
         | Q(tags__name__icontains=query)
         | Q(store__name__icontains=query)
-    ).distinct()
+    )
+    # A matching tag must not multiply product rows or change their ranking.
+    exact = Q(pk__in=queryset.filter(exact).order_by().values("pk"))
+    queryset = queryset.annotate(
+        search_exact=Case(
+            When(name__iexact=query, then=Value(3)),
+            When(name__istartswith=query, then=Value(2)),
+            When(exact, then=Value(1)), default=Value(0), output_field=IntegerField(),
+        ),
+        search_score=TrigramWordSimilarity(query, "name"),
+    )
+    # Very short queries are too ambiguous for reliable spelling recovery.
+    threshold = 0.3 if len(query) >= 5 else 0.4
+    matches = exact if len(query) < 3 else exact | Q(search_score__gte=threshold)
+    return queryset.filter(matches).distinct()
 
 
 def apply_public_filters(
@@ -133,6 +148,8 @@ def apply_public_filters(
 
 def apply_public_sort(queryset, sort):
     sort = (sort or "newest").strip().lower()
+    if sort == "relevance" and "search_score" in queryset.query.annotations:
+        return queryset.order_by("-search_exact", "-search_score", "name", "pk")
     mapping = {
         "name": ("name", "pk"),
         "name_desc": ("-name", "pk"),
