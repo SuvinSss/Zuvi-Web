@@ -350,6 +350,10 @@
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
     <link href="{% static 'css/zuvi-ui.css' %}" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="{% static 'pwa/favicon.svg' %}">
+<link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
+<meta name="theme-color" content="#226143">
+<link rel="manifest" href="{% url 'catalog:manifest' %}">
 </head>
 <body class="customer-ui">
 <a class="skip-link" href="#main-content">Skip to content</a>
@@ -446,7 +450,9 @@
     {% endif %}
     {% block content %}{% endblock %}
 </main>
-<footer class="zuvi-footer"><div class="container"><a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a><span>Your everyday, a little easier.</span><span>Cash on Delivery</span></div></footer>
+<nav class="bottom-navigation" aria-label="Main navigation">
+<a href="{% url 'catalog:public_home' %}"><i class="bi bi-house" aria-hidden="true"></i>Home</a><a href="{% url 'catalog:public_product_list' %}"><i class="bi bi-grid" aria-hidden="true"></i>Shop</a><a href="{% url 'cart:cart_detail' %}"><i class="bi bi-cart3" aria-hidden="true"></i>Cart</a><a href="{% url 'orders:customer_order_list' %}"><i class="bi bi-receipt" aria-hidden="true"></i>Orders</a><a href="{% url 'customers:customer_portal_dashboard' %}"><i class="bi bi-person" aria-hidden="true"></i>Account</a>
+</nav><footer class="zuvi-footer"><div class="container"><a class="brand-mark" href="{% url 'catalog:public_home' %}">ZuuVi</a><span>The Boy Next Door</span><span>Cash on Delivery</span><a href="{% url 'catalog:terms' %}">Terms</a><button class="btn btn-outline-brand btn-sm" type="button" data-install-app hidden>Install ZuuVi</button></div></footer>
 <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
@@ -457,5 +463,6 @@
 <script src="{% static 'js/zuvi-ui.js' %}" defer></script>
 <script src="{% static 'js/search-suggestions.js' %}" defer></script>
 {% block extra_js %}{% endblock %}
+<script src="{% static 'js/release.js' %}" defer></script>
 </body>
 </html>

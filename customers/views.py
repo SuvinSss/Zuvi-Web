@@ -9,7 +9,7 @@ from django.http import HttpResponseGone, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from accounts.models import Role
 
@@ -314,11 +314,14 @@ def customer_verify_view(request, pk):
     return redirect("customers:customer_detail", pk=customer.pk)
 
 
+@ensure_csrf_cookie
 def customer_register_view(request):
+    if request.user.is_authenticated:
+        return redirect("catalog:public_home")
     form = CustomerSelfRegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
-        create_customer_with_user(
+        customer, user = create_customer_with_user(
             user_data={
                 "username": data["username"],
                 "email": data["email"],
@@ -331,8 +334,9 @@ def customer_register_view(request):
             created_by=None,
             request=request,
         )
-        messages.success(request, "Registration successful. Please log in.")
-        return redirect(getattr(settings, "CUSTOMER_LOGIN_URL", "/customer/login/"))
+        login(request, user)
+        messages.success(request, "Welcome to ZuuVi!")
+        return _safe_customer_redirect(request)
 
     return render(
         request,
@@ -341,8 +345,8 @@ def customer_register_view(request):
     )
 
 
-def _safe_customer_redirect(request, fallback_name="customers:customer_portal_dashboard"):
-    """Honor a safe next URL from GET/POST; otherwise use the customer dashboard."""
+def _safe_customer_redirect(request, fallback_name="catalog:public_home"):
+    """Honor a safe next URL from GET/POST; otherwise use the storefront."""
     redirect_to = request.POST.get("next") or request.GET.get("next")
     if redirect_to and url_has_allowed_host_and_scheme(
         url=redirect_to,

@@ -1,0 +1,11 @@
+[build]
+builder = "RAILPACK"
+buildCommand = "python scripts/collectstatic.py"
+
+[deploy]
+preDeployCommand = ["python manage.py migrate --noinput"]
+startCommand = "gunicorn --config gunicorn.conf.py config.wsgi:application"
+healthcheckPath = "/health/ready/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

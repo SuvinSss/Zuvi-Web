@@ -41,7 +41,7 @@ class CustomerSelfRegistrationTests(TestCase):
     def test_successful_registration(self):
         response = self._post(self.valid_payload)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, settings.CUSTOMER_LOGIN_URL)
+        self.assertEqual(response.url, reverse("catalog:public_home"))
 
         user = User.objects.get(username="ada-customer")
         self.assertEqual(user.email, "ada@example.com")
@@ -80,6 +80,7 @@ class CustomerSelfRegistrationTests(TestCase):
 
     def test_duplicate_username_email_phone_rejected(self):
         self._post(self.valid_payload)
+        self.client.logout()
         duplicate = {
             "first_name": "Other",
             "last_name": "User",

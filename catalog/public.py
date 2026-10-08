@@ -7,7 +7,9 @@ Templates must never be the sole gate for what customers can see.
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.postgres.search import TrigramWordSimilarity
-from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When, F, Count, Subquery
+from django.utils import timezone
+from datetime import timedelta
 from django.shortcuts import get_object_or_404
 
 from inventory.status import (
@@ -129,7 +131,10 @@ def apply_public_filters(
     brand_slug="",
     min_price=None,
     max_price=None,
+    offers=False,
 ):
+    if offers:
+        queryset = queryset.filter(final_price__lt=F("selling_price"))
     category_slug = (category_slug or "").strip()
     brand_slug = (brand_slug or "").strip()
     if category_slug:
@@ -231,6 +236,7 @@ def public_product_card(product):
     if discount and product.selling_price is not None:
         compare_at = product.selling_price
     return {
+        "popularity_badge": getattr(product, "popularity_badge", ""),
         "id": product.pk,
         "slug": product.slug,
         "product_code": product.product_code,
@@ -244,7 +250,7 @@ def public_product_card(product):
         "compare_at_price": compare_at,
         "discount_label": discount,
         "stock_label": stock_status_for_product(product),
-        "primary_image_url": primary.image.url if primary and primary.image else "",
+        "primary_image_url": (primary.display_image or primary.image).url if primary and primary.image else "",
         "primary_image_alt": (primary.alt_text if primary else "") or product.name,
         "is_featured": product.is_featured,
     }
@@ -257,7 +263,7 @@ def public_product_detail_context(product):
     for image in product.images.all():
         images.append(
             {
-                "url": image.image.url if image.image else "",
+                "url": (image.display_image or image.image).url if image.image else "",
                 "alt": image.alt_text or product.name,
                 "is_primary": image.is_primary,
             }
@@ -270,3 +276,12 @@ def public_product_detail_context(product):
         "images": images,
         "product_code": product.product_code,
     }
+
+
+def with_popularity(queryset):
+    """Rank by distinct completed orders; never manufacture popularity claims."""
+    from orders.models import OrderItem
+    sold = OrderItem.objects.filter(is_cancelled=False, is_rejected=False, store_order__status="COMPLETED").values("product_id")
+    popular = sold.annotate(n=Count("store_order__order_id", distinct=True)).filter(n__gte=3).order_by("-n", "product_id").values("product_id")[:8]
+    trending = sold.filter(store_order__order__placed_at__gte=timezone.now()-timedelta(days=7)).annotate(n=Count("store_order__order_id", distinct=True)).filter(n__gte=3).order_by("-n", "product_id").values("product_id")[:8]
+    return queryset.annotate(popularity_badge=Case(When(pk__in=Subquery(trending), then=Value("Trending")), When(pk__in=Subquery(popular), then=Value("Most ordered")), default=Value("")))

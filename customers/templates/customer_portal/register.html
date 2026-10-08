@@ -113,8 +113,10 @@
         <div class="auth-card">
             <h1 class="h3 fw-bold mb-1">Create your account</h1>
             <p class="text-muted mb-4">It only takes a minute to get started.</p>
+            {% include "customer_portal/google_button.html" %}
             <form method="post" novalidate>
                 {% csrf_token %}
+                <input type="hidden" name="next" value="{% firstof request.POST.next request.GET.next '' %}">
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">
                         {% for error in form.non_field_errors %}{{ error }}{% endfor %}
@@ -164,6 +166,7 @@
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
+                        <ul id="password-rules" class="small text-muted mt-2">{% for rule in form.password_rules %}<li>{{ rule }}</li>{% endfor %}</ul>
                         {% for error in form.password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
                     <div class="col-sm-6">
@@ -181,7 +184,7 @@
                         <div class="form-check">
                             {{ form.accept_terms }}
                             <label class="form-check-label small" for="{{ form.accept_terms.id_for_label }}">
-                                I accept the terms and conditions
+                                I accept the <a href="{% url 'catalog:terms' %}" target="_blank" rel="noopener">Terms &amp; Conditions</a>
                             </label>
                             {% for error in form.accept_terms.errors %}
                                 <div class="text-danger small">{{ error }}</div>

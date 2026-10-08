@@ -88,7 +88,7 @@ class CustomerPortalAuthTests(TestCase):
     def test_active_customer_can_login_and_see_dashboard(self):
         response = self._login("portal-customer")
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, self.dashboard_url)
+        self.assertEqual(response.url, reverse("catalog:public_home"))
         self.assertIn("_auth_user_id", self.client.session)
 
         dashboard = self.client.get(self.dashboard_url)
@@ -196,4 +196,4 @@ class CustomerPortalAuthTests(TestCase):
         self._login("portal-customer")
         response = self.client.get(self.login_url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, self.dashboard_url)
+        self.assertEqual(response.url, reverse("catalog:public_home"))

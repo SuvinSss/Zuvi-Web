@@ -2,12 +2,13 @@
 <div class="card product-card h-100">
     <div class="product-card-media">
         {% if product.primary_image_url %}
-            <img src="{{ product.primary_image_url }}" alt="{{ product.primary_image_alt }}" loading="lazy">
+            <img src="{{ product.primary_image_url }}" alt="{{ product.primary_image_alt }}" loading="lazy" decoding="async" width="600" height="600">
         {% else %}
             <div class="product-card-media-placeholder">
                 <span class="product-category-art" aria-hidden="true">{{ product.category_name|category_icon }}</span><span class="photo-placeholder-label">Photo coming soon</span>
             </div>
         {% endif %}
+        {% if product.popularity_badge %}<span class="product-popularity">{{ product.popularity_badge }}</span>{% endif %}
         {% if product.discount_label %}
             <span class="product-badge-discount">{{ product.discount_label }}</span>
         {% endif %}
@@ -44,7 +45,7 @@
             <div class="product-add-inner">
                 <input type="hidden" name="quantity" value="1">
                 <button type="submit" class="btn-add-product" aria-label="Add {{ product.name }} to cart">
-                    <i class="bi bi-plus-lg"></i> Add
+                    {% if product.discount_label %}Grab Deal{% else %}<i class="bi bi-plus-lg"></i> Add{% endif %}
                 </button>
             </div>
         </form>

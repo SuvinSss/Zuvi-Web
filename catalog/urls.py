@@ -2,9 +2,14 @@ from django.urls import path
 
 from . import public_views, views
 
+from . import release_views
+
 app_name = "catalog"
 
 urlpatterns = [
+    path("terms/", release_views.terms, name="terms"),
+    path("manifest.webmanifest", release_views.manifest, name="manifest"),
+    path("service-worker.js", release_views.service_worker, name="service_worker"),
     # Public catalogue
     path("", public_views.public_home_view, name="public_home"),
     path("products/", public_views.public_product_list_view, name="public_product_list"),

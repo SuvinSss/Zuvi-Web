@@ -2,12 +2,9 @@
 {% load catalog_extras %}
 {% block title %}ZuuVi · Your everyday, delivered{% endblock %}
 {% block content %}
-<section class="shop-intro" aria-labelledby="shop-heading">
-    <div><p class="eyebrow">YOUR NEIGHBOURHOOD MARKETPLACE</p>
-    <h1 id="shop-heading">Good things.<br>Closer to home.</h1>
-    <p>Discover groceries and everyday essentials from local stores.</p>
-    <a href="{% url 'catalog:public_product_list' %}" class="btn btn-brand">Explore the shop <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div>
-    <div class="intro-note"><i class="bi bi-bag-heart" aria-hidden="true"></i><strong>A simpler everyday.</strong><span>Shop local. Pay on delivery.</span></div>
+<section class="release-hero" aria-labelledby="shop-heading">
+<div><p class="eyebrow">ZUUVI · THE BOY NEXT DOOR</p><h1 id="shop-heading">Your neighbourhood.<br>Your everyday favourites.</h1><p>Groceries, meals and little essentials from nearby stores. Delivered to your door.</p><div class="hero-actions"><a class="btn btn-brand" href="{% url 'catalog:public_product_list' %}">Shop all</a><a class="btn btn-outline-brand" href="{% url 'catalog:public_product_list' %}?offers=1">Explore offers</a></div><p class="small text-muted mt-3">Pay on delivery · Shop local</p></div>
+{% if newest_products.0.primary_image_url %}<img class="hero-photo" src="{{ newest_products.0.primary_image_url }}" alt="{{ newest_products.0.name }}" width="600" height="600" fetchpriority="high">{% else %}<div class="hero-wordmark" aria-hidden="true">ZuuVi.</div>{% endif %}
 </section>
 {% if categories %}
 <section class="shop-section" aria-labelledby="categories-heading">

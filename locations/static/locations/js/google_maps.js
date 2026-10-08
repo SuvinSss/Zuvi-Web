@@ -96,6 +96,13 @@
                 if (event.latLng) select(coordinates(event.latLng.lat(), event.latLng.lng()));
             });
             if (initial) select(initial, false, false);
+            if (window.ResizeObserver) {
+                var observer = new ResizeObserver(function () {
+                    maps.event.trigger(map, "resize");
+                    if (marker) map.panTo(marker.position);
+                });
+                observer.observe(element);
+            }
             return {select: select, refresh: function () {
                 maps.event.trigger(map, "resize");
                 if (marker) map.panTo(marker.position);

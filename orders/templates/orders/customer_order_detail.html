@@ -3,7 +3,7 @@
 {% block title %}Order {{ order.order_number }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+<div id="order-confirmation" tabindex="-1" data-release-focus class="order-confirmation d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
         <h1 class="h4 mb-1">Order {{ order.order_number }}</h1>
         <p class="text-muted small mb-0">
@@ -72,7 +72,7 @@
                         <p class="small text-muted mb-0">No delivery address snapshot available.</p>
                     {% endif %}
                 {% else %}
-                    <p class="small mb-0">Facility pickup — see pickup locations under each store below.</p>
+                    <p class="small mb-0">Facility pickup — see pickup locations under each delivery group below.</p>
                 {% endif %}
                 {% if order.customer_notes %}
                     <hr>
@@ -123,8 +123,8 @@
     <div class="card shadow-sm mb-3">
         <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <h2 class="h6 mb-0">{{ store_order.store_name }}</h2>
-                <div class="small text-muted">{{ store_order.store_order_number }} · {{ store_order.store_code }}</div>
+                <h2 class="h6 mb-0">Delivery group {{ forloop.counter }}</h2>
+                <div class="small text-muted">{{ store_order.store_order_number }}</div>
             </div>
             <span class="badge text-bg-light border">{{ store_order.get_status_display }}</span>
         </div>

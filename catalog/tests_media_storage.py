@@ -44,7 +44,7 @@ class ProductRemoteStorageTests(CatalogTestMixin, TestCase):
         with self.assertRaises(Http404):
             get_public_product_by_slug(self.product.slug)
         # Authorized presentation code accepts the remote URL without .path.
-        self.assertEqual(public_product_detail_context(self.product)['images'][0]['url'], image.image.url)
+        self.assertEqual(public_product_detail_context(self.product)['images'][0]['url'], image.display_image.url)
 
     def test_replacement_retains_old_object_and_changes_only_reference(self):
         image = add_product_image(product=self.product, image=self._uploaded_image())
@@ -72,7 +72,7 @@ class ProductRemoteStorageTests(CatalogTestMixin, TestCase):
         first.refresh_from_db()
         self.assertTrue(first.is_primary)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 1)
+        self.assertEqual(len(self.storage.objects), 2)
 
     def test_sql_rollback_leaves_uploaded_object_for_future_cleanup(self):
         with self.assertRaisesRegex(RuntimeError, 'after upload'):

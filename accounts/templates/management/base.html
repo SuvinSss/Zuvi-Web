@@ -15,6 +15,10 @@
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
     <link href="{% static 'css/zuvi-ui.css' %}" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="{% static 'pwa/favicon.svg' %}">
+<link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
+<meta name="theme-color" content="#226143">
+<link rel="manifest" href="{% url 'catalog:manifest' %}">
 </head>
 <body class="portal-ui management-ui">
 <a class="skip-link" href="#main-content">Skip to content</a>

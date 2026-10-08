@@ -217,7 +217,7 @@ class DemoOTPContainmentTests(TestCase):
             {"username": self.user.username, "password": self.password},
             HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
         )
-        self.assertRedirects(response, reverse("customers:customer_portal_dashboard"))
+        self.assertRedirects(response, reverse("catalog:public_home"))
         self.assertEqual(client.session["_auth_user_id"], str(self.user.pk))
 
     def test_password_registration_and_subsequent_login_still_work(self):
@@ -236,17 +236,19 @@ class DemoOTPContainmentTests(TestCase):
             },
             HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
         )
-        self.assertRedirects(response, reverse("customers:customer_portal_login"))
+        self.assertRedirects(response, reverse("catalog:public_home"))
         user = User.objects.get(username="password-signup")
         self.assertTrue(user.check_password(self.password))
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.customer_profile.verification_status, VerificationStatus.UNVERIFIED)
-        self.assertNotIn("_auth_user_id", client.session)
+        self.assertEqual(client.session["_auth_user_id"], str(user.pk))
+        client.logout()
+        client.get(reverse("customers:customer_portal_login"))
         response = client.post(
             reverse("customers:customer_portal_login"),
             {"username": user.username, "password": self.password},
             HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
         )
-        self.assertRedirects(response, reverse("customers:customer_portal_dashboard"))
+        self.assertRedirects(response, reverse("catalog:public_home"))
         self.assertEqual(client.session["_auth_user_id"], str(user.pk))

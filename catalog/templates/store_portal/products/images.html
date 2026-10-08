@@ -17,7 +17,8 @@
                 <div class="row g-3">
                     {% for image in product.images.all %}
                         <div class="col-md-4">
-                            <img src="{{ image.image.url }}" alt="{{ image.alt_text }}" class="img-fluid border rounded mb-2">
+                            <img src="{% if image.display_image %}{{ image.display_image.url }}{% else %}{{ image.image.url }}{% endif %}" alt="{{ image.alt_text }}" class="img-fluid border rounded mb-2">
+                            <a class="small d-block mb-2" href="{{ image.image.url }}" target="_blank" rel="noopener">View original</a>
                             <div class="small mb-1">
                                 {% if image.is_primary %}<span class="badge text-bg-primary">Primary</span>{% endif %}
                                 Order: {{ image.sort_order }}
@@ -57,6 +58,7 @@
                                     <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                                     {{ field }}
                                 {% endif %}
+                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                                 {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                             </div>
                         {% endfor %}

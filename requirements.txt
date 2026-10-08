@@ -17,3 +17,13 @@ sqlparse==0.5.5
 tzdata==2026.3
 urllib3==2.7.0
 whitenoise==6.12.0
+google-auth[requests]==2.61.0
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.2
+cryptography==50.0.2
+idna==3.20
+pyasn1==0.6.4
+pyasn1_modules==0.4.2
+pycparser==3.1
+requests==2.34.2

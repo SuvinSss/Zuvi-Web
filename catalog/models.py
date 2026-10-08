@@ -458,6 +458,16 @@ class ProductImage(models.Model):
         upload_to=product_image_upload_to,
         validators=[validate_product_image],
     )
+    display_image = models.ImageField(upload_to=product_image_upload_to, blank=True, editable=False)
+
+    def save(self, *args, **kwargs):
+        if self.image and not self.image._committed:
+            from .image_processing import display_image
+            self.display_image = display_image(self.image, remove_background=getattr(self.image.file, "remove_plain_background", False))
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"display_image"}
+        return super().save(*args, **kwargs)
+
     alt_text = models.CharField(max_length=200, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_primary = models.BooleanField(default=False)

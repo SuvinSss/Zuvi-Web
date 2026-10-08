@@ -14,6 +14,10 @@
     <link href="{% static 'css/responsive.css' %}" rel="stylesheet">
     {% block extra_head %}{% endblock %}
     <link href="{% static 'css/zuvi-ui.css' %}" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="{% static 'pwa/favicon.svg' %}">
+<link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
+<meta name="theme-color" content="#226143">
+<link rel="manifest" href="{% url 'catalog:manifest' %}?portal=store">
 </head>
 <body class="portal-ui store-ui">
 <a class="skip-link" href="#main-content">Skip to content</a>
@@ -67,6 +71,7 @@
         </div>
     </div>
 </nav>
+<button class="btn btn-outline-primary m-3" type="button" data-install-app hidden>Install ZuuVi Store</button>
 <main id="main-content" tabindex="-1" class="container py-4">
     {% if messages %}
         {% for message in messages %}
@@ -82,5 +87,6 @@
 ></script>
 <script src="{% static 'js/zuvi-ui.js' %}" defer></script>
 {% block extra_js %}{% endblock %}
+<script src="{% static 'js/release.js' %}" defer></script>
 </body>
 </html>

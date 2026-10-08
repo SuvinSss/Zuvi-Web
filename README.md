@@ -33,18 +33,15 @@ The manager migration changes migration state only, not schema or existing data.
 New UAT/PROD accounts are created through the supported bootstrap and registration
 paths. The manager does not automatically alter existing local accounts.
 
-Deployment foundation uses Railpack, Python 3.13 and Gunicorn's synchronous WSGI
-workers. Configure these commands only during a separately approved Railway
-setup. Do not rely on Railpack's inferred Django start command, which may run
-migrations automatically.
+Deployment uses Railpack, Python 3.13 and Gunicorn synchronous WSGI workers.
+The checked-in railway.toml sets build, migration, start and healthcheck commands.
 
 ```text
 Build: python scripts/collectstatic.py
 Start: gunicorn --config gunicorn.conf.py config.wsgi:application
 ```
 
-Neither command runs migrations. Railway pre-deploy migration configuration is
-separate work. Gunicorn requires the exported PORT variable, binds to
+Neither command runs migrations. railway.toml runs migrations once in pre-deploy. Gunicorn requires the exported PORT variable, binds to
 0.0.0.0:PORT, and defaults to WEB_CONCURRENCY=1. Worker count must be a positive
 integer. No ASGI workers or additional timeout tuning are configured. Access
 logging is disabled initially; Gunicorn errors and Django logs go to stderr.
@@ -304,3 +301,37 @@ and [API key restrictions](https://developers.google.com/maps/api-security-best-
 
 Run offline map interaction checks with
 `node --test locations/tests_js/*.test.cjs`.
+
+
+## October customer experience release
+
+Registration signs customers in and opens Home; a safe same-site next destination
+(such as checkout) takes precedence. Password rules appear before submission.
+Last name and phone are optional during signup; delivery details remain required
+at checkout. Customer authentication does not grant staff or store permissions.
+
+Offers are quick filters over genuine backend discounts. Popularity badges require
+at least three distinct completed orders, with up to eight products per ranking;
+Trending uses the last seven days. Customer order pages label delivery groups
+without revealing store names. The homepage, image borders, mobile navigation,
+order focus/status, map resizing, favicon and empty-cart links are updated.
+
+Uploads retain their original and create a bounded PNG display derivative. Optional
+plain-white background removal is available in image forms and should be reviewed
+before publication; complex backgrounds are not automatically removed. Existing
+images can be processed with `python manage.py optimize_product_images --limit 100`.
+The command only fills missing derivatives and preserves originals.
+
+Google login requires GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET. Add
+https://<host>/customer/google/callback/ as an authorized callback in Google for
+each environment. Existing password accounts are never linked by email alone.
+Password recovery requires EMAIL_HOST plus valid SMTP credentials and a verified
+DEFAULT_FROM_EMAIL; see .env.example. Do not reuse production secrets in UAT.
+
+The installable customer/store web app uses a network-only service worker. Orders,
+account pages and private store data are never cached for offline operation.
+
+Schema additions are catalog 0008 (optional display image) and customers 0004
+(Google subject identities). Roll back application code without reversing these
+additive migrations or deleting original images/accounts. Verify readiness, login,
+product images and checkout after deployment before switching domain DNS.

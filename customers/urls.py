@@ -1,10 +1,17 @@
 from django.urls import path
 
-from . import views
+from . import views, authentication
+from django.contrib.auth.views import PasswordResetDoneView, PasswordResetCompleteView
 
 app_name = "customers"
 
 urlpatterns = [
+    path("customer/login/google/", authentication.google_start, name="google_start"),
+    path("customer/login/google/callback/", authentication.google_callback, name="google_callback"),
+    path("customer/password-reset/", authentication.CustomerPasswordResetView.as_view(), name="password_reset"),
+    path("customer/password-reset/sent/", PasswordResetDoneView.as_view(template_name="customer_portal/password_reset_done.html"), name="password_reset_done"),
+    path("customer/reset/<uidb64>/<token>/", authentication.CustomerPasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+    path("customer/reset/done/", PasswordResetCompleteView.as_view(template_name="customer_portal/password_reset_complete.html"), name="password_reset_complete"),
     path("customer/register/", views.customer_register_view, name="customer_register"),
     path(
         "customer/login/",

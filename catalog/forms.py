@@ -495,6 +495,7 @@ class ProductImageForm(forms.Form):
     image = forms.ImageField(
         help_text="JPEG, PNG or WebP · max 5 MB. Up to 5 images per product.",
     )
+    remove_plain_background = forms.BooleanField(required=False, label="Remove plain white background (review result)", help_text="Optional: avoid for white products or food. The original is always kept.")
     alt_text = forms.CharField(required=False, max_length=200)
     sort_order = forms.IntegerField(required=False, min_value=0, initial=0)
     is_primary = forms.BooleanField(
@@ -519,3 +520,9 @@ class ProductImageForm(forms.Form):
         except ValidationError as exc:
             raise forms.ValidationError(exc.messages)
         return image
+
+    def clean(self):
+        data = super().clean()
+        if data.get("image"):
+            data["image"].remove_plain_background = data.get("remove_plain_background", False)
+        return data

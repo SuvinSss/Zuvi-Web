@@ -97,7 +97,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
             self.assertEqual(self.product.images.count(), number)
         with self.assertRaisesMessage(ValidationError, 'at most 5'):
             self.add()
-        self.assertEqual(len(self.storage.objects), 5)
+        self.assertEqual(len(self.storage.objects), 10)
         self.assertEqual(self.product.images.filter(is_primary=True).count(), 1)
 
     def test_add_reapproves_without_price_changes(self):
@@ -225,7 +225,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.status, ProductStatus.APPROVED)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 2)
+        self.assertEqual(len(self.storage.objects), 4)
         self.assertFalse(self.product.status_history.exists())
 
     def test_later_upload_failure_rolls_back_whole_existing_product_batch(self):
@@ -247,7 +247,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.status, ProductStatus.APPROVED)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 2)
+        self.assertEqual(len(self.storage.objects), 3)
         self.assertFalse(self.product.status_history.exists())
 
     def test_multi_image_creation_failure_rolls_back_all_database_records(self):

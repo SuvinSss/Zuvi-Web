@@ -1,0 +1,7 @@
+{% if google_signin_enabled %}
+<form method="post" action="{% url 'customers:google_start' %}" class="mb-4">
+    {% csrf_token %}<input type="hidden" name="next" value="{% firstof request.POST.next request.GET.next '' %}">
+    <label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="accept_terms" required> I accept the <a href="{% url 'catalog:terms' %}" target="_blank" rel="noopener">Terms &amp; Conditions</a>.</label>
+    <button class="btn btn-outline-brand w-100" type="submit">Continue with Google</button>
+</form>
+{% endif %}

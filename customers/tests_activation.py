@@ -175,7 +175,7 @@ class CustomerActivationVerificationTests(CustomerPermissionTestMixin, TestCase)
             {"username": "act-customer", "password": "secure-password-123"},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, self.dashboard_url)
+        self.assertEqual(response.url, reverse("catalog:public_home"))
         self.assertIn("_auth_user_id", self.client.session)
 
     def test_admin_without_activate_permission_cannot_deactivate(self):

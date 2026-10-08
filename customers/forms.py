@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.password_validation import validate_password, password_validators_help_texts
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 
@@ -11,10 +11,10 @@ User = get_user_model()
 
 class CustomerSelfRegistrationForm(forms.Form):
     first_name = forms.CharField(max_length=150, required=True)
-    last_name = forms.CharField(max_length=150, required=True)
+    last_name = forms.CharField(max_length=150, required=False, label="Last name (optional)")
     username = forms.CharField(max_length=150, required=True)
     email = forms.EmailField(required=True)
-    phone_number = forms.CharField(max_length=20, required=True)
+    phone_number = forms.CharField(max_length=20, required=False, label="Phone number (optional until checkout)")
     password = forms.CharField(widget=forms.PasswordInput, required=True)
     confirm_password = forms.CharField(widget=forms.PasswordInput, required=True)
     accept_terms = forms.BooleanField(
@@ -24,6 +24,9 @@ class CustomerSelfRegistrationForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.password_rules = password_validators_help_texts()
+        self.fields["password"].widget.attrs.update({"autocomplete": "new-password", "aria-describedby": "password-rules"})
+        self.fields["confirm_password"].widget.attrs["autocomplete"] = "new-password"
         for name, field in self.fields.items():
             if name == "accept_terms":
                 field.widget.attrs.update({"class": "form-check-input"})
@@ -45,7 +48,7 @@ class CustomerSelfRegistrationForm(forms.Form):
     def clean_phone_number(self):
         phone_number = self.cleaned_data["phone_number"].strip()
         if not phone_number:
-            raise ValidationError("Phone number is required.")
+            return None
         if User.objects.filter(phone_number=phone_number).exists():
             raise ValidationError("This phone number is already in use.")
         return phone_number
@@ -58,7 +61,7 @@ class CustomerSelfRegistrationForm(forms.Form):
             self.add_error("confirm_password", "Passwords do not match.")
         if password:
             try:
-                validate_password(password)
+                validate_password(password, User(username=cleaned_data.get("username", ""), email=cleaned_data.get("email", ""), first_name=cleaned_data.get("first_name", ""), last_name=cleaned_data.get("last_name", "")))
             except ValidationError as exc:
                 self.add_error("password", exc)
         return cleaned_data

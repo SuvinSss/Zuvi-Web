@@ -198,3 +198,9 @@ class CustomerAddress(models.Model):
     def __str__(self):
         default = "default" if self.is_default else "secondary"
         return f"{self.customer.customer_code} · {self.get_label_display()} ({default})"
+
+
+class CustomerGoogleIdentity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="google_identity")
+    subject = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)

@@ -11,6 +11,7 @@ from accounts.models import Role
 from .models import Brand, ProductCategory
 from .public import (
     PUBLIC_PAGE_SIZE,
+    with_popularity,
     apply_public_filters,
     apply_public_search,
     apply_public_sort,
@@ -98,8 +99,9 @@ def _list_context(request, *, queryset, page_title, active_category=None):
         brand_slug=data.get("brand"),
         min_price=data.get("min_price"),
         max_price=data.get("max_price"),
+        offers=request.GET.get("offers") == "1",
     )
-    queryset = apply_public_sort(queryset, data.get("sort"))
+    queryset = with_popularity(apply_public_sort(queryset, data.get("sort")))
 
     paginator = Paginator(queryset, PUBLIC_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -111,6 +113,8 @@ def _list_context(request, *, queryset, page_title, active_category=None):
     brands = list(Brand.objects.filter(is_active=True).order_by("name"))
 
     return {
+        "offers_active": request.GET.get("offers") == "1",
+        "offers_query": _remove_params_querystring(request, "offers"),
         "page_title": page_title,
         "filter_form": form,
         "products": products,
@@ -158,7 +162,7 @@ def public_search_suggestions_view(request):
 
 
 def public_home_view(request):
-    queryset = public_products_queryset()
+    queryset = with_popularity(public_products_queryset())
     featured = [
         public_product_card(product)
         for product in queryset.filter(is_featured=True).order_by("-updated_at", "pk")[
