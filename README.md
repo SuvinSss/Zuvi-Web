@@ -323,7 +323,7 @@ images can be processed with `python manage.py optimize_product_images --limit 1
 The command only fills missing derivatives and preserves originals.
 
 Google login requires GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET. Add
-https://<host>/customer/google/callback/ as an authorized callback in Google for
+https://<host>/customer/login/google/callback/ as an authorized callback in Google for
 each environment. Existing password accounts are never linked by email alone.
 Password recovery requires EMAIL_HOST plus valid SMTP credentials and a verified
 DEFAULT_FROM_EMAIL; see .env.example. Do not reuse production secrets in UAT.
