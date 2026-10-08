@@ -295,7 +295,7 @@ if MEDIA_STORAGE_BACKEND == 's3':
             'file_overwrite': False,
             'location': '',
             'custom_domain': None,
-            'endpoint_url': None,
+            'endpoint_url': 'https://s3.ap-south-1.amazonaws.com',
             'use_ssl': True,
             'verify': True,
             'session_profile': None,
@@ -304,6 +304,7 @@ if MEDIA_STORAGE_BACKEND == 's3':
             'object_parameters': {'CacheControl': 'private, no-store'},
             'client_config': Config(
                 signature_version='s3v4',
+                s3={'addressing_style': 'virtual'},
                 connect_timeout=3,
                 read_timeout=5,
                 retries={'mode': 'standard', 'total_max_attempts': 2},

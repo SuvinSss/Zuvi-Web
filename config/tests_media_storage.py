@@ -146,7 +146,7 @@ with patch('botocore.httpsession.URLLib3Session.send', side_effect=AssertionErro
         url = urlsplit(data['url'])
         query = parse_qs(url.query)
         self.assertEqual(url.scheme, 'https')
-        self.assertIn('amazonaws.com', url.hostname)
+        self.assertEqual(url.hostname, 'example-deployment-test.s3.ap-south-1.amazonaws.com')
         self.assertEqual(url.path, '/products/images/example.jpg')
         self.assertEqual(query['X-Amz-Expires'], ['300'])
         self.assertEqual(query['X-Amz-Algorithm'], ['AWS4-HMAC-SHA256'])
