@@ -1,0 +1,14 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/pwa-install.css' %}">
+<dialog class="pwa-install" data-install-dialog aria-labelledby="pwa-install-title" aria-describedby="pwa-install-description"{% if request.path == '/' %} data-auto-open{% endif %}>
+    <button class="pwa-install-close" type="button" data-install-dismiss aria-label="Close installation instructions">&times;</button>
+    <img src="{% static 'pwa/icon-192.png' %}" alt="" width="64" height="64">
+    <h2 id="pwa-install-title">Keep ZuuVi close</h2>
+    <p id="pwa-install-description">Add ZuuVi to your home screen for quick access to your neighbourhood favourites.</p>
+    <p data-install-instructions>Open your browser menu and choose <strong>Install app</strong> or <strong>Add to Home Screen</strong>. If that option is unavailable, open this website in Chrome, Edge or Safari.</p>
+    <p class="pwa-install-note">Shopping and orders need an internet connection.</p>
+    <div class="pwa-install-actions">
+        <button class="btn btn-brand" type="button" data-install-native hidden>Install ZuuVi</button>
+        <button class="btn btn-outline-brand" type="button" data-install-dismiss autofocus>Not now</button>
+    </div>
+</dialog>

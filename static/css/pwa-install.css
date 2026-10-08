@@ -1,0 +1,10 @@
+.pwa-install { position:fixed; border:0; border-radius:24px; padding:32px; width:min(440px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); overflow:auto; color:#173b2b; background:#fafbf8; box-shadow:0 24px 80px #102b2440; }
+.pwa-install::backdrop { background:rgb(15 32 24 / 48%); }
+.pwa-install img { border-radius:16px; margin-bottom:20px; }
+.pwa-install h2 { font-size:1.65rem; margin:0 0 12px; font-weight:750; }
+.pwa-install p { line-height:1.6; }
+.pwa-install-close { position:absolute; right:14px; top:10px; border:0; background:transparent; font-size:28px; width:44px; height:44px; color:inherit; }
+.pwa-install-note { font-size:.85rem; color:#52665b; }
+.pwa-install-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+.pwa-install button:focus-visible { outline:3px solid #226143; outline-offset:3px; }
+.pwa-install [hidden] { display:none !important; }
