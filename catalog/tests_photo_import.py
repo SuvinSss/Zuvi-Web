@@ -98,6 +98,30 @@ class PhotoImportTests(CatalogTestMixin, TestCase):
         )
         self.assertEqual(Product.objects.count(), 1)
 
+    def test_upload_and_publish_with_product_prefix_storage_permissions(self):
+        storage = PhotoImportImage._meta.get_field("image").storage
+        original_save = storage.save
+
+        def save_permitted_product_image(name, content, **kwargs):
+            if not name.startswith("products/images/"):
+                raise PermissionError("Production storage permits product images only")
+            return original_save(name, content, **kwargs)
+
+        with patch.object(storage, "save", side_effect=save_permitted_product_image):
+            photo = PhotoImportImage.objects.create(
+                item=self.item,
+                image=image_file(),
+                sha256="c" * 64,
+                original_name="test.jpg",
+            )
+            result = import_item(item_id=self.item.pk, actor=self.actor, publish=True)
+
+        product = Product.objects.get(pk=result["product_id"])
+        published_image = product.images.get(image=photo.image.name)
+        with published_image.image.open("rb") as uploaded:
+            Image.open(uploaded).verify()
+        self.assertEqual(product.status, "APPROVED")
+
     def test_same_source_new_batch_does_not_duplicate(self):
         import_item(item_id=self.item.pk, actor=self.actor, publish=True)
         batch = PhotoImportBatch.objects.create(

@@ -380,4 +380,6 @@ It never publishes. The same reviewed batch can be checked with
 Each product is atomic, source fingerprints prevent repeat imports, existing
 products are never overwritten, and an unsuccessful product leaves its staging
 records available for correction. Preserve staging media referenced by imported
-products; do not independently purge the `catalog-import/` storage prefix.
+products. New staging uploads use the existing UUID-based `products/images/`
+path so the production media permissions also cover photo imports. Existing
+staging paths remain valid; do not purge media merely because it was staged.

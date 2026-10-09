@@ -39,7 +39,7 @@ class PhotoImportItem(models.Model):
 
 class PhotoImportImage(models.Model):
     item = models.ForeignKey(PhotoImportItem, related_name="photos", on_delete=models.CASCADE)
-    image = models.ImageField(upload_to="catalog-import/%Y/%m/", validators=[validate_product_image])
+    image = models.ImageField(upload_to=product_image_upload_to, validators=[validate_product_image])
     sha256 = models.CharField(max_length=64)
     original_name = models.CharField(max_length=255)
     selected = models.BooleanField(default=True)
