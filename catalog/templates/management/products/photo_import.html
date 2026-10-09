@@ -1,0 +1,66 @@
+{% extends "management/base.html" %}{% load static %}
+{% block title %}Photo import · ZuuVi{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/photo-import.css' %}">{% endblock %}
+{% block content %}
+<div id="photo-import" data-base="{% url 'catalog:photo_import' %}">
+  {% csrf_token %}
+  <header class="import-heading"><div><a href="{% url 'catalog:product_list' %}">Products</a><h1>Import product photos</h1><p class="text-muted">Upload folders, check product details, then publish. Your progress is saved.</p></div><button id="new-batch" class="btn btn-primary">New import</button></header>
+  <div class="import-toolbar">
+    <label>Saved import<select id="batch" class="form-select"><option value="">Choose an import</option>{% for batch in batches %}<option value="{{ batch.pk }}">{{ batch.name }} · #{{ batch.pk }}</option>{% endfor %}</select></label>
+    <label>Destination Store<select id="store" class="form-select"><option value="">Choose a Store</option>{% for store in stores %}<option value="{{ store.pk }}">{{ store.name }}</option>{% endfor %}</select></label>
+    {% if perms.stores.add_store %}<a class="btn btn-outline-secondary" href="{% url 'stores:store_create' %}" target="_blank" rel="noopener">Create Store</a>{% endif %}
+    <button id="export" class="btn btn-outline-secondary">Download progress</button>
+    <label class="btn btn-outline-secondary mb-0">Load research JSON<input type="file" id="load-research" accept=".json" hidden></label>
+  </div>
+  <section class="import-upload" aria-label="Upload photos">
+    <div><h2>1. Add your photos</h2><p>One folder per product. Original files stay on your device; compressed copies upload one at a time.</p><p class="small text-muted">JPEG, PNG or WebP. Up to 30 review photos per group. Select up to five for each listing. Re-select the same folder to resume an interrupted upload.</p></div>
+    <label class="btn btn-primary">Choose folder<input id="folder" type="file" webkitdirectory multiple hidden></label>
+    <label class="btn btn-outline-primary">Choose photos<input id="files" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+    <button id="stop" class="btn btn-outline-secondary" hidden>Stop after current item</button>
+  </section>
+  <div id="notice" role="status" aria-live="polite">Create an import or resume a saved one.</div>
+  <progress id="progress" max="100" value="0" aria-label="Import progress"></progress>
+  <div class="import-workspace">
+    <aside><h2>2. Review products</h2><input id="filter-list" type="search" class="form-control mb-2" placeholder="Find product or folder" aria-label="Find product or folder"><div id="counts" class="small text-muted mb-2"></div><div id="item-list"></div></aside>
+    <section id="editor" hidden>
+      <div class="d-flex justify-content-between gap-2"><h2 id="item-title">Product details</h2><span id="item-state"></span></div>
+      <div id="photos" class="import-photos"></div>
+      <div class="d-flex gap-2 mb-3"><input id="split-name" class="form-control" placeholder="New variant group name" aria-label="New variant group name"><button id="split" class="btn btn-outline-secondary" type="button">Move selected photos</button></div>
+      <p class="small text-muted">Tick the photos for this listing. If a folder contains different products, select one variant’s photos and move them into a new group.</p>
+      <label class="btn btn-sm btn-outline-secondary mb-3">Add listing photo<input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+      <button id="ocr" class="btn btn-sm btn-outline-primary mb-3">Read photo text · free</button>
+      <p class="small text-muted">Text recognition runs in your browser. It can read labels; check the product and variant yourself. Retailer prices need source review.</p>
+      <details><summary>Extracted label text</summary><textarea id="ocr-text" class="form-control mt-2" rows="5" aria-label="Extracted label text"></textarea></details>
+      <form id="review" class="mt-3">
+        <div class="import-fields">
+          <label class="wide">Product name<input name="name" class="form-control" maxlength="200" required></label>
+          <label>Category<select name="category" class="form-select" required><option value="">Select category</option>{% for c in categories %}<option value="{{ c.pk }}">{{ c }}</option>{% endfor %}</select></label>
+          <label>Brand<select name="brand" class="form-select"><option value="">Unbranded / not confirmed</option>{% for b in brands %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}</select></label>
+          <label class="wide">Description<textarea name="description" class="form-control" rows="3" maxlength="8000"></textarea></label>
+          <label>Unit<select name="unit" class="form-select">{% for value,label in units %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+          <label>Unit amount<input name="unit_value" type="number" min="0.001" step="0.001" class="form-control" value="1"></label>
+        </div>
+        <h3 class="mt-4">Online price research</h3>
+        <div class="d-flex gap-2 flex-wrap mb-2"><a id="search" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">Search Indian retailers</a><a id="lens" href="https://lens.google/" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">Open image search</a></div>
+        <p class="small text-muted">Use exact brand, variant and pack size. Enter up to three independent, in-stock offers in INR. Exclude special coupons and delivery charges. Fewer than three sources gives a limited estimate.</p>
+        <p class="small text-muted">Free price reading supports product links from TrueWholesale, Tint &amp; Shade, DeoDap and Mango Stationery. For other retailers, enter the checked price manually.</p><div id="offers"></div>
+        <label class="form-check my-3"><input name="offers_verified" type="checkbox" class="form-check-input"> I opened these sources and confirmed the same product, pack size and standard in-stock price.</label>
+        <div class="import-fields">
+          <label class="wide">Pricing policy<select name="pricing_policy" class="form-select"><option value="retail_mean">Use researched average as Store Price; no added margin or discount</option><option value="manual">Use my Store Price; no added margin or discount</option></select></label>
+          <label>My Store Price (₹)<input name="store_price" type="number" step="0.01" min="0.01" class="form-control"></label>
+          <label>Confirmed opening stock<input name="stock" type="number" step="0.001" min="0.001" class="form-control" placeholder="Unknown — leave blank"></label>
+          <label class="wide">Review notes<textarea name="notes" class="form-control" rows="2" maxlength="4000"></textarea></label>
+        </div>
+        <p class="small text-muted mt-2">Unknown stock remains zero. Published products cannot be purchased until inventory is recorded.</p>
+        <label class="form-check my-3"><input name="identity_verified" type="checkbox" class="form-check-input"> I verified the product identity, variant, unit, description and selected photos.</label>
+        <div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Save review</button><button id="check-item" type="button" class="btn btn-outline-primary">Check this product</button><a id="product-link" class="btn btn-outline-primary" hidden>Open product</a></div>
+      </form>
+    </section>
+    <div id="empty-editor" class="text-muted py-5">Select a product to review its photos and prices.</div>
+  </div>
+  <section class="import-finish"><div><h2>3. Check and import</h2><p class="small text-muted mb-0">Incomplete products stay in review. Completed products are never duplicated or overwritten.</p></div><label class="form-check"><input id="publish" type="checkbox" class="form-check-input" {% if not can_publish %}disabled{% endif %}> Publish verified products</label><button id="check-all" class="btn btn-outline-primary" {% if not can_price %}disabled{% endif %}>Check all</button><button id="import-all" class="btn btn-primary" {% if not can_price %}disabled{% endif %}>Import verified products</button></section>
+  {% if not can_price %}<p class="text-muted">Your account can prepare photos. An administrator with product pricing permission must complete the import.</p>{% endif %}
+  <pre id="results" class="import-results" aria-live="polite"></pre>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/photo-import.js' %}" defer></script>{% endblock %}

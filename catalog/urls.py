@@ -1,12 +1,19 @@
 from django.urls import path
 
-from . import public_views, views
+from . import public_views, views, photo_import_views
 
 from . import release_views
 
 app_name = "catalog"
 
 urlpatterns = [
+    path("management/products/photo-import/retailer-offer/", photo_import_views.retailer_offer, name="photo_import_offer"),
+    path("management/products/photo-import/batches/<int:pk>/items/<int:item_id>/photos/<int:photo_id>/", photo_import_views.photo_content, name="photo_import_photo"),
+    path("management/products/photo-import/", photo_import_views.workspace, name="photo_import"),
+    path("management/products/photo-import/batches/", photo_import_views.create_batch, name="photo_import_create"),
+    path("management/products/photo-import/batches/<int:pk>/", photo_import_views.batch_detail, name="photo_import_batch"),
+    path("management/products/photo-import/batches/<int:pk>/items/", photo_import_views.upsert_item, name="photo_import_item"),
+    path("management/products/photo-import/batches/<int:pk>/items/<int:item_id>/", photo_import_views.item_action, name="photo_import_action"),
     path("terms/", release_views.terms, name="terms"),
     path("manifest.webmanifest", release_views.manifest, name="manifest"),
     path("service-worker.js", release_views.service_worker, name="service_worker"),
