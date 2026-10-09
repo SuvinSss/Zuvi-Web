@@ -15,6 +15,40 @@ from .pricing import (
 from .validators import product_image_upload_to, validate_product_image
 
 
+class PhotoImportBatch(models.Model):
+    """Private, resumable preparation workspace; not a public catalogue."""
+    name = models.CharField(max_length=120)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    store = models.ForeignKey("stores.Store", null=True, blank=True, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PhotoImportItem(models.Model):
+    batch = models.ForeignKey(PhotoImportBatch, related_name="items", on_delete=models.CASCADE)
+    source_key = models.CharField(max_length=200)
+    source_hash = models.CharField(max_length=64)
+    details = models.JSONField(default=dict, blank=True)
+    product = models.ForeignKey("Product", null=True, blank=True, on_delete=models.PROTECT)
+    imported_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["batch", "source_key"], name="unique_photo_import_group")]
+        ordering = ["source_key", "pk"]
+
+
+class PhotoImportImage(models.Model):
+    item = models.ForeignKey(PhotoImportItem, related_name="photos", on_delete=models.CASCADE)
+    image = models.ImageField(upload_to="catalog-import/%Y/%m/", validators=[validate_product_image])
+    sha256 = models.CharField(max_length=64)
+    original_name = models.CharField(max_length=255)
+    selected = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["item", "sha256"], name="unique_import_photo")]
+        ordering = ["pk"]
+
+
 class ProductStatus(models.TextChoices):
     DRAFT = "DRAFT", "Draft"
     PENDING = "PENDING", "Pending"

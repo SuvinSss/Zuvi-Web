@@ -335,3 +335,49 @@ Schema additions are catalog 0008 (optional display image) and customers 0004
 (Google subject identities). Roll back application code without reversing these
 additive migrations or deleting original images/accounts. Verify readiness, login,
 product images and checkout after deployment before switching domain DNS.
+
+## Photo catalogue import
+
+Management → Products → **Import photos** opens the resumable photo workspace.
+Create a batch, select an active Store, and choose a folder containing one
+subfolder per product. The browser hashes the originals and uploads 1600-pixel
+JPEG working copies individually. Originals remain on the device. Re-selecting
+the same folder resumes uploads; identical image bytes are deduplicated.
+
+Each group holds up to 30 preparation photos. Select one to five listing photos;
+move selected photos into a separate group when a folder contains different
+models or variants. Free English label OCR uses Tesseract.js 6.0.1 in the browser
+(the first use downloads the public engine/language files). It does not establish
+product authenticity or automatically verify live retailer offers. No paid AI
+API or API key is required. Search links and reviewed source URLs support price
+research; the backend computes INR mean, median and range using Decimal.
+The optional free price reader accepts product links from TrueWholesale,
+Tint & Shade, DeoDap and Mango Stationery. It checks public Shopify responses
+for INR, the selected variant and availability, with bounded requests and no
+redirects. Administrators still confirm identity and tax/shipping treatment.
+Other retailers use manually reviewed offers; there is no paid search dependency.
+
+Products require verified identity, an active category, images and either a
+positive manual Store Price or explicitly reviewed exact-match, in-stock offers.
+Offers must have been checked within 30 days. The selected baseline becomes
+Store Price with zero fixed margin and no discount, calculated by the existing
+pricing service. Unknown opening stock stays zero. Batch preparation is private
+to its creator and Super Admins. Creation requires `catalog.add_product`, import
+also requires `catalog.manage_product_pricing`, publication requires
+`catalog.approve_product`, and opening stock requires `inventory.adjust_inventory`.
+All writes require POST and retain the existing service audit histories.
+
+Download progress exports the research and product-ID manifest as JSON. Load
+research JSON merges `items` by `source_key` into an uploaded batch. Do not move
+category/brand numeric IDs between environments without mapping their taxonomy.
+
+For prepared local catalogues, `stage_photo_catalogue --catalogue FILE
+--photo-root DIRECTORY --actor ID` validates without saving; add `--apply` to
+stage it, `--batch ID` to resume, and `--create-taxonomy` to resolve/create optional
+`category_name` and `brand_name` values with the actor's Django permissions.
+It never publishes. The same reviewed batch can be checked with
+`import_photo_catalogue --batch ID --actor ID --publish`; add `--apply` to import.
+Each product is atomic, source fingerprints prevent repeat imports, existing
+products are never overwritten, and an unsuccessful product leaves its staging
+records available for correction. Preserve staging media referenced by imported
+products; do not independently purge the `catalog-import/` storage prefix.
