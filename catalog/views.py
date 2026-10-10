@@ -375,7 +375,27 @@ def product_images_view(request, pk):
             except ValidationError as exc:
                 messages.error(request, "; ".join(exc.messages))
             else:
-                messages.success(request, "Image added.")
+                product.refresh_from_db()
+                if (
+                    product.auto_publish_on_first_image
+                    and product.status == ProductStatus.PENDING
+                    and user_has_catalog_permission(request.user, "catalog.approve_product")
+                ):
+                    try:
+                        record_product_status_change(
+                            product=product,
+                            new_status=ProductStatus.APPROVED,
+                            changed_by=request.user,
+                            reason="Published after an authorized manager uploaded the first product image.",
+                            request=request,
+                        )
+                    except ValidationError as exc:
+                        messages.warning(request, "Image added; product remains pending: " + "; ".join(exc.messages))
+                    else:
+                        Product.objects.filter(pk=product.pk).update(auto_publish_on_first_image=False)
+                        messages.success(request, "Image added and product published.")
+                else:
+                    messages.success(request, "Image added. Product remains pending until an authorized manager approves it." if product.status == ProductStatus.PENDING else "Image added.")
                 return redirect("catalog:product_images", pk=product.pk)
         else:
             messages.error(
@@ -390,6 +410,11 @@ def product_images_view(request, pk):
             "image_count": image_count,
             "max_images": MAX_IMAGES_PER_PRODUCT,
             "can_add_image": image_count < MAX_IMAGES_PER_PRODUCT,
+            "can_auto_publish_on_upload": (
+                product.auto_publish_on_first_image
+                and product.status == ProductStatus.PENDING
+                and user_has_catalog_permission(request.user, "catalog.approve_product")
+            ),
         },
     )
 
