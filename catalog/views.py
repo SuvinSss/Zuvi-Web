@@ -363,6 +363,7 @@ def product_images_view(request, pk):
     form = ProductImageForm(request.POST or None, request.FILES or None)
     if request.method == "POST":
         if form.is_valid():
+            status_before_upload = product.status
             try:
                 add_product_image(
                     product=product,
@@ -375,7 +376,11 @@ def product_images_view(request, pk):
             except ValidationError as exc:
                 messages.error(request, "; ".join(exc.messages))
             else:
-                messages.success(request, "Image added.")
+                product.refresh_from_db()
+                if status_before_upload == ProductStatus.PENDING and product.status == ProductStatus.APPROVED:
+                    messages.success(request, "Image added and product published.")
+                else:
+                    messages.success(request, "Image added. Product remains pending until an authorized manager approves it." if product.status == ProductStatus.PENDING else "Image added.")
                 return redirect("catalog:product_images", pk=product.pk)
         else:
             messages.error(
@@ -390,6 +395,11 @@ def product_images_view(request, pk):
             "image_count": image_count,
             "max_images": MAX_IMAGES_PER_PRODUCT,
             "can_add_image": image_count < MAX_IMAGES_PER_PRODUCT,
+            "can_auto_publish_on_upload": (
+                product.auto_publish_on_first_image
+                and product.status == ProductStatus.PENDING
+                and user_has_catalog_permission(request.user, "catalog.approve_product")
+            ),
         },
     )
 

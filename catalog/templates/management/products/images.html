@@ -8,6 +8,9 @@
     <a href="{% url 'catalog:product_detail' product.pk %}" class="btn btn-outline-secondary btn-sm">Back to product</a>
 </div>
 <p class="text-muted">{{ image_count }} / {{ max_images }} images · JPEG, PNG or WebP · max 5 MB each</p>
+{% if can_auto_publish_on_upload %}
+<p class="alert alert-info">Uploading a valid image will publish this product automatically if its other approval requirements still pass.</p>
+{% endif %}
 
 <div class="row g-3">
     <div class="col-lg-7">

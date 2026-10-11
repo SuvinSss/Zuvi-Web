@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 
 from accounts.audit_ip import get_client_ip
 from accounts.models import AdminAuditLog
+from .decorators import user_has_catalog_permission
 
 from .models import (
     Product,
@@ -811,6 +812,25 @@ def mutate_product_images(*, mutations, changed_by=None, request=None, validate_
                 changed_by=changed_by, reason="Product images changed; reapproval required.",
                 request=request,
             )
+        elif (
+            additions
+            and product.status == ProductStatus.PENDING
+            and product.auto_publish_on_first_image
+            and changed_by is not None
+            and user_has_catalog_permission(changed_by, "catalog.approve_product")
+        ):
+            try:
+                record_product_status_change(
+                    product=product, new_status=ProductStatus.APPROVED,
+                    changed_by=changed_by,
+                    reason="Published after an authorized manager uploaded the first product image.",
+                    request=request,
+                )
+            except ValidationError:
+                # Keep the valid photo while other approval requirements are fixed.
+                pass
+            else:
+                Product.objects.filter(pk=product.pk).update(auto_publish_on_first_image=False)
         results[product.pk] = saved
     return results
 

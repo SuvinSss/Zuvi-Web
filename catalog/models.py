@@ -227,6 +227,11 @@ class Product(models.Model):
         default=ProductStatus.DRAFT,
     )
     is_active = models.BooleanField(default=True)
+    auto_publish_on_first_image = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text="Publish after an authorized manager uploads a valid image.",
+    )
     unit = models.CharField(
         max_length=16,
         choices=ProductUnit.choices,
