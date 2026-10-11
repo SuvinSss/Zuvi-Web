@@ -363,6 +363,7 @@ def product_images_view(request, pk):
     form = ProductImageForm(request.POST or None, request.FILES or None)
     if request.method == "POST":
         if form.is_valid():
+            status_before_upload = product.status
             try:
                 add_product_image(
                     product=product,
@@ -376,24 +377,8 @@ def product_images_view(request, pk):
                 messages.error(request, "; ".join(exc.messages))
             else:
                 product.refresh_from_db()
-                if (
-                    product.auto_publish_on_first_image
-                    and product.status == ProductStatus.PENDING
-                    and user_has_catalog_permission(request.user, "catalog.approve_product")
-                ):
-                    try:
-                        record_product_status_change(
-                            product=product,
-                            new_status=ProductStatus.APPROVED,
-                            changed_by=request.user,
-                            reason="Published after an authorized manager uploaded the first product image.",
-                            request=request,
-                        )
-                    except ValidationError as exc:
-                        messages.warning(request, "Image added; product remains pending: " + "; ".join(exc.messages))
-                    else:
-                        Product.objects.filter(pk=product.pk).update(auto_publish_on_first_image=False)
-                        messages.success(request, "Image added and product published.")
+                if status_before_upload == ProductStatus.PENDING and product.status == ProductStatus.APPROVED:
+                    messages.success(request, "Image added and product published.")
                 else:
                     messages.success(request, "Image added. Product remains pending until an authorized manager approves it." if product.status == ProductStatus.PENDING else "Image added.")
                 return redirect("catalog:product_images", pk=product.pk)

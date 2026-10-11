@@ -10,7 +10,7 @@ from django.urls import reverse
 from accounts.models import Role
 from .models import ProductStatus
 from .pricing import MarginType
-from .services import apply_admin_pricing
+from .services import add_product_image, apply_admin_pricing
 from .tests_image_workflow import WorkflowFixtures
 
 
@@ -62,3 +62,13 @@ class AutoPublishOnImageTests(WorkflowFixtures, TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.status, ProductStatus.PENDING)
         self.assertEqual(self.product.images.count(), 1)
+
+    def test_admin_inline_image_service_also_publishes(self):
+        self.product.auto_publish_on_first_image = True
+        self.product.save(update_fields=["auto_publish_on_first_image"])
+        add_product_image(
+            product=self.product, image=self._uploaded_image(), changed_by=self.actor,
+        )
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.status, ProductStatus.APPROVED)
+        self.assertFalse(self.product.auto_publish_on_first_image)
