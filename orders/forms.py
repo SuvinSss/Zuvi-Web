@@ -130,6 +130,18 @@ class ManagementOrderStatusForm(forms.Form):
         ),
         label="Note",
     )
+    correction_note = forms.CharField(
+        required=False,
+        max_length=2000,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 2,
+                "class": "form-control",
+                "placeholder": "Required when reversing a status",
+            }
+        ),
+        label="Correction note",
+    )
 
     def __init__(self, *args, allowed_statuses=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -142,6 +154,9 @@ class ManagementOrderStatusForm(forms.Form):
 
     def clean_reason(self):
         return (self.cleaned_data.get("reason") or "").strip()
+
+    def clean_correction_note(self):
+        return (self.cleaned_data.get("correction_note") or "").strip()
 
 
 class ManagementOrderCancelForm(forms.Form):
@@ -185,6 +200,18 @@ class ManagementPaymentStatusForm(forms.Form):
         ),
         label="Note",
     )
+    correction_note = forms.CharField(
+        required=False,
+        max_length=2000,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 2,
+                "class": "form-control",
+                "placeholder": "Required when reversing a status",
+            }
+        ),
+        label="Correction note",
+    )
 
     def __init__(self, *args, allowed_statuses=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -197,3 +224,6 @@ class ManagementPaymentStatusForm(forms.Form):
 
     def clean_reason(self):
         return (self.cleaned_data.get("reason") or "").strip()
+
+    def clean_correction_note(self):
+        return (self.cleaned_data.get("correction_note") or "").strip()

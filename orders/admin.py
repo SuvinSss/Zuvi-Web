@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Order,
     OrderItem,
+    OrderPaymentHistory,
     OrderStatusHistory,
     PickupLocation,
     StoreOrder,
@@ -195,6 +196,8 @@ class OrderAdmin(ReadOnlyModelAdmin):
         "cancellation_reason",
         "cancelled_at",
         "cancelled_by",
+        "delivered_at",
+        "payment_collected_at",
         "placed_at",
         "created_at",
         "updated_at",
@@ -287,6 +290,30 @@ class OrderStatusHistoryAdmin(ReadOnlyModelAdmin):
         "new_status",
         "changed_by",
         "reason",
+        "correction_note",
+        "ip_address",
+        "created_at",
+    )
+
+
+@admin.register(OrderPaymentHistory)
+class OrderPaymentHistoryAdmin(ReadOnlyModelAdmin):
+    list_display = (
+        "order",
+        "old_payment_status",
+        "new_payment_status",
+        "changed_by",
+        "created_at",
+    )
+    list_filter = ("new_payment_status",)
+    search_fields = ("order__order_number", "reason", "correction_note")
+    readonly_fields = (
+        "order",
+        "old_payment_status",
+        "new_payment_status",
+        "changed_by",
+        "reason",
+        "correction_note",
         "ip_address",
         "created_at",
     )

@@ -163,6 +163,9 @@ def _apply_order_status(
         if order.payment_status == PaymentStatus.PENDING:
             order.payment_status = PaymentStatus.CANCELLED
             update_fields.append("payment_status")
+    elif new_status == OrderStatus.COMPLETED:
+        order.delivered_at = timezone.now()
+        update_fields.append("delivered_at")
 
     order.save(update_fields=update_fields)
     OrderStatusHistory.objects.create(

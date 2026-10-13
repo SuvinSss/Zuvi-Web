@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from .cancellation import cancel_order_by_admin
 from .models import (
     Order,
+    OrderPaymentHistory,
     OrderStatus,
     OrderStatusHistory,
     PaymentStatus,
@@ -58,6 +60,20 @@ ADMIN_PAYMENT_STATUS_TRANSITIONS = {
     ),
 }
 
+# Backward corrections. Each one requires a correction note and is recorded in
+# the audit history. Inventory is never touched by these moves.
+ADMIN_ORDER_STATUS_REVERSALS = {
+    OrderStatus.COMPLETED: frozenset({OrderStatus.IN_PROGRESS}),
+}
+
+ADMIN_PAYMENT_STATUS_REVERSALS = {
+    PaymentStatus.COLLECTED: frozenset({PaymentStatus.PENDING}),
+}
+
+CORRECTION_NOTE_REQUIRED_MESSAGE = (
+    "A correction note is required when reversing a status."
+)
+
 # Active StoreOrders that may be completed by management (fulfillment done).
 _STORE_ORDER_COMPLETABLE_STATUSES = STORE_ORDER_READY_TIER_STATUSES | frozenset(
     {StoreOrderStatus.COMPLETED}
@@ -75,11 +91,30 @@ def _client_ip(request):
         return None
 
 
+def is_order_status_reversal(order, new_status) -> bool:
+    return new_status in ADMIN_ORDER_STATUS_REVERSALS.get(order.status, frozenset())
+
+
+def is_payment_status_reversal(order, new_payment_status) -> bool:
+    return new_payment_status in ADMIN_PAYMENT_STATUS_REVERSALS.get(
+        order.payment_status, frozenset()
+    )
+
+
+def _order_reversals_allowed(order) -> frozenset:
+    # Delivery cannot be undone while cash is recorded as collected; reverse
+    # the payment first so payment is never COLLECTED on an undelivered order.
+    if order.payment_status == PaymentStatus.COLLECTED:
+        return frozenset()
+    return ADMIN_ORDER_STATUS_REVERSALS.get(order.status, frozenset())
+
+
 def available_admin_order_statuses(order) -> list[str]:
     """Return OrderStatus values the management portal may move this order to."""
     if order.status == OrderStatus.CANCELLED:
         return []
     allowed = set(ADMIN_ORDER_STATUS_TRANSITIONS.get(order.status, frozenset()))
+    allowed |= _order_reversals_allowed(order)
     if OrderStatus.COMPLETED in allowed:
         active = [
             so
@@ -103,6 +138,7 @@ def available_admin_payment_statuses(order) -> list[str]:
     allowed = set(
         ADMIN_PAYMENT_STATUS_TRANSITIONS.get(order.payment_status, frozenset())
     )
+    allowed |= ADMIN_PAYMENT_STATUS_REVERSALS.get(order.payment_status, frozenset())
     # MVP: cash collection only after successful fulfillment.
     if (
         PaymentStatus.COLLECTED in allowed
@@ -164,6 +200,42 @@ def _complete_active_store_orders(*, order, actor, reason, request=None):
         )
 
 
+def _reopen_completed_store_orders(*, order, actor, correction_note, request=None):
+    """
+    Undo the COMPLETED cascade from ``_complete_active_store_orders``.
+
+    Each StoreOrder returns to the ready-tier status it held before completion
+    (READY when unknown) so a later Delivered update can cascade again.
+    """
+    for store_order in StoreOrder.objects.select_for_update().filter(
+        order=order,
+        status=StoreOrderStatus.COMPLETED,
+    ).order_by("pk"):
+        last_completion = (
+            store_order.status_history.filter(
+                new_status=StoreOrderStatus.COMPLETED
+            )
+            .order_by("-created_at", "-pk")
+            .first()
+        )
+        restored_status = StoreOrderStatus.READY
+        if (
+            last_completion
+            and last_completion.old_status in STORE_ORDER_READY_TIER_STATUSES
+        ):
+            restored_status = last_completion.old_status
+        store_order.status = restored_status
+        store_order.save(update_fields=["status", "updated_at"])
+        StoreOrderStatusHistory.objects.create(
+            store_order=store_order,
+            old_status=StoreOrderStatus.COMPLETED,
+            new_status=restored_status,
+            changed_by=actor,
+            reason=f"Correction: {correction_note}",
+            ip_address=_client_ip(request),
+        )
+
+
 @transaction.atomic
 def update_order_status(
     *,
@@ -171,16 +243,20 @@ def update_order_status(
     new_status,
     actor,
     reason="",
+    correction_note="",
     request=None,
 ):
     """
     Apply a permitted overall Order status transition.
 
     Cancellation must use ``cancel_order_by_admin`` (and cancel_order permission).
-    Completing an order requires every active StoreOrder to be ready (or already
-    completed) and cascades those rows to COMPLETED.
+    Marking an order Delivered (COMPLETED) requires every active StoreOrder to be
+    ready (or already completed), cascades those rows to COMPLETED and records
+    ``delivered_at``. Reversing Delivered requires ``correction_note``.
+    Stock is not touched: it is deducted once at checkout.
     """
     order = Order.objects.select_for_update().get(pk=order.pk)
+    correction_note = (correction_note or "").strip()
     cleaned_status = (new_status or "").strip()
     if not cleaned_status:
         raise ValidationError({"status": "A new status is required."})
@@ -195,17 +271,32 @@ def update_order_status(
     if cleaned_status == order.status:
         return order
 
-    allowed = ADMIN_ORDER_STATUS_TRANSITIONS.get(order.status, frozenset())
-    if cleaned_status not in allowed:
-        raise ValidationError(
-            {
-                "status": (
-                    f"Order {order.order_number} cannot move from "
-                    f"{order.status} to {cleaned_status}."
-                )
-            }
-        )
+    is_reversal = is_order_status_reversal(order, cleaned_status)
+    if is_reversal:
+        if not correction_note:
+            raise ValidationError({"correction_note": CORRECTION_NOTE_REQUIRED_MESSAGE})
+        if cleaned_status not in _order_reversals_allowed(order):
+            raise ValidationError(
+                {
+                    "status": (
+                        "Reverse the collected payment before reversing "
+                        "delivery."
+                    )
+                }
+            )
+    else:
+        allowed = ADMIN_ORDER_STATUS_TRANSITIONS.get(order.status, frozenset())
+        if cleaned_status not in allowed:
+            raise ValidationError(
+                {
+                    "status": (
+                        f"Order {order.order_number} cannot move from "
+                        f"{order.status} to {cleaned_status}."
+                    )
+                }
+            )
 
+    update_fields = ["status", "updated_at"]
     if cleaned_status == OrderStatus.COMPLETED:
         _complete_active_store_orders(
             order=order,
@@ -213,16 +304,28 @@ def update_order_status(
             reason=reason,
             request=request,
         )
+        order.delivered_at = timezone.now()
+        update_fields.append("delivered_at")
+    if is_reversal and order.status == OrderStatus.COMPLETED:
+        _reopen_completed_store_orders(
+            order=order,
+            actor=actor,
+            correction_note=correction_note,
+            request=request,
+        )
+        order.delivered_at = None
+        update_fields.append("delivered_at")
 
     old_status = order.status
     order.status = cleaned_status
-    order.save(update_fields=["status", "updated_at"])
+    order.save(update_fields=update_fields)
     OrderStatusHistory.objects.create(
         order=order,
         old_status=old_status,
         new_status=cleaned_status,
         changed_by=actor,
         reason=(reason or "").strip(),
+        correction_note=correction_note if is_reversal else "",
         ip_address=_client_ip(request),
     )
     order.refresh_from_db()
@@ -236,15 +339,19 @@ def update_order_payment_status(
     new_payment_status,
     actor,
     reason="",
+    correction_note="",
     request=None,
 ):
     """
     Apply a permitted payment-status transition.
 
     Customers and Store Users must never call this. COLLECTED is for successful
-    COD / pay-at-pickup cash collection after fulfillment (Order COMPLETED).
+    COD / pay-at-pickup cash collection after delivery (Order COMPLETED) and
+    records ``payment_collected_at``. Reversing COLLECTED requires
+    ``correction_note``. Every change is written to OrderPaymentHistory.
     """
     order = Order.objects.select_for_update().get(pk=order.pk)
+    correction_note = (correction_note or "").strip()
     cleaned = (new_payment_status or "").strip()
     if not cleaned:
         raise ValidationError(
@@ -253,15 +360,20 @@ def update_order_payment_status(
     if cleaned == order.payment_status:
         return order
 
+    is_reversal = is_payment_status_reversal(order, cleaned)
+    if is_reversal and not correction_note:
+        raise ValidationError({"correction_note": CORRECTION_NOTE_REQUIRED_MESSAGE})
+
     allowed = set(
         ADMIN_PAYMENT_STATUS_TRANSITIONS.get(order.payment_status, frozenset())
     )
+    allowed |= ADMIN_PAYMENT_STATUS_REVERSALS.get(order.payment_status, frozenset())
     if cleaned == PaymentStatus.COLLECTED and order.status != OrderStatus.COMPLETED:
         raise ValidationError(
             {
                 "payment_status": (
                     "Payment can only be marked collected after the order "
-                    "is completed."
+                    "is delivered."
                 )
             }
         )
@@ -277,17 +389,21 @@ def update_order_payment_status(
 
     old_payment = order.payment_status
     order.payment_status = cleaned
-    order.save(update_fields=["payment_status", "updated_at"])
-    # Reuse order status history with a payment note so audits remain visible.
-    OrderStatusHistory.objects.create(
+    update_fields = ["payment_status", "updated_at"]
+    if cleaned == PaymentStatus.COLLECTED:
+        order.payment_collected_at = timezone.now()
+        update_fields.append("payment_collected_at")
+    elif old_payment == PaymentStatus.COLLECTED:
+        order.payment_collected_at = None
+        update_fields.append("payment_collected_at")
+    order.save(update_fields=update_fields)
+    OrderPaymentHistory.objects.create(
         order=order,
-        old_status=order.status,
-        new_status=order.status,
+        old_payment_status=old_payment,
+        new_payment_status=cleaned,
         changed_by=actor,
-        reason=(
-            f"Payment status {old_payment} → {cleaned}"
-            + (f": {(reason or '').strip()}" if (reason or "").strip() else "")
-        ),
+        reason=(reason or "").strip(),
+        correction_note=correction_note if is_reversal else "",
         ip_address=_client_ip(request),
     )
     order.refresh_from_db()

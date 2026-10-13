@@ -64,6 +64,46 @@ def _order_detail_redirect(order_number):
     )
 
 
+def _order_audit_entries(order):
+    """
+    Combined order-status and payment-status audit rows, newest first.
+
+    Each row carries kind, previous/new labels, actor, timestamp, note and
+    correction note so the management detail page renders one audit table.
+    """
+    entries = []
+    for entry in order.status_history.all():
+        entries.append(
+            {
+                "kind": "Order status",
+                "previous": entry.get_old_status_display() if entry.old_status else "",
+                "new": entry.get_new_status_display(),
+                "changed_by": entry.changed_by,
+                "created_at": entry.created_at,
+                "reason": entry.reason,
+                "correction_note": entry.correction_note,
+            }
+        )
+    for entry in order.payment_history.all():
+        entries.append(
+            {
+                "kind": "Payment",
+                "previous": (
+                    entry.get_old_payment_status_display()
+                    if entry.old_payment_status
+                    else ""
+                ),
+                "new": entry.get_new_payment_status_display(),
+                "changed_by": entry.changed_by,
+                "created_at": entry.created_at,
+                "reason": entry.reason,
+                "correction_note": entry.correction_note,
+            }
+        )
+    entries.sort(key=lambda row: row["created_at"], reverse=True)
+    return entries
+
+
 def _collect_order_items(order):
     items = []
     for store_order in order.store_orders.all():
@@ -131,6 +171,7 @@ def management_order_detail_view(request, order_number):
             "store_orders": store_orders,
             "order_items": order_items,
             "status_history": order.status_history.all(),
+            "audit_entries": _order_audit_entries(order),
             "inventory_rows": inventory_rows,
             "can_change_order": can_change,
             "can_cancel_order": can_cancel and admin_can_cancel_order(order),
@@ -193,12 +234,13 @@ def management_order_change_status_view(request, order_number):
                 new_status=form.cleaned_data["status"],
                 actor=request.user,
                 reason=form.cleaned_data.get("reason") or "",
+                correction_note=form.cleaned_data.get("correction_note") or "",
                 request=request,
             )
             messages.success(
                 request,
                 f"Order {order.order_number} status updated to "
-                f"{form.cleaned_data['status']}.",
+                f"{OrderStatus(form.cleaned_data['status']).label}.",
             )
 
         elif action == "cancel":
@@ -244,12 +286,13 @@ def management_order_change_status_view(request, order_number):
                 new_payment_status=form.cleaned_data["payment_status"],
                 actor=request.user,
                 reason=form.cleaned_data.get("reason") or "",
+                correction_note=form.cleaned_data.get("correction_note") or "",
                 request=request,
             )
             messages.success(
                 request,
                 f"Order {order.order_number} payment status updated to "
-                f"{form.cleaned_data['payment_status']}.",
+                f"{PaymentStatus(form.cleaned_data['payment_status']).label}.",
             )
 
         else:

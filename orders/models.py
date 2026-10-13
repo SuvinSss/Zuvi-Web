@@ -51,7 +51,9 @@ class OrderStatus(models.TextChoices):
     PLACED = "PLACED", "Placed"
     CONFIRMED = "CONFIRMED", "Confirmed"
     IN_PROGRESS = "IN_PROGRESS", "In Progress"
-    COMPLETED = "COMPLETED", "Completed"
+    # Final fulfilment status. The stored value stays COMPLETED so existing
+    # rows, status sync and cancellation rules are unchanged.
+    COMPLETED = "COMPLETED", "Delivered"
     PARTIALLY_CANCELLED = "PARTIALLY_CANCELLED", "Partially Cancelled"
     CANCELLED = "CANCELLED", "Cancelled"
 
@@ -248,6 +250,10 @@ class Order(models.Model):
         blank=True,
         related_name="cancelled_orders",
     )
+    # Set automatically by the status services; cleared on a corrected reversal
+    # (the original time stays in the audit history).
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    payment_collected_at = models.DateTimeField(null=True, blank=True)
     placed_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -626,6 +632,9 @@ class OrderStatusHistory(models.Model):
         related_name="order_status_changes",
     )
     reason = models.TextField(blank=True)
+    # Required when a management user reverses a status (e.g. Delivered → In
+    # Progress). Internal only — not shown on customer-facing pages.
+    correction_note = models.TextField(blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -637,6 +646,45 @@ class OrderStatusHistory(models.Model):
         old = self.old_status or "—"
         number = self.order.order_number if self.order_id else "—"
         return f"{number}: {old} → {self.new_status}"
+
+
+class OrderPaymentHistory(models.Model):
+    """Audit trail for management payment-status changes on an Order."""
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.PROTECT,
+        related_name="payment_history",
+    )
+    old_payment_status = models.CharField(
+        max_length=32,
+        choices=PaymentStatus.choices,
+        blank=True,
+    )
+    new_payment_status = models.CharField(
+        max_length=32,
+        choices=PaymentStatus.choices,
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="order_payment_changes",
+    )
+    reason = models.TextField(blank=True)
+    correction_note = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "order payment histories"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        old = self.old_payment_status or "—"
+        number = self.order.order_number if self.order_id else "—"
+        return f"{number}: payment {old} → {self.new_payment_status}"
 
 
 class StoreOrderStatusHistory(models.Model):

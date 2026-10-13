@@ -16,7 +16,14 @@ from inventory.services import (
     order_item_restore_reference,
 )
 
-from .models import Order, OrderItem, OrderStatus, StoreOrder
+from .models import (
+    Order,
+    OrderItem,
+    OrderPaymentHistory,
+    OrderStatus,
+    OrderStatusHistory,
+    StoreOrder,
+)
 from .order_status_sync import STORE_ORDER_READY_TIER_STATUSES
 
 
@@ -155,7 +162,14 @@ def get_management_order_or_404(order_number):
                 )
                 .order_by("pk"),
             ),
-            "status_history",
+            Prefetch(
+                "status_history",
+                queryset=OrderStatusHistory.objects.select_related("changed_by"),
+            ),
+            Prefetch(
+                "payment_history",
+                queryset=OrderPaymentHistory.objects.select_related("changed_by"),
+            ),
         ),
         order_number=order_number,
     )

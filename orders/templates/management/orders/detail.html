@@ -84,6 +84,17 @@
                     <dt class="col-5">Grand total</dt>
                     <dd class="col-7 text-end fw-semibold">₹{{ order.grand_total }}</dd>
                 </dl>
+                <hr>
+                <dl class="row mb-0 small">
+                    <dt class="col-5">Order status</dt>
+                    <dd class="col-7">{{ order.get_status_display }}</dd>
+                    <dt class="col-5">Delivered at</dt>
+                    <dd class="col-7">{{ order.delivered_at|date:"d M Y, H:i"|default:"—" }}</dd>
+                    <dt class="col-5">Payment</dt>
+                    <dd class="col-7">{{ order.get_payment_status_display }}</dd>
+                    <dt class="col-5">Collected at</dt>
+                    <dd class="col-7">{{ order.payment_collected_at|date:"d M Y, H:i"|default:"—" }}</dd>
+                </dl>
                 {% if order.status == "CANCELLED" %}
                     <hr>
                     <dl class="row mb-0 small">
@@ -122,6 +133,11 @@
                                 <label class="form-label small" for="{{ status_form.reason.id_for_label }}">{{ status_form.reason.label }}</label>
                                 {{ status_form.reason }}
                             </div>
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ status_form.correction_note.id_for_label }}">{{ status_form.correction_note.label }}</label>
+                                {{ status_form.correction_note }}
+                                <div class="form-text">Required when moving an order back from Delivered.</div>
+                            </div>
                             <button type="submit" class="btn btn-primary btn-sm">Update status</button>
                         </form>
                     </div>
@@ -147,6 +163,11 @@
                             <div class="mb-2">
                                 <label class="form-label small" for="{{ payment_form.reason.id_for_label }}">{{ payment_form.reason.label }}</label>
                                 {{ payment_form.reason }}
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small" for="{{ payment_form.correction_note.id_for_label }}">{{ payment_form.correction_note.label }}</label>
+                                {{ payment_form.correction_note }}
+                                <div class="form-text">Required when moving payment back from Collected.</div>
                             </div>
                             <button type="submit" class="btn btn-outline-primary btn-sm">Update payment</button>
                         </form>
@@ -262,36 +283,46 @@
 
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-white">
-        <h2 class="h6 mb-0">Order status history</h2>
+        <h2 class="h6 mb-0">Order &amp; payment audit history</h2>
     </div>
-    <div class="card-body p-0">
-        {% if status_history %}
-            <ul class="list-group list-group-flush">
-                {% for entry in status_history %}
-                    <li class="list-group-item small">
-                        <div class="d-flex justify-content-between gap-2">
-                            <div>
-                                {% if entry.old_status %}
-                                    {{ entry.get_old_status_display }} → {{ entry.get_new_status_display }}
-                                {% else %}
-                                    {{ entry.get_new_status_display }}
-                                {% endif %}
-                                {% if entry.changed_by %}
-                                    <div class="text-muted">by {{ entry.changed_by }}</div>
+    {% if audit_entries %}
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle small" id="order-audit-history">
+                <thead class="table-light">
+                    <tr>
+                        <th>Change</th>
+                        <th>Previous</th>
+                        <th>New</th>
+                        <th>Changed by</th>
+                        <th>When</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in audit_entries %}
+                        <tr>
+                            <td>{{ entry.kind }}</td>
+                            <td>{{ entry.previous|default:"—" }}</td>
+                            <td>{{ entry.new }}</td>
+                            <td>{{ entry.changed_by|default:"System" }}</td>
+                            <td class="text-nowrap">{{ entry.created_at|date:"d M Y, H:i" }}</td>
+                            <td>
+                                {% if entry.correction_note %}
+                                    <div><span class="badge text-bg-warning">Correction</span> {{ entry.correction_note }}</div>
                                 {% endif %}
                                 {% if entry.reason %}
                                     <div class="text-muted">{{ entry.reason }}</div>
                                 {% endif %}
-                            </div>
-                            <div class="text-muted text-nowrap">{{ entry.created_at|date:"d M Y, H:i" }}</div>
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <div class="p-3 small text-muted">No status changes recorded yet.</div>
-        {% endif %}
-    </div>
+                                {% if not entry.correction_note and not entry.reason %}—{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card-body p-3 small text-muted">No status changes recorded yet.</div>
+    {% endif %}
 </div>
 
 <div class="card shadow-sm">
