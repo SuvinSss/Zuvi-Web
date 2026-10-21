@@ -17,6 +17,7 @@ from django.db import IntegrityError, transaction
 from cart.models import CartItem
 from cart.services import get_or_create_cart_for_customer
 from catalog.models import Product, ProductStatus
+from catalog.services import refresh_offer_price
 from inventory.services import (
     deduct_order_stock,
     order_item_deduct_reference,
@@ -140,6 +141,7 @@ def _build_validated_lines(cart_items, locked_products):
     for item in cart_items:
         product = locked_products[item.product_id]
         quantity = item.quantity
+        refresh_offer_price(product)  # a scheduled offer may have started or ended since the price was stored
         _validate_sellable_product(product, quantity)
         unit_price = product.final_price
         line_total = (unit_price * quantity).quantize(Decimal("0.01"))

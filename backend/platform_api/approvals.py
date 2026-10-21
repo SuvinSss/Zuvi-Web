@@ -53,8 +53,8 @@ def _messages(exc):
 class ProductModule:
     name = "products"
     ACTIONS = {"approve": ProductStatus.APPROVED, "reject": ProductStatus.REJECTED, "deactivate": ProductStatus.INACTIVE,
-               "reactivate": ProductStatus.APPROVED, "resubmit": ProductStatus.PENDING, "set_pricing": None}
-    NEEDS_REASON = {"reject"}
+               "reactivate": ProductStatus.APPROVED, "resubmit": ProductStatus.PENDING, "request_info": ProductStatus.NEEDS_INFO, "set_pricing": None}
+    NEEDS_REASON = {"reject", "request_info"}
     FILTERS = ("status", "store", "category", "q")
 
     @staticmethod
@@ -388,6 +388,9 @@ class ApprovalCenterView(APIView):
         queues = [
             queue("products", "Products awaiting approval", products, "/admin/approvals/products", lambda p: f"{p.name} · {p.store.name}",
                   lambda p: {"generated": p.generated_fields}),
+            queue("products_info", "Products waiting for store information",
+                  Product.objects.filter(status=ProductStatus.NEEDS_INFO).select_related("store").order_by("updated_at"),
+                  "/admin/products?status=NEEDS_INFO", lambda p: f"{p.name} · {p.store.name}", lambda p: {"note": p.rejection_reason[:120]}),
             queue("imports", "Imports needing attention", imports, "/admin/imports", lambda b: b.source_name or "Import",
                   lambda b: {"status": b.status, "invalid": b.invalid_rows}),
             queue("stores_pending", "Store applications", Store.objects.filter(status=StoreStatus.PENDING).order_by("created_at"),

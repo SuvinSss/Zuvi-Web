@@ -12,9 +12,9 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
-from catalog.api.serializers import ProductDetailSerializer, ProductImageSerializer, ProductWriteSerializer, to_drf_error
+from catalog.api.serializers import StoreProductDetailSerializer, ProductImageSerializer, ProductWriteSerializer, to_drf_error
 from catalog.models import Product, ProductStatus
-from catalog.services import add_product_image, create_product, update_product
+from catalog.services import add_product_image, create_product, record_product_status_change, update_product
 from core.pagination import StandardPagination
 from core.permissions import IsStoreOrderManager, IsStoreUser, get_store_membership
 from inventory import services as inventory
@@ -137,7 +137,7 @@ class StoreProductsView(generics.ListCreateAPIView):
     serializer_class = serializers.Serializer
     parser_classes = [JSONParser]
 
-    @extend_schema(request=ProductWriteSerializer, responses={201: ProductDetailSerializer})
+    @extend_schema(request=ProductWriteSerializer, responses={201: StoreProductDetailSerializer})
     def create(self, request, *args, **kwargs):
         """New products always belong to the caller's own store and wait for admin approval."""
         membership = get_store_membership(request.user)
@@ -157,7 +157,7 @@ class StoreProductsView(generics.ListCreateAPIView):
                                      initial_status=ProductStatus.DRAFT if draft else ProductStatus.PENDING, request=request._request)
         except DjangoValidationError as exc:
             raise to_drf_error(exc) from exc
-        return Response(ProductDetailSerializer(product).data, status=201)
+        return Response(StoreProductDetailSerializer(product).data, status=201)
 
     def list(self, request, *args, **kwargs):
         qs = Product.objects.filter(store=_store(request)).select_related("category").order_by("name")
@@ -220,11 +220,11 @@ class StoreProductDetailView(APIView):
     permission_classes = [IsStoreUser]
     parser_classes = [JSONParser]
 
-    @extend_schema(responses=ProductDetailSerializer)
+    @extend_schema(responses=StoreProductDetailSerializer)
     def get(self, request, pk):
-        return Response(ProductDetailSerializer(_own_product(request, pk)).data)
+        return Response(StoreProductDetailSerializer(_own_product(request, pk)).data)
 
-    @extend_schema(request=ProductWriteSerializer, responses=ProductDetailSerializer)
+    @extend_schema(request=ProductWriteSerializer, responses=StoreProductDetailSerializer)
     def patch(self, request, pk):
         membership = get_store_membership(request.user)
         if not membership.can_manage_inventory:
@@ -241,7 +241,27 @@ class StoreProductDetailView(APIView):
                            tag_ids=None if tags is None else [t.pk for t in tags], request=request._request)
         except DjangoValidationError as exc:
             raise to_drf_error(exc) from exc
-        return Response(ProductDetailSerializer(_own_product(request, pk)).data)
+        return Response(StoreProductDetailSerializer(_own_product(request, pk)).data)
+
+
+class StoreProductSubmitView(APIView):
+    """Send a draft, rejected or needs-information product (back) for review."""
+
+    permission_classes = [IsStoreUser]
+
+    def post(self, request, pk):
+        membership = get_store_membership(request.user)
+        if not membership.can_manage_inventory:
+            raise PermissionDenied("You do not have permission to manage products for this store.")
+        product = _own_product(request, pk)
+        if product.status not in (ProductStatus.DRAFT, ProductStatus.REJECTED, ProductStatus.NEEDS_INFO):
+            return Response({"detail": "Only draft, rejected or needs-information products can be submitted."}, status=400)
+        try:
+            record_product_status_change(product=product, new_status=ProductStatus.PENDING, changed_by=request.user,
+                                         reason="Submitted by store", request=request._request, actor_is_store_user=True)
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(StoreProductDetailSerializer(_own_product(request, pk)).data)
 
 
 class StoreProductImagesView(APIView):

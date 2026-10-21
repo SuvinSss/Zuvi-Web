@@ -1,7 +1,7 @@
 # Store onboarding guide
 
 ## Creating a store (React Admin → Stores → Add store)
-Six steps: basics, address and location, business and documents, hours and ordering, owner, commercial and review. *Save draft* is available at any point. Status is decided by the server (see [admin-approval-and-import-workflows.md](admin-approval-and-import-workflows.md)).
+Six steps: basics, address and location, business and documents, hours and ordering, owner, commercial and review. *Save draft* works with only a name and category; missing address details are listed as missing requirements instead of blocking the save. Status is decided by the server (see [admin-approval-and-import-workflows.md](admin-approval-and-import-workflows.md)).
 
 ## Owner account options
 1. **New owner with setup link (default, recommended).** The owner account is created with no usable password. The API returns a one-time link `/setup-account?token=…`. If e-mail is configured (`EMAIL_HOST`), the same link is e-mailed and `email_sent` is `true` only if the mail backend accepted the message; otherwise the admin sees "No e-mail was sent" and passes the link on.

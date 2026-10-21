@@ -1,4 +1,4 @@
-export type ProductStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'INACTIVE'
+export type ProductStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'NEEDS_INFO'
 
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STORE_USER' | 'CUSTOMER' | 'DELIVERY_AGENT' | 'SUPPORT_AGENT' | 'SUPPORT_SUPERVISOR'
 
@@ -90,6 +90,10 @@ export interface ProductDetail extends ProductListItem {
   discount_type?: string | null
   discount_value?: string | null
   pricing?: PriceBreakdown | null
+  discount_starts_at?: string | null
+  discount_ends_at?: string | null
+  offer_state?: 'none' | 'scheduled' | 'live' | 'ended'
+  next_statuses?: string[]
 }
 
 export interface PriceBreakdown {
@@ -112,7 +116,7 @@ export interface Meta {
   units: { value: string; label: string }[]
   statuses: { value: ProductStatus; label: string }[]
   max_images: number
-  can: { view: boolean; add: boolean; change: boolean; pricing?: boolean }
+  can: { view: boolean; add: boolean; change: boolean; pricing?: boolean; approve?: boolean; stock?: boolean }
 }
 
 export interface ProductWritePayload {

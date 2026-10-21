@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useDebounced } from '@/hooks/useDebounced'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { FilePicker, Modal, QueryBoundary, useToast } from '@/components/kit'
@@ -88,7 +88,9 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
   const [done, setDone] = useState(false)
 
   useBeforeUnload(dirty && !done)
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !done && currentLocation.pathname !== nextLocation.pathname)
+  // A ref, not state: the post-save navigate() runs before React re-renders with done=true.
+  const doneRef = useRef(false)
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !doneRef.current && currentLocation.pathname !== nextLocation.pathname)
   const patch = (changes: Partial<StoreWrite>) => { setForm((f) => ({ ...f, ...changes })); setDirty(true) }
   const patchAddr = (changes: Partial<StoreWrite['address']>) => { setForm((f) => ({ ...f, address: { ...f.address, ...changes } })); setDirty(true) }
   const patchOwner = (changes: Partial<typeof owner>) => { setOwner((o) => ({ ...o, ...changes })); setDirty(true) }
@@ -103,7 +105,7 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
       return { ...created, problems }
     },
     onSuccess: (result) => {
-      setDone(true)
+      doneRef.current = true; setDone(true)
       void qc.invalidateQueries({ queryKey: ['admin-stores'] }); void qc.invalidateQueries({ queryKey: ['admin-counts'] })
       const problems = (result as { problems?: string[] }).problems ?? []
       toast(problems.length ? 'error' : 'success', edit ? 'Store updated.' : `Store saved as ${String(result.status).toLowerCase().replace('_', ' ')}.${problems.length ? ` Some files were not uploaded: ${problems.join('; ')}` : ''}`)

@@ -139,7 +139,7 @@ def add_product_to_cart(*, customer, quantity, product_id=None, product_code=Non
             cart=cart,
             product=product,
             quantity=quantity,
-            unit_price_snapshot=product.final_price,
+            unit_price_snapshot=product.current_final_price,
         )
         item.full_clean()
         try:
@@ -155,7 +155,7 @@ def add_product_to_cart(*, customer, quantity, product_id=None, product_code=Non
             new_quantity = item.quantity + quantity
             _ensure_quantity_within_stock(product, new_quantity)
             item.quantity = new_quantity
-            item.unit_price_snapshot = product.final_price
+            item.unit_price_snapshot = product.current_final_price
             item.full_clean()
             item.save(
                 update_fields=["quantity", "unit_price_snapshot", "updated_at"]
@@ -164,7 +164,7 @@ def add_product_to_cart(*, customer, quantity, product_id=None, product_code=Non
         new_quantity = item.quantity + quantity
         _ensure_quantity_within_stock(product, new_quantity)
         item.quantity = new_quantity
-        item.unit_price_snapshot = product.final_price
+        item.unit_price_snapshot = product.current_final_price
         item.full_clean()
         item.save()
 
@@ -197,7 +197,7 @@ def update_cart_item_quantity(*, customer, cart_item_id, quantity):
     _ensure_quantity_within_stock(product, quantity)
 
     item.quantity = quantity
-    item.unit_price_snapshot = product.final_price
+    item.unit_price_snapshot = product.current_final_price
     item.full_clean()
     item.save(update_fields=["quantity", "unit_price_snapshot", "updated_at"])
     item.cart.save(update_fields=["updated_at"])
@@ -264,7 +264,7 @@ def build_cart_item_presentation(item, *, available_product_ids=None):
         is_available = product.pk in _publicly_available_product_ids([product.pk])
     else:
         is_available = product.pk in available_product_ids
-    current_price = product.final_price
+    current_price = product.current_final_price
     snapshot = item.unit_price_snapshot
     stock = product.stock_quantity
 

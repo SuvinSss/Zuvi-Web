@@ -159,6 +159,46 @@ def calculate_prices(
     return selling, final
 
 
+def discount_is_live(product, now=None):
+    """True when the product has a discount and ``now`` is inside its (optional) offer window."""
+    from django.utils import timezone
+    if not getattr(product, "discount_type", ""):
+        return False
+    now = now or timezone.now()
+    starts, ends = getattr(product, "discount_starts_at", None), getattr(product, "discount_ends_at", None)
+    if starts and now < starts:
+        return False
+    if ends and now >= ends:
+        return False
+    return True
+
+
+def effective_final_price(product, now=None):
+    """The price a customer pays right now, honouring the offer window. Pure: never writes."""
+    if not product_has_complete_pricing(product):
+        return product.final_price
+    if not (getattr(product, "discount_starts_at", None) or getattr(product, "discount_ends_at", None)):
+        return product.final_price
+    live = discount_is_live(product, now)
+    return calculate_prices(
+        store_price=product.store_price, profit_margin_type=product.profit_margin_type, profit_margin=product.profit_margin,
+        discount_type=(product.discount_type or "") if live else "", discount_value=product.discount_value if live else None,
+    )[1]
+
+
+def offer_state(product, now=None):
+    """'none', 'scheduled', 'live' or 'ended' — for display."""
+    from django.utils import timezone
+    if not getattr(product, "discount_type", ""):
+        return "none"
+    now = now or timezone.now()
+    if product.discount_starts_at and now < product.discount_starts_at:
+        return "scheduled"
+    if product.discount_ends_at and now >= product.discount_ends_at:
+        return "ended"
+    return "live"
+
+
 def apply_calculated_prices(product):
     """
     Write selling_price and final_price onto a Product from trusted inputs only.
@@ -170,12 +210,13 @@ def apply_calculated_prices(product):
     if getattr(product, "_freeze_calculated_prices", False):
         return product
     if product.profit_margin_type and product.profit_margin is not None:
+        live = discount_is_live(product)
         selling, final = calculate_prices(
             store_price=product.store_price,
             profit_margin_type=product.profit_margin_type,
             profit_margin=product.profit_margin,
-            discount_type=product.discount_type or "",
-            discount_value=product.discount_value,
+            discount_type=(product.discount_type or "") if live else "",
+            discount_value=product.discount_value if live else None,
         )
         product.selling_price = selling
         product.final_price = final

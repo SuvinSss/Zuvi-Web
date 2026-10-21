@@ -7,6 +7,7 @@ rules in AGENTS.md (pricing, status, inventory, audit) stay in one place.
 import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from django.http import Http404, HttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -18,6 +19,8 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from catalog.decorators import user_has_catalog_permission
+from inventory.decorators import user_has_inventory_permission
+from inventory.services import record_opening_stock
 from catalog.models import Brand, Product, ProductCategory, ProductImage, ProductImportBatch, ProductStatus, ProductUnit, Tag
 import json
 
@@ -114,14 +117,33 @@ class ProductListCreateView(APIView):
             data.pop("brand", None)
         if not user_has_catalog_permission(request.user, "catalog.change_product"):
             data.pop("is_featured", None)  # featured is a management privilege
+        opening = request.data.get("opening_stock")
+        opening = None if opening in (None, "") else self._quantity(opening)
+        if opening and not user_has_inventory_permission(request.user, "inventory.adjust_inventory"):
+            raise PermissionDenied("You do not have permission to record stock.")
         try:
-            product = create_product(
-                store=store, product_data=data, created_by=request.user, tag_ids=[t.pk for t in tags],
-                initial_status=ProductStatus.DRAFT if as_draft else ProductStatus.PENDING, request=request,
-            )
+            with transaction.atomic():  # product and its opening stock are created together or not at all
+                product = create_product(
+                    store=store, product_data=data, created_by=request.user, tag_ids=[t.pk for t in tags],
+                    initial_status=ProductStatus.DRAFT if as_draft else ProductStatus.PENDING, request=request,
+                )
+                if opening:
+                    record_opening_stock(product=product, store=store, quantity=opening, actor=request.user,
+                                         reason="Opening stock (product created)", request=request)
         except DjangoValidationError as exc:
             raise to_drf_error(exc) from exc
         return Response(ProductDetailSerializer(_get_product(product.pk)).data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _quantity(value):
+        from decimal import Decimal, InvalidOperation
+        try:
+            q = Decimal(str(value))
+        except InvalidOperation:
+            raise to_drf_error(DjangoValidationError({"opening_stock": "Enter a valid quantity."})) from None
+        if q < 0:
+            raise to_drf_error(DjangoValidationError({"opening_stock": "Stock cannot be negative."}))
+        return q
 
 
 class ProductDetailView(APIView):
@@ -169,7 +191,9 @@ class ProductMetaView(APIView):
             "max_images": MAX_IMAGES_PER_PRODUCT,
             "can": {perm: user_has_catalog_permission(request.user, f"catalog.{perm}_product")
                     for perm in ("view", "add", "change")}
-                   | {"pricing": user_has_catalog_permission(request.user, "catalog.manage_product_pricing")},
+                   | {"pricing": user_has_catalog_permission(request.user, "catalog.manage_product_pricing"),
+                      "approve": user_has_catalog_permission(request.user, "catalog.approve_product"),
+                      "stock": user_has_inventory_permission(request.user, "inventory.adjust_inventory")},
         })
 
 
@@ -518,6 +542,20 @@ class _PricingBase(APIView):
             raise to_drf_error(DjangoValidationError({field: "Enter a valid number."})) from None
 
 
+def _parse_when(value, field):
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+    if value in (None, ""):
+        return None
+    when = parse_datetime(str(value))
+    if when is None:
+        raise to_drf_error(DjangoValidationError({field: "Enter a valid date and time."}))
+    return timezone.make_aware(when) if timezone.is_naive(when) else when
+
+
+_PricingBase._when = staticmethod(_parse_when)
+
+
 class ProductPricingPreviewView(_PricingBase):
     """Stateless calculator: nothing is saved. ``cost`` defaults to the product's store price."""
 
@@ -564,7 +602,42 @@ class ProductPricingView(_PricingBase):
                 margin_type=d.get("margin_type") or None, margin=self._decimal(d.get("margin"), "margin"),
                 discount_type=d.get("discount_type") or "", discount_value=self._decimal(d.get("discount_value"), "discount_value"),
                 reason=str(d.get("reason") or "")[:255], request=request,
+                discount_starts_at=self._when(d.get("discount_starts_at"), "discount_starts_at"),
+                discount_ends_at=self._when(d.get("discount_ends_at"), "discount_ends_at"),
             )
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(ProductDetailSerializer(_get_product(pk)).data)
+
+
+
+class ProductStatusView(APIView):
+    """Change one product's status (submit, approve, reject, request information, deactivate, reactivate).
+
+    The transition table, the per-transition permission and the approval checks are the same
+    ones bulk actions and the Django admin use.
+    """
+
+    permission_classes = [CatalogManagementPermission]
+    parser_classes = [JSONParser]
+    required_permission = "catalog.view_product"
+
+    @extend_schema(request=dict, responses=ProductDetailSerializer)
+    def post(self, request, pk):
+        from catalog.services import record_product_status_change
+        from catalog.status import permission_for_transition
+        product = _get_product(pk)
+        target = str(request.data.get("status") or "")
+        if target not in ProductStatus.values:
+            raise to_drf_error(DjangoValidationError({"status": "Unknown status."}))
+        perm = permission_for_transition(product.status, target)
+        if perm is None:
+            raise to_drf_error(DjangoValidationError({"status": f"Cannot change a {product.get_status_display().lower()} product to {ProductStatus(target).label.lower()}."}))
+        if not user_has_catalog_permission(request.user, perm):
+            raise PermissionDenied("You do not have permission for this change.")
+        try:
+            record_product_status_change(product=product, new_status=target, changed_by=request.user,
+                                         reason=str(request.data.get("reason") or "")[:500], request=request)
         except DjangoValidationError as exc:
             raise to_drf_error(exc) from exc
         return Response(ProductDetailSerializer(_get_product(pk)).data)

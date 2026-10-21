@@ -35,11 +35,35 @@ Worked example: store price ₹600, selling price ₹800, ₹100 discount → fi
 * `POST /api/v1/admin/bulk/products/{preview,apply}/` with `action: "set_pricing"` and `params: {margin_type, margin}`; products where the margin is invalid or would sell below cost are blocked individually.
 * Product detail includes a management-only `pricing` breakdown.
 
-## Approval and publication
-Statuses: Draft → Pending → Approved → Inactive / Rejected (existing transition table in `catalog/status.py`). Approval needs a complete price and image; approval and the `is_active` flag stay separate; pending and rejected products are never purchasable. Imports never approve. Bulk approval previews eligible/blocked records and rechecks each record.
+## Scheduled offers
+* A discount can have an optional start and end time (`discount_starts_at`, `discount_ends_at`). Outside the window the customer pays the selling price; only one discount applies per product and it is never stacked.
+* Checkout recalculates the price for every line, refreshes a stale stored price before charging, and copies the result onto the order line, so past orders keep their price.
+* Cart, product cards and the public API read the current price (`Product.current_final_price`), so they are right even before the stored price is refreshed.
+* Listing filters and sorting use the stored price. Run `python manage.py refresh_offer_prices` every few minutes (cron) to keep it current; automatic changes are written to price history with an empty "changed by".
+* An offer cannot end before it starts or end in the past; it cannot push the price below the store price.
 
-## Not implemented (assumptions and gaps)
-* **Scheduled or time-limited offers**, "special offer price" type, quantity or minimum-purchase conditions, store-wide offers and coupons: the system has no such models. Discounts are permanent until changed. Adding them touches catalogue, cart and checkout and was left out rather than half-built.
-* **Tax (GST), payment fees, commission and shipping** are not part of product profit.
-* **Store-owner price proposals** and a "Needs Information" product status do not exist; use Reject with a reason.
-* Customers see the final price; the UI does not show a crossed-out reference price.
+## Creating a product (React Admin → Products → Add product)
+Five steps: **Product** (name, store, category, photo, description, pack size; SKU generated from the name unless you type one, brand under "More details"), **Stock** (stock on hand recorded as opening stock in the same transaction, low-stock level, dates), **Price** (store price, selling price or target-margin suggestion, live profit/margin/markup), **Offer** (optional discount and dates), **Review** (summary, what blocks approval). Finishing actions: *Save draft*, *Submit for approval*, and *Save and approve* (only with the approve permission and when photo, price and details are complete). Stock and price inputs only appear for people with those permissions. If a step after creation fails (e.g. the price is refused), the product is kept as a draft, never duplicated, and the page links to it.
+
+## Approval and publication
+Statuses and transitions (`catalog/status.py`):
+
+| From | To |
+|---|---|
+| Draft | Pending |
+| Pending | Approved, Rejected, **Needs information** |
+| Needs information | Pending (store resubmits), Draft, Rejected |
+| Rejected | Pending, Draft |
+| Approved | Inactive, Pending |
+| Inactive | Approved (reactivate), Pending |
+
+* Rejected and Needs information require a note, which the store sees on the product.
+* Store owners resubmit with **Submit for approval** (`POST /api/v1/store/products/<id>/submit/`).
+* Management uses the buttons on the product page (`POST /api/v1/products/<id>/status/`), bulk actions or the Approval Center. Only transitions allowed from the current status and permitted for the person are shown, and the server checks again.
+* Approval needs an active store, category, complete price, image and core details. Only Approved + active products are public or purchasable.
+* Store owners never receive Zuuvi's margin or profit: the store product API omits `profit_margin`, `profit_margin_type` and `pricing`.
+
+## Not implemented
+* Tax (GST), payment fees, commission and shipping are not part of product profit: the system holds no tax rates and inventing them would be wrong.
+* Coupons, store-wide or platform-wide offers, quantity or minimum-purchase conditions: no such models exist.
+* Store owners propose the store price (their cost) but not the selling price; Zuuvi sets selling prices.

@@ -26,7 +26,7 @@ class PublicProductSerializer(serializers.Serializer):
     description = serializers.CharField()
     unit = serializers.CharField()
     unit_value = serializers.DecimalField(max_digits=12, decimal_places=3)
-    price = serializers.DecimalField(source="final_price", max_digits=12, decimal_places=2)
+    price = serializers.DecimalField(source="current_final_price", max_digits=12, decimal_places=2)
     in_stock = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()

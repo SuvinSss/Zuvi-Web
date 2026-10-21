@@ -145,11 +145,12 @@ const BADGE: Record<string, string> = {
   DRAFT: 'bg-canvas text-muted ring-1 ring-line',
   REJECTED: 'bg-danger-bg text-danger',
   INACTIVE: 'bg-canvas text-muted ring-1 ring-line',
+  NEEDS_INFO: 'bg-warn-bg text-warn',
 }
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span className={cx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', BADGE[status] ?? BADGE.DRAFT)}>
-      {status.charAt(0) + status.slice(1).toLowerCase()}
+      {(status.charAt(0) + status.slice(1).toLowerCase()).replace(/_/g, ' ').replace('Needs info', 'Needs information')}
     </span>
   )
 }

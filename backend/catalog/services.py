@@ -44,6 +44,8 @@ PRICING_FIELDS = (
     "discount_type",
     "discount_value",
     "final_price",
+    "discount_starts_at",
+    "discount_ends_at",
 )
 
 # Catalogue edits that require admin re-review of an APPROVED product.
@@ -580,6 +582,8 @@ def apply_admin_pricing(
     changed_by,
     reason="",
     request=None,
+    discount_starts_at=None,
+    discount_ends_at=None,
 ):
     """
     Set admin margin/discount fields and recompute selling/final prices.
@@ -597,12 +601,22 @@ def apply_admin_pricing(
     profit_margin = quantize_money(profit_margin)
     discount_value = quantize_money(discount_value)
 
+    if not discount_type:
+        discount_starts_at = discount_ends_at = None
+    product.discount_starts_at, product.discount_ends_at = discount_starts_at, discount_ends_at
+    calculate_prices(  # validates the discount even when it is scheduled for later
+        store_price=product.store_price, profit_margin_type=profit_margin_type, profit_margin=profit_margin,
+        discount_type=discount_type, discount_value=discount_value,
+    )
+    from .pricing import discount_is_live
+    product.discount_type = discount_type
+    live = discount_is_live(product)
     selling, final = calculate_prices(
         store_price=product.store_price,
         profit_margin_type=profit_margin_type,
         profit_margin=profit_margin,
-        discount_type=discount_type,
-        discount_value=discount_value,
+        discount_type=discount_type if live else "",
+        discount_value=discount_value if live else None,
     )
     product.profit_margin_type = profit_margin_type
     product.profit_margin = profit_margin
@@ -620,6 +634,8 @@ def apply_admin_pricing(
             "discount_value",
             "selling_price",
             "final_price",
+            "discount_starts_at",
+            "discount_ends_at",
             "updated_by",
             "updated_at",
         ]
@@ -679,7 +695,8 @@ def record_product_status_change(
     product.status = new_status
     update_fields = ["status", "rejection_reason", "updated_by", "updated_at"]
 
-    if new_status == ProductStatus.REJECTED:
+    if new_status in (ProductStatus.REJECTED, ProductStatus.NEEDS_INFO):
+        # For NEEDS_INFO the "reason" is the note telling the store what is missing.
         product.rejection_reason = (reason or "").strip()
         clear_approval_metadata(product)
         update_fields.extend(["approved_by", "approved_at"])
@@ -924,7 +941,8 @@ def assert_pricing_complete_for_approval(product):
 
 
 def set_product_pricing(*, product, actor, selling_price=None, margin_type=None, margin=None,
-                        discount_type="", discount_value=None, reason="", request=None):
+                        discount_type="", discount_value=None, reason="", request=None,
+                        discount_starts_at=None, discount_ends_at=None):
     """Management pricing entry point shared by the API and bulk actions.
 
     Either ``selling_price`` (stored as an exact fixed margin over the store price)
@@ -945,6 +963,11 @@ def set_product_pricing(*, product, actor, selling_price=None, margin_type=None,
         margin_type, margin = MarginType.FIXED, selling - product.store_price
     elif not margin_type:
         raise ValidationError({"selling_price": "Enter a selling price or a margin."})
+    from django.utils import timezone
+    if discount_starts_at and discount_ends_at and discount_ends_at <= discount_starts_at:
+        raise ValidationError({"discount_ends_at": "The offer must end after it starts."})
+    if discount_ends_at and discount_ends_at <= timezone.now():
+        raise ValidationError({"discount_ends_at": "The offer end time is already in the past."})
     selling_calc, final_calc = calculate_prices(
         store_price=product.store_price, profit_margin_type=margin_type, profit_margin=margin,
         discount_type=discount_type or "", discount_value=discount_value,
@@ -955,4 +978,35 @@ def set_product_pricing(*, product, actor, selling_price=None, margin_type=None,
         product=product, profit_margin_type=margin_type, profit_margin=margin,
         discount_type=discount_type or "", discount_value=discount_value,
         changed_by=actor, reason=reason, request=request,
+        discount_starts_at=discount_starts_at, discount_ends_at=discount_ends_at,
     )
+
+
+def refresh_offer_price(product, now=None):
+    """Bring the stored final price in line with the offer window (an offer started or ended).
+
+    Called lazily by cart/checkout before using a price, and in bulk by the
+    ``refresh_offer_prices`` management command. Returns True when it changed anything.
+    """
+    from .pricing import discount_is_live, product_has_complete_pricing
+    if not (product.discount_starts_at or product.discount_ends_at) or not product_has_complete_pricing(product):
+        return False
+    from .pricing import effective_final_price
+    live = discount_is_live(product, now)
+    expected = effective_final_price(product, now)
+    if expected == product.final_price:
+        return False
+    with transaction.atomic():
+        locked = Product.objects.select_for_update().get(pk=product.pk)
+        locked.final_price = expected
+        locked.save(update_fields=["final_price", "updated_at"])
+        _snapshot_price_history(product=locked, changed_by=None,
+                                reason="Scheduled offer started" if live else "Scheduled offer ended", request=None)
+    product.final_price = expected
+    return True
+
+
+def refresh_due_offer_prices(now=None):
+    """Refresh every product with an offer window. Returns the number changed."""
+    qs = Product.objects.filter(Q(discount_starts_at__isnull=False) | Q(discount_ends_at__isnull=False)).exclude(discount_type="")
+    return sum(1 for p in qs.iterator() if refresh_offer_price(p, now))

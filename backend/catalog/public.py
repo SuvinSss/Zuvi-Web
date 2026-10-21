@@ -192,9 +192,10 @@ def discount_display_for_product(product):
     """
     if not product.discount_type:
         return None
-    if product.selling_price is None or product.final_price is None:
+    current = product.current_final_price
+    if product.selling_price is None or current is None:
         return None
-    if product.final_price >= product.selling_price:
+    if current >= product.selling_price:
         return None
     if product.discount_type == DiscountType.PERCENTAGE:
         value = product.discount_value or Decimal("0")
@@ -252,7 +253,7 @@ def public_product_card(product):
         "category_slug": product.category.slug if product.category_id else "",
         "store_name": product.store.name if product.store_id else "",
         "unit_label": unit_label_for_product(product),
-        "final_price": product.final_price,
+        "final_price": product.current_final_price,
         "compare_at_price": compare_at,
         "discount_label": discount,
         "stock_label": stock_status_for_product(product),

@@ -15,6 +15,7 @@ urlpatterns = [
     path("products/import/<uuid:batch_id>/commit/", views.ImportCommitView.as_view(), name="api_import_commit"),
     path("products/import/<uuid:batch_id>/errors/", views.ImportErrorReportView.as_view(), name="api_import_errors"),
     path("products/pricing/preview/", views.ProductPricingPreviewView.as_view(), name="api_pricing_preview"),
+    path("products/<int:pk>/status/", views.ProductStatusView.as_view(), name="api_product_status"),
     path("products/<int:pk>/pricing/", views.ProductPricingView.as_view(), name="api_product_pricing"),
     path("products/<int:pk>/", views.ProductDetailView.as_view(), name="api_product_detail"),
     path("products/<int:pk>/images/", views.ProductImagesView.as_view(), name="api_product_images"),

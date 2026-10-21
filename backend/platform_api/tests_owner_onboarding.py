@@ -111,3 +111,17 @@ class OwnerInviteTests(StoreWizardBase):
         self.assertIn("token=", again.json()["owner_setup"]["link"])
         u = User.objects.get(pk=uid); u.set_password("Set-Already-Pass-12!"); u.save()
         self.assertEqual(self.post(self.boss, {"user": uid}, path=f"admin/stores/{r['id']}/invite/").status_code, 400)
+
+
+class DraftWithoutAddressTests(StoreWizardBase):
+    def test_draft_saves_with_only_name_and_category(self):
+        r = self.post(self.boss, {"name": "Bare Draft", "store_type": "PARTNER_STORE", "category": self.cat.pk, "save_draft": True})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["status"], "DRAFT")
+        self.assertIn("Address line 1", r.json()["missing"])
+
+    def test_incomplete_non_draft_becomes_needs_info_not_an_error(self):
+        r = self.post(self.boss, {"name": "Bare", "store_type": "PARTNER_STORE", "category": self.cat.pk, "owner": NEW_OWNER})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()["status"], "NEEDS_INFO")
+        self.assertIn("owner_setup", r.json())

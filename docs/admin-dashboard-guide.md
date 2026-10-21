@@ -102,3 +102,8 @@ Build `frontend/dist`, serve it for every path except `/api`, `/media`, `/static
 * Product → edit shows **Price & profit** (for users with the pricing permission): store price, selling price or target margin (suggestion only), discount, live final price, profit, margin and markup. See [product-pricing-workflow.md](product-pricing-workflow.md).
 * Products list → select rows → **Set margin** previews every product and blocks any that would sell below cost.
 * Add store → **Owner** offers setup link, existing user, password or later. See [store-onboarding-guide.md](store-onboarding-guide.md). `/setup-account` is the page owners open from their link.
+
+## 14. Product wizard, offers and statuses (added)
+* Products → *Add product* opens the five-step wizard (see [product-pricing-workflow.md](product-pricing-workflow.md)). Editing still uses the product page, which now has status buttons (approve, request information, reject, deactivate, reactivate, send back for review) and offer dates in Price & profit.
+* Products list and Approval Center offer *Request information*; the Approval Center lists products waiting for store information.
+* Cron: `python manage.py refresh_offer_prices` every few minutes.

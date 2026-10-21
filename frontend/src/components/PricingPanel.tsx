@@ -10,6 +10,13 @@ import type { ProductDetail } from '@/types/api'
 
 const num = (v: string) => v.trim() !== '' && Number.isFinite(Number(v)) && Number(v) >= 0
 const pct = (v: string | null | undefined) => (v == null ? '—' : `${v}%`)
+const toLocal = (iso?: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+const toIso = (local: string) => (local ? new Date(local).toISOString() : null)
+const OFFER_LABEL: Record<string, string> = { scheduled: 'Offer scheduled', live: 'Offer running', ended: 'Offer ended' }
 
 function Row({ label, hint, value, strong }: { label: string; hint?: string; value: string; strong?: boolean }) {
   return (
@@ -29,6 +36,8 @@ export function PricingPanel({ product }: { product: ProductDetail }) {
   const [targetMargin, setTargetMargin] = useState('')
   const [discountType, setDiscountType] = useState(product.discount_type ?? '')
   const [discountValue, setDiscountValue] = useState(product.discount_value && Number(product.discount_value) ? product.discount_value : '')
+  const [starts, setStarts] = useState(toLocal(product.discount_starts_at))
+  const [ends, setEnds] = useState(toLocal(product.discount_ends_at))
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -46,7 +55,7 @@ export function PricingPanel({ product }: { product: ProductDetail }) {
     enabled: suggestionReady, retry: false,
   })
   const save = useMutation({
-    mutationFn: () => setPricing(product.id, { selling_price: selling, discount_type: discountType, discount_value: discountType ? discountValue : '', reason }),
+    mutationFn: () => setPricing(product.id, { selling_price: selling, discount_type: discountType, discount_value: discountType ? discountValue : '', discount_starts_at: discountType ? toIso(starts) : null, discount_ends_at: discountType ? toIso(ends) : null, reason }),
     onSuccess: () => { setErrors({}); toast('success', 'Price saved.'); void qc.invalidateQueries({ queryKey: ['product'] }); void qc.invalidateQueries({ queryKey: ['products'] }) },
     onError: (e) => setErrors(fieldErrors(e)),
   })
@@ -101,7 +110,12 @@ export function PricingPanel({ product }: { product: ProductDetail }) {
               {(p) => <Input {...p} inputMode="decimal" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} />}
             </Field>
           )}
+          {discountType && <>
+            <Field label="Offer starts (optional)" hint="Empty = now.">{(p) => <Input {...p} type="datetime-local" value={starts} onChange={(e) => setStarts(e.target.value)} />}</Field>
+            <Field label="Offer ends (optional)" error={errors.discount_ends_at ?? (starts && ends && ends <= starts ? 'The offer must end after it starts.' : undefined)} hint="Empty = until removed.">{(p) => <Input {...p} type="datetime-local" value={ends} onChange={(e) => setEnds(e.target.value)} />}</Field>
+          </>}
         </div>
+        {product.offer_state && product.offer_state !== 'none' && <p className="text-sm"><span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs text-warn">{OFFER_LABEL[product.offer_state]}</span> Outside the offer dates customers pay the selling price.</p>}
       </fieldset>
 
       <div aria-live="polite" className={stale ? 'opacity-60' : undefined}>
@@ -122,7 +136,7 @@ export function PricingPanel({ product }: { product: ProductDetail }) {
 
       {apiErrors && <Alert tone="error">{apiErrors}</Alert>}
       <Field label="Reason (optional)" hint="Shown in the price history.">{(p) => <Input {...p} value={reason} maxLength={255} onChange={(e) => setReason(e.target.value)} />}</Field>
-      <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!ready || Boolean(b?.below_cost)}>Save price</Button>
+      <Button onClick={() => save.mutate()} loading={save.isPending} disabled={!ready || Boolean(b?.below_cost) || Boolean(starts && ends && ends <= starts)}>Save price</Button>
       {b?.below_cost && <p className="text-xs text-muted">Prices below the store price cannot be saved.</p>}
     </Card>
   )

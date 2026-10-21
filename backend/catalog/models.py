@@ -56,6 +56,7 @@ class ProductStatus(models.TextChoices):
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
     INACTIVE = "INACTIVE", "Inactive"
+    NEEDS_INFO = "NEEDS_INFO", "Needs information"
 
 
 class ProductUnit(models.TextChoices):
@@ -300,6 +301,9 @@ class Product(models.Model):
         default=Decimal("0.00"),
         validators=[MinValueValidator(Decimal("0"))],
     )
+    # Optional offer window. Outside it the discount is not applied (final price = selling price).
+    discount_starts_at = models.DateTimeField(null=True, blank=True)
+    discount_ends_at = models.DateTimeField(null=True, blank=True)
     final_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -458,11 +462,22 @@ class Product(models.Model):
                 "Expiry date must be on or after the manufacturing date."
             )
 
+        if self.discount_starts_at and self.discount_ends_at and self.discount_ends_at <= self.discount_starts_at:
+            errors["discount_ends_at"] = "The offer must end after it starts."
+        if (self.discount_starts_at or self.discount_ends_at) and not self.discount_type:
+            errors["discount_type"] = "Choose a discount to schedule."
+
         if errors:
             raise ValidationError(errors)
 
         # Never trust selling_price / final_price from forms or callers.
         apply_calculated_prices(self)
+
+    @property
+    def current_final_price(self):
+        """Customer price right now (respects a scheduled offer even before the stored price is refreshed)."""
+        from .pricing import effective_final_price
+        return effective_final_price(self)
 
     def save(self, *args, **kwargs):
         if self.store_id and not self.slug:
@@ -627,6 +642,9 @@ class ProductPriceHistory(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="product_price_changes",
+        null=True,
+        blank=True,
+        help_text="Empty for automatic changes, e.g. a scheduled offer starting or ending.",
     )
     reason = models.TextField(blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)

@@ -47,10 +47,12 @@ export const correctImportRow = (id: string, row: number, values: Record<string,
   patch<{ row: SmartImportRow; counts: ImportJob['counts'] }>(`/products/import/${id}/rows/${row}/`, { values })
 export const retryImport = (id: string) => post<ImportJob>(`/products/import/${id}/retry/`)
 
-export interface PricingInput { selling_price?: string; margin_type?: string; margin?: string; discount_type?: string; discount_value?: string; reason?: string }
+export interface PricingInput { selling_price?: string; margin_type?: string; margin?: string; discount_type?: string; discount_value?: string; reason?: string; discount_starts_at?: string | null; discount_ends_at?: string | null }
 export const pricingPreview = (body: PricingInput & { product?: number; cost?: string; target_margin?: string }) =>
   post<{ breakdown?: PriceBreakdown; suggested_selling_price?: string }>('/products/pricing/preview/', body)
 export const setPricing = (id: number, body: PricingInput) => post<ProductDetail>(`/products/${id}/pricing/`, body)
 export const ownerCandidates = (q: string) => get<OwnerCandidate[]>('/admin/stores/owner-candidates/', { q })
 export const resendInvite = (storeId: number, user: number) => post<{ owner_setup: OwnerSetup }>(`/admin/stores/${storeId}/invite/`, { user })
 export const acceptInvite = async (token: string, newPassword: string) => { await api.post('/auth/invite/accept/', { token, new_password: newPassword }) }
+export const changeProductStatus = (id: number, status: string, reason = '') => post<ProductDetail>(`/products/${id}/status/`, { status, reason })
+export const submitStoreProduct = (id: number) => post<ProductDetail>(`/store/products/${id}/submit/`)

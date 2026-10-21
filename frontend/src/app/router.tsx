@@ -15,6 +15,7 @@ const RegisterPage = L(() => import('@/pages/auth/RegisterPage'))
 const ForgotPasswordPage = L(() => import('@/pages/auth/ForgotPasswordPage'))
 const ResetPasswordPage = L(() => import('@/pages/auth/ResetPasswordPage'))
 const SetupAccountPage = L(() => import('@/pages/auth/SetupAccountPage'))
+const ProductWizard = L(() => import('@/pages/admin/products/ProductWizard'))
 const NotFoundPage = L(() => import('@/pages/NotFoundPage'))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
 
@@ -202,7 +203,7 @@ export const routes: RouteObject[] = [
         { path: 'imports', element: R(ImportJobs) },
         { path: 'partners', element: R(AdminPartners) },
         { path: 'products', element: R(ProductsPage) },
-        { path: 'products/new', element: page(<RequirePermission permission="add"><ProductFormPage scope="admin" /></RequirePermission>) },
+        { path: 'products/new', element: page(<RequirePermission permission="add"><ProductWizard /></RequirePermission>) },
         { path: 'products/import', element: page(<RequirePermission permission="add"><ImportPage /></RequirePermission>) },
         { path: 'products/:id', element: page(<ProductFormPage scope="admin" />) },
         { path: 'reviews', element: R(AdminReviews) },

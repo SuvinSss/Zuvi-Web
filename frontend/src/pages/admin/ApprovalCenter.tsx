@@ -43,7 +43,7 @@ interface ModuleConfig {
 const CONFIG: Record<string, ModuleConfig> = {
   products: {
     title: 'Products awaiting approval', module: 'products', headers: ['Product', 'Store', 'Store price', 'Notes'],
-    actions: [{ action: 'approve', label: 'Approve' }, { action: 'reject', label: 'Reject', needsReason: true, danger: true }], filters: { status: 'PENDING' },
+    actions: [{ action: 'approve', label: 'Approve' }, { action: 'request_info', label: 'Request information', needsReason: true }, { action: 'reject', label: 'Reject', needsReason: true, danger: true }], filters: { status: 'PENDING' },
     fetch: async (page) => {
       const d = await listProducts({ status: 'PENDING', ordering: 'created_at', page, page_size: 20 })
       return { count: d.count, rows: d.results.map((p) => ({ id: p.id, cells: [<Link key="n" className="font-medium text-forest underline" to={`/admin/products/${p.id}`}>{p.name}</Link>, p.store.name, formatMoney(p.store_price),

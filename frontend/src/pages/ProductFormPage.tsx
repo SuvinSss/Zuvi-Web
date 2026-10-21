@@ -1,4 +1,6 @@
 import { PricingPanel } from '@/components/PricingPanel'
+import { ProductStatusActions } from '@/components/ProductStatusActions'
+import { submitStoreProduct } from '@/services/management'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
@@ -106,6 +108,10 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty])
 
+  const submit = useMutation({
+    mutationFn: () => submitStoreProduct(id as number),
+    onSuccess: (data) => { queryClient.setQueryData(['product', scope, id], data); void queryClient.invalidateQueries({ queryKey: ['products'] }) },
+  })
   const save = useMutation({
     mutationFn: (values: FormValues) => {
       const payload = toPayload(values, editing, canChange && scope === 'admin', scope)
@@ -151,7 +157,7 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
       <PageHeader
         title={editing ? (p?.name ?? 'Edit product') : 'New product'}
         subtitle={editing ? `${p?.product_code} · ${p?.store.name}` : 'Add the basics now; photos come right after you save.'}
-        actions={p && <StatusBadge status={p.status} />}
+        actions={p && <div className="flex flex-wrap items-center justify-end gap-2"><StatusBadge status={p.status} />{scope === 'admin' && <ProductStatusActions product={p} canApprove={Boolean(meta.data?.can?.approve)} canChange={canChange} />}{scope === 'store' && canChange && ['DRAFT', 'REJECTED', 'NEEDS_INFO'].includes(p.status) && <Button size="sm" loading={submit.isPending} onClick={() => submit.mutate()}>Submit for approval</Button>}</div>}
       />
 
       {blocker.state === 'blocked' && (
@@ -169,6 +175,8 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
         <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-6">
           {serverError && <Alert tone="error">{serverError}</Alert>}
           {p?.status === 'REJECTED' && p.rejection_reason && <Alert tone="warn" title="Rejected">{p.rejection_reason}</Alert>}
+          {p?.status === 'NEEDS_INFO' && <Alert tone="warn" title="Information requested">{p.rejection_reason || 'The reviewer asked for more details.'} {scope === 'store' ? 'Update the product, then submit it again.' : 'Waiting for the store to update and resubmit.'}</Alert>}
+          {submit.isError && <Alert tone="error">{errorMessage(submit.error)}</Alert>}
 
           <Card className="space-y-4 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-forest">Details</h2>
@@ -260,7 +268,7 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
                   </>}
                   <dt className="text-muted">In stock</dt><dd className="text-right tabular-nums">{p.stock_quantity}</dd>
                 </dl>
-                <p className="text-xs text-muted">{scope === 'store' ? 'Your selling price is set by Zuuvi management after approval. Change stock from the Stock page.' : 'Margin, discount and approval are managed by the admin catalogue workflow.'}</p>
+                <p className="text-xs text-muted">{scope === 'store' ? 'Your selling price is set by Zuuvi management after approval. Change stock from the Stock page.' : 'Change stock from the Inventory pages; every movement is recorded.'}</p>
                 {scope === 'store' && <Link to="/store/stock" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest hover:underline">Go to stock <ExternalLink className="size-4" aria-hidden="true" /></Link>}
               </Card>
             </>

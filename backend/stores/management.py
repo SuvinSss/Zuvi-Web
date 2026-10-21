@@ -239,7 +239,9 @@ def create_managed_store(*, actor, data, address, owner=None, existing_owner=Non
         else:
             owner.pop("password", None)
     addr = Address(**{k: address[k] for k in ADDRESS_FIELDS if k in address})
-    addr.full_clean()
+    # Blank address lines are allowed while the store is incomplete; they are reported as
+    # missing requirements (NEEDS_INFO / DRAFT) instead of blocking the save.
+    addr.full_clean(exclude=[f for f in ("line1", "city", "state", "postal_code") if not (getattr(addr, f) or "").strip()])
     addr.save()
     fields = {k: data[k] for k in STORE_FIELDS if k in data}
     store = Store(address=addr, created_by=actor, creation_source=CreationSource.ADMIN, status=StoreStatus.DRAFT, **fields)
@@ -335,7 +337,7 @@ def update_managed_store(*, actor, store, data=None, address=None, request=None)
             if key in address and getattr(addr, key) != address[key]:
                 setattr(addr, key, address[key])
                 changed.append(f"address.{key}")
-        addr.full_clean()
+        addr.full_clean(exclude=[f for f in ("line1", "city", "state", "postal_code") if not (getattr(addr, f) or "").strip()])
         addr.save()
     store.full_clean(exclude=["slug", "store_code"])
     old_status = store.status

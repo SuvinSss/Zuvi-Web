@@ -12,7 +12,11 @@ from .pricing import product_has_complete_pricing
 ALLOWED_STATUS_TRANSITIONS = {
     ProductStatus.DRAFT: frozenset({ProductStatus.PENDING}),
     ProductStatus.PENDING: frozenset(
-        {ProductStatus.APPROVED, ProductStatus.REJECTED}
+        {ProductStatus.APPROVED, ProductStatus.REJECTED, ProductStatus.NEEDS_INFO}
+    ),
+    # Reviewer asked for missing details: the store fixes and resubmits, or it is rejected.
+    ProductStatus.NEEDS_INFO: frozenset(
+        {ProductStatus.PENDING, ProductStatus.DRAFT, ProductStatus.REJECTED}
     ),
     ProductStatus.REJECTED: frozenset(
         {ProductStatus.PENDING, ProductStatus.DRAFT}
@@ -27,7 +31,7 @@ ALLOWED_STATUS_TRANSITIONS = {
     ),
 }
 
-STATUSES_REQUIRING_REASON = frozenset({ProductStatus.REJECTED})
+STATUSES_REQUIRING_REASON = frozenset({ProductStatus.REJECTED, ProductStatus.NEEDS_INFO})
 
 # Store users may only perform these transitions on their own products.
 STORE_USER_ALLOWED_TRANSITIONS = frozenset(
@@ -36,6 +40,8 @@ STORE_USER_ALLOWED_TRANSITIONS = frozenset(
         (ProductStatus.REJECTED, ProductStatus.PENDING),
         (ProductStatus.REJECTED, ProductStatus.DRAFT),
         (ProductStatus.APPROVED, ProductStatus.PENDING),
+        (ProductStatus.NEEDS_INFO, ProductStatus.PENDING),
+        (ProductStatus.NEEDS_INFO, ProductStatus.DRAFT),
     }
 )
 
@@ -75,6 +81,7 @@ def permission_for_transition(current_status, new_status):
     if new_status in {
         ProductStatus.APPROVED,
         ProductStatus.REJECTED,
+        ProductStatus.NEEDS_INFO,
     }:
         return "catalog.approve_product"
     return "catalog.change_product"
@@ -191,7 +198,10 @@ def validate_status_transition(
             "Store users cannot perform that product status change."
         )
     if reason_required_for(new_status) and not (reason or "").strip():
-        raise ValidationError("A reason is required when rejecting a product.")
+        raise ValidationError(
+            "Say what information is missing." if new_status == ProductStatus.NEEDS_INFO
+            else "A reason is required when rejecting a product."
+        )
     if new_status == ProductStatus.APPROVED and product is not None:
         validate_product_for_approval(product)
 

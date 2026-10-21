@@ -40,6 +40,7 @@ urlpatterns = [
     path("store/orders/<int:pk>/action/", store.StoreOrderActionView.as_view(), name="api_store_order_action"),
     path("store/products/", store.StoreProductsView.as_view(), name="api_store_products"),
     path("store/products/<int:pk>/", store.StoreProductDetailView.as_view(), name="api_store_product"),
+    path("store/products/<int:pk>/submit/", store.StoreProductSubmitView.as_view(), name="api_store_product_submit"),
     path("store/products/<int:pk>/images/", store.StoreProductImagesView.as_view(), name="api_store_product_images"),
     path("store/products/<int:pk>/stock/", store.StoreStockView.as_view(), name="api_store_stock"),
     # admin

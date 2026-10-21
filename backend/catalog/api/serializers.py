@@ -87,10 +87,20 @@ class ProductDetailSerializer(ProductListSerializer):
         fields = ProductListSerializer.Meta.fields + (
             "description", "tags", "low_stock_threshold", "manufacturing_date", "expiry_date", "is_featured",
             "profit_margin_type", "profit_margin", "discount_type", "discount_value", "rejection_reason",
-            "images", "created_at", "pricing",
+            "images", "created_at", "pricing", "discount_starts_at", "discount_ends_at", "offer_state", "next_statuses",
         )
 
     pricing = serializers.SerializerMethodField()
+    offer_state = serializers.SerializerMethodField()
+    next_statuses = serializers.SerializerMethodField()
+
+    def get_next_statuses(self, obj):
+        from catalog.status import allowed_next_statuses
+        return sorted(allowed_next_statuses(obj.status))
+
+    def get_offer_state(self, obj):
+        from catalog.pricing import offer_state
+        return offer_state(obj)
 
     def get_pricing(self, obj):
         """Management-only explanation of the current price; None until a price is set."""
@@ -102,6 +112,13 @@ class ProductDetailSerializer(ProductListSerializer):
 
     def get_tags(self, obj):
         return [{"id": t.pk, "name": t.name} for t in obj.tags.all()]
+
+
+class StoreProductDetailSerializer(ProductDetailSerializer):
+    """What a store owner sees: no Zuuvi margin and no profit breakdown."""
+
+    class Meta(ProductDetailSerializer.Meta):
+        fields = tuple(f for f in ProductDetailSerializer.Meta.fields if f not in {"profit_margin_type", "profit_margin", "pricing", "next_statuses"})
 
 
 class ProductWriteSerializer(serializers.Serializer):
