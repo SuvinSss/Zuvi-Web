@@ -6,6 +6,7 @@ services are translated here so views do not need try/except boilerplate.
 """
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
@@ -27,7 +28,7 @@ def api_exception_handler(exc, context):
         return Response(validation_payload(exc), status=400)
     if isinstance(exc, DjangoPermissionDenied):
         return Response({"detail": str(exc) or "You do not have permission to perform this action."}, status=403)
-    if isinstance(exc, Http404):
+    if isinstance(exc, (Http404, ObjectDoesNotExist)):  # services raise Model.DoesNotExist for rows the caller does not own
         return Response({"detail": "Not found."}, status=404)
     response = drf_exception_handler(exc, context)
     if response is None:

@@ -1,0 +1,53 @@
+from django.urls import path
+
+from . import admin, auth, customer, public, store
+
+urlpatterns = [
+    # auth (every role)
+    path("auth/register/", auth.RegisterView.as_view(), name="api_register"),
+    path("auth/partner-register/", auth.PartnerRegisterView.as_view(), name="api_partner_register"),
+    path("auth/signin/", auth.SignInView.as_view(), name="api_signin"),
+    path("auth/token/", auth.TokenView.as_view(), name="api_token"),
+    path("auth/token/revoke/", auth.TokenRevokeView.as_view(), name="api_token_revoke"),
+    path("auth/me/", auth.MeView.as_view(), name="api_me"),
+    path("auth/password/change/", auth.PasswordChangeView.as_view(), name="api_password_change"),
+    path("auth/password/reset/", auth.PasswordResetRequestView.as_view(), name="api_password_reset"),
+    path("auth/password/reset/confirm/", auth.PasswordResetConfirmView.as_view(), name="api_password_reset_confirm"),
+    # public catalogue
+    path("public/categories/", public.PublicCategoriesView.as_view(), name="api_public_categories"),
+    path("public/products/", public.PublicProductsView.as_view(), name="api_public_products"),
+    path("public/products/by-code/<str:product_code>/", public.PublicProductDetailView.as_view(), name="api_public_product"),
+    path("public/stores/", public.PublicStoresView.as_view(), name="api_public_stores"),
+    path("public/stores/<int:pk>/", public.PublicStoreDetailView.as_view(), name="api_public_store"),
+    # customer
+    path("customer/addresses/", customer.AddressListCreateView.as_view(), name="api_addresses"),
+    path("customer/addresses/<int:pk>/", customer.AddressDetailView.as_view(), name="api_address"),
+    path("customer/addresses/<int:pk>/default/", customer.AddressDefaultView.as_view(), name="api_address_default"),
+    path("cart/", customer.CartView.as_view(), name="api_cart"),
+    path("cart/items/", customer.CartItemsView.as_view(), name="api_cart_items"),
+    path("cart/items/<int:pk>/", customer.CartItemView.as_view(), name="api_cart_item"),
+    path("checkout/preview/", customer.CheckoutPreviewView.as_view(), name="api_checkout_preview"),
+    path("checkout/", customer.CheckoutView.as_view(), name="api_checkout"),
+    path("orders/", customer.OrderListView.as_view(), name="api_orders"),
+    path("orders/<int:pk>/", customer.OrderDetailView.as_view(), name="api_order"),
+    path("orders/<int:pk>/cancel/", customer.OrderCancelView.as_view(), name="api_order_cancel"),
+    # store
+    path("store/me/", store.StoreMeView.as_view(), name="api_store_me"),
+    path("store/orders/", store.StoreOrdersView.as_view(), name="api_store_orders"),
+    path("store/orders/<int:pk>/", store.StoreOrderDetailView.as_view(), name="api_store_order"),
+    path("store/orders/<int:pk>/action/", store.StoreOrderActionView.as_view(), name="api_store_order_action"),
+    path("store/products/", store.StoreProductsView.as_view(), name="api_store_products"),
+    path("store/products/<int:pk>/stock/", store.StoreStockView.as_view(), name="api_store_stock"),
+    # admin
+    path("admin/overview/", admin.AdminOverviewView.as_view(), name="api_admin_overview"),
+    path("admin/users/", admin.AdminUsersView.as_view(), name="api_admin_users"),
+    path("admin/users/<int:pk>/suspend/", admin.SuspendUserView.as_view(), name="api_admin_user_suspend"),
+    path("admin/users/<int:pk>/reactivate/", admin.ReactivateUserView.as_view(), name="api_admin_user_reactivate"),
+    path("admin/stores/", admin.AdminStoresView.as_view(), name="api_admin_stores"),
+    path("admin/stores/<int:pk>/status/", admin.AdminStoreStatusView.as_view(), name="api_admin_store_status"),
+    path("admin/orders/", admin.AdminOrdersView.as_view(), name="api_admin_orders"),
+    path("admin/orders/<int:pk>/", admin.AdminOrderDetailView.as_view(), name="api_admin_order"),
+    path("admin/orders/<int:pk>/status/", admin.AdminOrderStatusView.as_view(), name="api_admin_order_status"),
+    path("admin/orders/<int:pk>/cancel/", admin.AdminOrderCancelView.as_view(), name="api_admin_order_cancel"),
+    path("admin/audit-events/", admin.AuditEventsView.as_view(), name="api_admin_audit"),
+]
