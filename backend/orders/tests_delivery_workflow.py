@@ -104,6 +104,14 @@ class DeliveryWorkflowTestMixin(OrderPermissionTestMixin):
                 store=self.store,
                 actor=self.store_user,
             )
+        # These tests cover the management status/audit rules. Delivery orders now get a
+        # Delivery record when the store marks them ready, and the evidence workflow (see
+        # deliveries/tests.py) is the only way to complete those. Dropping the record here
+        # reproduces an order that predates the delivery module, which management may
+        # still complete by hand.
+        from deliveries.models import Delivery
+
+        Delivery.objects.filter(store_order=self.store_order).delete()
         self.order.refresh_from_db()
         self.store_order.refresh_from_db()
 

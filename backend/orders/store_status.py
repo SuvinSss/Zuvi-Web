@@ -149,6 +149,11 @@ def transition_store_order(
         request=request,
     )
     store_order.refresh_from_db()
+    if new_status == StoreOrderStatus.READY:
+        # Creates the delivery record (delivery orders only) and queues assignment.
+        from deliveries.services import on_store_order_ready
+
+        on_store_order_ready(store_order, actor=actor)
     return store_order
 
 

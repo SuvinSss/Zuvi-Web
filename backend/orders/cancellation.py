@@ -198,6 +198,9 @@ def _cancel_store_order_row(*, store_order, actor, reason, request=None):
         reason=reason,
         ip_address=_client_ip(request),
     )
+    from deliveries.services import cancel_for_store_order
+
+    cancel_for_store_order(store_order, actor=actor, reason=reason)
     return store_order
 
 

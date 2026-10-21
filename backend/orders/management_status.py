@@ -181,6 +181,28 @@ def _complete_active_store_orders(*, order, actor, reason, request=None):
             }
         )
 
+    # A delivery order is only delivered through the delivery workflow, which
+    # stores photo evidence. Orders without a Delivery row predate that module.
+    from deliveries.models import Delivery, DeliveryStatus
+
+    undelivered = [
+        so.store_order_number
+        for so in active
+        if so.status != StoreOrderStatus.COMPLETED
+        and Delivery.objects.filter(store_order=so).exclude(status=DeliveryStatus.DELIVERED).exists()
+    ]
+    if undelivered:
+        raise ValidationError(
+            {
+                "status": (
+                    "These store orders have a delivery that is not complete, so they "
+                    "cannot be marked delivered without delivery evidence: "
+                    + ", ".join(undelivered)
+                    + "."
+                )
+            }
+        )
+
     for store_order in active:
         if store_order.status == StoreOrderStatus.COMPLETED:
             continue
