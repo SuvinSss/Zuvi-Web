@@ -59,8 +59,13 @@ class WorkflowFixtures(CatalogTestMixin):
         self.actor = get_user_model().objects.create_superuser('image-admin', password='test-password')
         self.product = self.create_product()
 
+    def unique_image(self):
+        """Distinct bytes per call: identical uploads now share stored blobs (de-duplication)."""
+        self._image_seq = getattr(self, "_image_seq", 0) + 1
+        return self._uploaded_image(content=self._jpeg_bytes(color=((self._image_seq * 47) % 250, (self._image_seq * 91) % 250, 90)))
+
     def add(self, product=None):
-        return add_product_image(product=product or self.product, image=self._uploaded_image(), changed_by=self.actor)
+        return add_product_image(product=product or self.product, image=self.unique_image(), changed_by=self.actor)
 
     def approve_fixture(self, product=None):
         product = product or self.product
@@ -97,7 +102,8 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
             self.assertEqual(self.product.images.count(), number)
         with self.assertRaisesMessage(ValidationError, 'at most 5'):
             self.add()
-        self.assertEqual(len(self.storage.objects), 10)
+        # original + display image + thumbnail per image
+        self.assertEqual(len(self.storage.objects), 15)
         self.assertEqual(self.product.images.filter(is_primary=True).count(), 1)
 
     def test_add_reapproves_without_price_changes(self):
@@ -124,7 +130,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.approve_fixture()
         with patch.object(self.storage, 'delete') as delete:
             replacement = replace_product_image(product=self.product, image_id=image.pk,
-                image=self._uploaded_image(), changed_by=self.actor)
+                image=self.unique_image(), changed_by=self.actor)
         delete.assert_not_called()
         self.assertNotEqual(image.image.name, replacement.image.name)
         self.assertTrue(self.storage.exists(image.image.name))
@@ -149,7 +155,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
             with self.subTest(status=status):
                 Product.objects.filter(pk=self.product.pk).update(status=status)
                 image = self.add()
-                replace_product_image(product=self.product, image_id=image.pk, image=self._uploaded_image())
+                replace_product_image(product=self.product, image_id=image.pk, image=self.unique_image())
                 delete_product_image(product=self.product, image_id=image.pk)
                 self.product.refresh_from_db()
                 self.assertEqual(self.product.status, status)
@@ -175,7 +181,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         images = [self.add() for _ in range(5)]
         self.approve_fixture()
         mutate_product_images(mutations={self.product.pk: {'delete': [images[0].pk],
-            'add': [{'image': self._uploaded_image()}]}}, changed_by=self.actor)
+            'add': [{'image': self.unique_image()}]}}, changed_by=self.actor)
         self.assertEqual(self.product.images.count(), 5)
         self.assert_pending()
 
@@ -186,7 +192,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.approve_fixture(other)
         with patch.object(self.storage, '_save', wraps=self.storage._save) as save:
             with self.assertRaises(ValidationError):
-                mutate_product_images(mutations={self.product.pk: {'add': [{'image': self._uploaded_image()}]},
+                mutate_product_images(mutations={self.product.pk: {'add': [{'image': self.unique_image()}]},
                     other.pk: {'delete': [only.pk]}})
         save.assert_not_called()
         self.assertTrue(ProductImage.objects.filter(pk=first.pk).exists())
@@ -210,7 +216,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         key = image.image.name
         with patch.object(self.storage, '_save', side_effect=OSError('synthetic disk failure')):
             with self.assertRaises(OSError):
-                replace_product_image(product=self.product, image_id=image.pk, image=self._uploaded_image())
+                replace_product_image(product=self.product, image_id=image.pk, image=self.unique_image())
         image.refresh_from_db()
         self.product.refresh_from_db()
         self.assertEqual(image.image.name, key)
@@ -225,7 +231,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.status, ProductStatus.APPROVED)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 4)
+        self.assertEqual(len(self.storage.objects), 6)
         self.assertFalse(self.product.status_history.exists())
 
     def test_later_upload_failure_rolls_back_whole_existing_product_batch(self):
@@ -242,12 +248,12 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         with patch.object(self.storage, '_save', side_effect=failing_save), patch.object(self.storage, 'delete') as delete:
             with self.assertRaises(ClientError):
                 mutate_product_images(mutations={self.product.pk: {'add': [
-                    {'image': self._uploaded_image()}, {'image': self._uploaded_image()}]}})
+                    {'image': self.unique_image()}, {'image': self.unique_image()}]}})
         delete.assert_not_called()
         self.product.refresh_from_db()
         self.assertEqual(self.product.status, ProductStatus.APPROVED)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 3)
+        self.assertEqual(len(self.storage.objects), 4)
         self.assertFalse(self.product.status_history.exists())
 
     def test_multi_image_creation_failure_rolls_back_all_database_records(self):
@@ -262,7 +268,7 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
                 create_product(store=self.product.store, created_by=self.actor,
                     product_data={'name': 'Failed creation', 'sku': 'failed', 'category': self.product.category,
                                   'store_price': self.product.store_price},
-                    images=[self._uploaded_image(), self._uploaded_image()])
+                    images=[self.unique_image(), self.unique_image()])
         self.assertEqual(before, [model.objects.count() for model in (Product, ProductImage, ProductStatusHistory, ProductPriceHistory, AdminAuditLog)])
         self.assertEqual(len(self.storage.objects), 1)
 
@@ -277,13 +283,13 @@ class ImagePortalWorkflowTests(WorkflowFixtures, TestCase):
                 if not self.product.images.exists():
                     self.add()
                 self.approve_fixture()
-                response = self.client.post(url, {'image': self._uploaded_image()})
+                response = self.client.post(url, {'image': self.unique_image()})
                 self.assertEqual(response.status_code, 302)
                 self.product.refresh_from_db()
                 self.assertEqual(self.product.status, ProductStatus.PENDING)
                 while self.product.images.count() < 5:
                     self.add()
-                response = self.client.post(url, {'image': self._uploaded_image()})
+                response = self.client.post(url, {'image': self.unique_image()})
                 self.assertEqual(self.product.images.count(), 5)
                 self.assertContains(response, 'at most 5')
                 ProductImage.objects.filter(product=self.product).exclude(is_primary=True).delete()
@@ -305,7 +311,7 @@ class ImagePortalWorkflowTests(WorkflowFixtures, TestCase):
         self.client.force_login(self.actor)
         url = reverse('catalog:product_images', args=[self.product.pk])
         with patch.object(self.storage, '_save', side_effect=self.storage_error()), self.assertLogs('config.storage_errors', 'ERROR') as logs:
-            response = self.client.post(url, {'image': self._uploaded_image()})
+            response = self.client.post(url, {'image': self.unique_image()})
         self.assertEqual(response.status_code, 302)
         self.assertEqual([str(m) for m in get_messages(response.wsgi_request)], [STORAGE_ERROR_MESSAGE])
         self.assertIn('synthetic-private-backend-detail', '\n'.join(logs.output))
@@ -320,7 +326,7 @@ class ImagePortalWorkflowTests(WorkflowFixtures, TestCase):
             return original(name, content)
         payload = {'name': 'New upload', 'sku': 'multi', 'category': self.product.category_id,
             'store_price': '100.00', 'unit': self.product.unit, 'unit_value': self.product.unit_value,
-            'low_stock_threshold': '0', 'images': [self._uploaded_image(), self._uploaded_image()]}
+            'low_stock_threshold': '0', 'images': [self.unique_image(), self.unique_image()]}
         with patch.object(self.storage, '_save', side_effect=later_failure), self.assertLogs('config.storage_errors', 'ERROR'):
             response = self.client.post(reverse('catalog:store_product_create'), payload)
         self.assertEqual(response.status_code, 302)
@@ -343,12 +349,12 @@ class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
     def test_standalone_add_limit_and_reapproval(self):
         self.add()
         self.approve_fixture()
-        response = self.post_image(product=self.product.pk, image=self._uploaded_image(), sort_order=0)
+        response = self.post_image(product=self.product.pk, image=self.unique_image(), sort_order=0)
         self.assertEqual(response.status_code, 302)
         self.assert_pending()
         while self.product.images.count() < 5:
             self.add()
-        response = self.post_image(product=self.product.pk, image=self._uploaded_image(), sort_order=0)
+        response = self.post_image(product=self.product.pk, image=self.unique_image(), sort_order=0)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.product.images.count(), 5)
         self.assertIn('at most 5', ' '.join(str(m) for m in get_messages(response.wsgi_request)))
@@ -363,7 +369,7 @@ class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
         self.assertEqual(image.product_id, self.product.pk)
         self.assertEqual(image.alt_text, '')
         self.assertFalse(self.product.status_history.exists())
-        response = self.post_image(image, **{'image': self._uploaded_image()})
+        response = self.post_image(image, **{'image': self.unique_image()})
         self.assertEqual(response.status_code, 302)
         self.assert_pending()
 
@@ -409,7 +415,7 @@ class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
         for _ in range(5):
             self.add()
         url, data = self.inline_payload()
-        data.update({'images-TOTAL_FORMS': '6', 'images-5-image': self._uploaded_image(), 'images-5-sort_order': 5})
+        data.update({'images-TOTAL_FORMS': '6', 'images-5-image': self.unique_image(), 'images-5-sort_order': 5})
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.product.images.count(), 5)
@@ -432,7 +438,7 @@ class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
         self.approve_fixture()
         prices = {name: getattr(self.product, name) for name in PRICING_FIELDS}
         url, data = self.inline_payload()
-        data['images-0-image'] = self._uploaded_image()
+        data['images-0-image'] = self.unique_image()
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
         self.assert_pending()
@@ -442,8 +448,8 @@ class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
     def test_inline_later_upload_failure_rolls_back_parent_edit(self):
         url, data = self.inline_payload()
         data.update({'name': 'Should roll back', 'images-TOTAL_FORMS': '2',
-            'images-0-image': self._uploaded_image(), 'images-0-sort_order': 0,
-            'images-1-image': self._uploaded_image(), 'images-1-sort_order': 1})
+            'images-0-image': self.unique_image(), 'images-0-sort_order': 0,
+            'images-1-image': self.unique_image(), 'images-1-sort_order': 1})
         original = self.storage._save
         def later_failure(name, content):
             if self.storage.objects:
@@ -483,7 +489,7 @@ class ImageConcurrencyTests(WorkflowFixtures, TransactionTestCase):
                 product = Product.objects.get(pk=pk)
                 gate.wait(timeout=10)
                 try:
-                    add_product_image(product=product, image=self._uploaded_image())
+                    add_product_image(product=product, image=self.unique_image())
                     return 'saved'
                 except ValidationError:
                     return 'capacity'

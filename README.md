@@ -383,3 +383,15 @@ records available for correction. Preserve staging media referenced by imported
 products. New staging uploads use the existing UUID-based `products/images/`
 path so the production media permissions also cover photo imports. Existing
 staging paths remain valid; do not purge media merely because it was staged.
+
+## React admin and REST API
+
+Product management (list, create/edit, photos, Excel/CSV bulk import) is available as a React + TypeScript
+single-page app in `frontend/` talking to a Django REST API at `/api/v1/`. The storefront, cart, checkout,
+orders and store portal are unchanged Django templates. Local development can use a SQLite fallback when
+`DATABASE_URL` is unset; hosted environments still require PostgreSQL.
+
+Start here: `docs/setup.md`, then `docs/architecture.md`, `docs/api.md`, `docs/product-images-and-imports.md`,
+`docs/authentication-and-sessions.md`, `docs/database.md`, `docs/deployment.md`,
+`docs/data-persistence-and-recovery.md`, `docs/performance-testing.md`, `docs/brand-assets.md`.
+Agent instructions: `AGENTS.md` and `CLAUDE.md`.

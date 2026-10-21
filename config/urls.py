@@ -28,6 +28,7 @@ urlpatterns = [
     path('health/live/', live, name='health_live'),
     path('health/ready/', ready, name='health_ready'),
     path('admin/', admin.site.urls),
+    path('api/v1/', include('config.api_urls')),
     path("", include("catalog.urls")),
     path("", include("cart.urls")),
     path("", include("orders.urls")),

@@ -138,6 +138,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',
+    'corsheaders',
     'accounts',
     'locations',
     'stores',
@@ -151,6 +153,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -193,9 +196,21 @@ GOOGLE_MAPS_MAP_ID = env('GOOGLE_MAPS_MAP_ID', default='DEMO_MAP_ID' if DEBUG el
 if DJANGO_STATIC_BUILD:
     DATABASES = {'default': {'ENGINE': 'django.db.backends.dummy'}}
 else:
+    # Local development only: with no DATABASE_URL, fall back to a stable SQLite
+    # file (SQLITE_PATH, default BASE_DIR/data/zuvi.sqlite3). Hosted environments
+    # still require DATABASE_URL (PostgreSQL). The file is never recreated or
+    # reset by startup code; Django only applies migrations when asked to.
+    if not HOSTED and not env('DATABASE_URL', default=''):
+        _sqlite_path = Path(env('SQLITE_PATH', default=str(BASE_DIR / 'data' / 'zuvi.sqlite3')))
+        if not _sqlite_path.is_absolute():
+            _sqlite_path = BASE_DIR / _sqlite_path
+        _sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+        _default_db = {'ENGINE': 'django.db.backends.sqlite3', 'NAME': _sqlite_path}
+    else:
+        _default_db = env.db('DATABASE_URL')
     DATABASES = {
         'default': {
-            **env.db('DATABASE_URL'),
+            **_default_db,
             'CONN_MAX_AGE': env('DB_CONN_MAX_AGE'),
             'CONN_HEALTH_CHECKS': True,
         }
@@ -332,7 +347,38 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.UserRateThrottle'],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': env('API_THROTTLE_USER', default='600/min'),
+        'login': env('API_THROTTLE_LOGIN', default='10/min'),
+        'import': env('API_THROTTLE_IMPORT', default='30/hour'),
+    },
 }
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Zuvi API',
+    'DESCRIPTION': 'REST API used by the Zuvi React management app.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+}
+
+# React app (Vite). Local dev normally proxies /api so CORS is not needed; these
+# settings support running the frontend on its own origin. Credentials (the
+# session cookie) are allowed only for explicitly listed origins.
+_LOCAL_FRONTEND = ['http://localhost:5173', 'http://127.0.0.1:5173']
+CORS_ALLOWED_ORIGINS = env.list('DJANGO_CORS_ALLOWED_ORIGINS', default=[] if HOSTED else _LOCAL_FRONTEND)
+CORS_ALLOW_CREDENTIALS = True
+CORS_URLS_REGEX = r'^/api/v1/.*$'
+if not HOSTED and not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = list(_LOCAL_FRONTEND)
+
+# Sessions: database-backed (survive Django and Vite restarts); the HttpOnly
+# cookie persists for SESSION_COOKIE_AGE seconds (default 14 days) of the last login/refresh.
+SESSION_COOKIE_AGE = env.int('DJANGO_SESSION_COOKIE_AGE', default=14 * 24 * 3600)
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # Customer authentication integrations. Secrets are supplied separately per environment.
 GOOGLE_OAUTH_CLIENT_ID = env('GOOGLE_OAUTH_CLIENT_ID', default='')

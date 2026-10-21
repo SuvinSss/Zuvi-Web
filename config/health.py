@@ -14,6 +14,11 @@ def live(request):
 
 
 def database_ready():
+    if connection.vendor != 'postgresql':
+        # Local SQLite fallback only; hosted runtimes are PostgreSQL.
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            return cursor.fetchone() == (1,)
     # Use Django's current database parameters (including the disposable test
     # database during tests), but do not alter/reuse its application connection.
     params = connection.get_connection_params()

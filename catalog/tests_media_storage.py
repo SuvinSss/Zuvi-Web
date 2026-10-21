@@ -30,11 +30,20 @@ class ProductRemoteStorageTests(CatalogTestMixin, TestCase):
         self.assertEqual(self.storage.path_calls, 0)
         super().tearDown()
 
+    def _distinct_image(self, seq):
+        # Identical uploads are de-duplicated and would skip storage entirely.
+        return self._uploaded_image(content=self._jpeg_bytes(color=((seq * 47) % 250, (seq * 91) % 250, 90)))
+
     def test_upload_read_validate_and_url_use_storage_api(self):
         image = add_product_image(product=self.product, image=self._uploaded_image())
         image.refresh_from_db()
         self.assertRegex(image.image.name, r'^products/images/[0-9a-f]{32}\.jpg$')
-        self.assertEqual(image.image.read(), self._jpeg_bytes())
+        # The pipeline re-encodes uploads (orientation fix, metadata stripped), so bytes
+        # differ from the original; they must still be a valid JPEG of the same size.
+        from io import BytesIO
+        from PIL import Image
+        with Image.open(BytesIO(image.image.read())) as stored:
+            self.assertEqual(stored.format, 'JPEG')
         image.image.close()
         validate_product_image(image.image)
         self.assertIn(image.image.name, image.image.url)
@@ -64,15 +73,16 @@ class ProductRemoteStorageTests(CatalogTestMixin, TestCase):
         self.assertTrue(self.storage.exists(key))
 
     def test_upload_failure_propagates_and_rolls_back_primary_change(self):
-        first = add_product_image(product=self.product, image=self._uploaded_image())
+        first = add_product_image(product=self.product, image=self._distinct_image(1))
         error = ClientError({'Error': {'Code': 'AccessDenied', 'Message': 'synthetic failure'}}, 'PutObject')
         with patch.object(self.storage, '_save', side_effect=error):
             with self.assertRaises(ClientError):
-                add_product_image(product=self.product, image=self._uploaded_image(), is_primary=True)
+                add_product_image(product=self.product, image=self._distinct_image(2), is_primary=True)
         first.refresh_from_db()
         self.assertTrue(first.is_primary)
         self.assertEqual(self.product.images.count(), 1)
-        self.assertEqual(len(self.storage.objects), 2)
+        # original + display copy + thumbnail of the first image only; the failed upload left nothing.
+        self.assertEqual(len(self.storage.objects), 3)
 
     def test_sql_rollback_leaves_uploaded_object_for_future_cleanup(self):
         with self.assertRaisesRegex(RuntimeError, 'after upload'):

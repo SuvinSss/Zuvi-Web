@@ -725,6 +725,48 @@ def record_product_status_change(
     return product
 
 
+def _run_image_pipeline(fields):
+    """Replace a fresh upload with its processed form; reuse identical stored files.
+
+    Returns ``(fields, derived)``. ``derived`` carries the facts recorded on the
+    row and, when identical processed content is already stored, ``reuse``: the
+    existing ProductImage whose files this row can point at instead of storing
+    another copy.
+    """
+    from .image_pipeline import is_fresh_upload, prepare_upload
+
+    image = fields.get("image")
+    if not is_fresh_upload(image):
+        return fields, {}
+    processed = prepare_upload(image)
+    derived = {
+        "content_hash": processed.sha256, "width": processed.width,
+        "height": processed.height, "file_size": processed.size,
+    }
+    duplicate = (
+        ProductImage.objects.filter(content_hash=processed.sha256)
+        .exclude(image="").exclude(display_image="").exclude(thumbnail="")
+        .order_by("pk").first()
+    )
+    if duplicate is not None:
+        derived["reuse"] = duplicate
+    return {**fields, "image": processed.file}, derived
+
+
+def _use_pipeline_result(obj, derived):
+    """Copy pipeline facts onto ``obj``; point at existing files for duplicates."""
+    reuse = derived.get("reuse")
+    for name in ("content_hash", "width", "height", "file_size"):
+        if name in derived:
+            setattr(obj, name, derived[name])
+    if reuse is not None:
+        obj.image = reuse.image.name
+        obj.display_image = reuse.display_image.name
+        obj.thumbnail = reuse.thumbnail.name
+    # A reused file is already validated; avoid re-reading it from storage.
+    return ["image"] if reuse is not None else []
+
+
 @transaction.atomic
 def mutate_product_images(*, mutations, changed_by=None, request=None, validate_only=False):
     """Apply complete per-product image batches under ordered parent locks.
@@ -781,6 +823,7 @@ def mutate_product_images(*, mutations, changed_by=None, request=None, validate_
         for pk, fields in updates.items():
             obj = existing[pk]
             obj.is_primary = False
+            fields, derived = _run_image_pipeline(fields)
             for name, value in fields.items():
                 if name != "is_primary":
                     setattr(obj, name, value)
@@ -789,13 +832,18 @@ def mutate_product_images(*, mutations, changed_by=None, request=None, validate_
                 primary = obj
             elif fields.get("is_primary") is False and primary is obj:
                 primary = None
+            skip_validation = _use_pipeline_result(obj, derived) if derived else []
+            if derived and "reuse" not in derived:
+                obj.thumbnail = ""  # regenerate derivatives for the new binary
             # Metadata-only edits need not open the stored image.
-            obj.full_clean(exclude=[] if "image" in fields else ["image"])
+            obj.full_clean(exclude=skip_validation or ([] if "image" in fields else ["image"]))
             obj.save()
             saved.append(obj)
         for fields in additions:
+            fields, derived = _run_image_pipeline(fields)
             obj = ProductImage(product=product, **{k: v for k, v in fields.items() if k != "is_primary"})
-            obj.full_clean()
+            skip_validation = _use_pipeline_result(obj, derived)
+            obj.full_clean(exclude=skip_validation)
             obj.save()
             if fields.get("is_primary"):
                 primary = obj

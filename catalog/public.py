@@ -7,7 +7,8 @@ Templates must never be the sole gate for what customers can see.
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.postgres.search import TrigramWordSimilarity
-from django.db.models import Case, IntegerField, Prefetch, Q, Value, When, F, Count, Subquery
+from django.db import connection
+from django.db.models import Case, FloatField, IntegerField, Prefetch, Q, Value, When, F, Count, Subquery
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
@@ -116,7 +117,12 @@ def apply_public_search(queryset, query):
             When(name__istartswith=query, then=Value(2)),
             When(exact, then=Value(1)), default=Value(0), output_field=IntegerField(),
         ),
-        search_score=TrigramWordSimilarity(query, "name"),
+        search_score=(
+            TrigramWordSimilarity(query, "name")
+            if connection.vendor == "postgresql"
+            # Local SQLite has no pg_trgm: exact/contains matching still works.
+            else Value(0.0, output_field=FloatField())
+        ),
     )
     # Very short queries are too ambiguous for reliable spelling recovery.
     threshold = 0.3 if len(query) >= 5 else 0.4

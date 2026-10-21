@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -498,13 +499,28 @@ class ProductImage(models.Model):
         validators=[validate_product_image],
     )
     display_image = models.ImageField(upload_to=product_image_upload_to, blank=True, editable=False)
+    # Derivatives and facts recorded by catalog.image_pipeline.
+    thumbnail = models.ImageField(upload_to=product_image_upload_to, blank=True, editable=False)
+    content_hash = models.CharField(max_length=64, blank=True, db_index=True, editable=False)
+    width = models.PositiveIntegerField(null=True, blank=True, editable=False)
+    height = models.PositiveIntegerField(null=True, blank=True, editable=False)
+    file_size = models.PositiveIntegerField(null=True, blank=True, editable=False)
 
     def save(self, *args, **kwargs):
         if self.image and not self.image._committed:
             from .image_processing import display_image
+            from .image_pipeline import describe_upload, make_thumbnail
             self.display_image = display_image(self.image, remove_background=getattr(self.image.file, "remove_plain_background", False))
+            changed = {"display_image"}
+            if not self.thumbnail:
+                self.thumbnail = make_thumbnail(self.image)
+                changed.add("thumbnail")
+            facts = describe_upload(self.image) if not self.content_hash else None
+            if facts:
+                self.content_hash, self.width, self.height, self.file_size = facts
+                changed |= {"content_hash", "width", "height", "file_size"}
             if kwargs.get("update_fields") is not None:
-                kwargs["update_fields"] = set(kwargs["update_fields"]) | {"display_image"}
+                kwargs["update_fields"] = set(kwargs["update_fields"]) | changed
         return super().save(*args, **kwargs)
 
     alt_text = models.CharField(max_length=200, blank=True)
@@ -616,3 +632,58 @@ class ProductPriceHistory(models.Model):
     def __str__(self):
         code = self.product.product_code if self.product_id else "new"
         return f"{code} price @ {self.created_at}"
+
+
+class ProductImportBatch(models.Model):
+    """One Excel/CSV bulk import: staged on preview, applied only on confirmation.
+
+    The uploaded files are staged in default storage; ``commit`` re-parses and
+    re-validates them against the current database, so nothing the browser
+    sends after the preview can alter what gets written.
+    """
+
+    class Mode(models.TextChoices):
+        CREATE = "create", "Create new (reject existing SKUs)"
+        SKIP = "skip", "Create new (skip existing SKUs)"
+        UPDATE = "update", "Create new and update existing SKUs"
+
+    class Status(models.TextChoices):
+        PREVIEWED = "PREVIEWED", "Previewed"
+        COMMITTED = "COMMITTED", "Committed"
+        FAILED = "FAILED", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="product_imports",
+    )
+    mode = models.CharField(max_length=16, choices=Mode.choices, default=Mode.CREATE)
+    all_or_nothing = models.BooleanField(default=True)
+    initial_status = models.CharField(max_length=32, choices=ProductStatus.choices, default=ProductStatus.DRAFT)
+    allow_image_urls = models.BooleanField(default=False)
+    source_name = models.CharField(max_length=255, blank=True)
+    source_hash = models.CharField(max_length=64, db_index=True)
+    workbook_path = models.CharField(max_length=255, blank=True)
+    images_zip_path = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PREVIEWED)
+    total_rows = models.PositiveIntegerField(default=0)
+    valid_rows = models.PositiveIntegerField(default=0)
+    invalid_rows = models.PositiveIntegerField(default=0)
+    duplicate_rows = models.PositiveIntegerField(default=0)
+    summary = models.JSONField(default=dict, blank=True)
+    errors = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    committed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            # The same file content can only be committed once.
+            models.UniqueConstraint(
+                fields=["source_hash"],
+                condition=models.Q(status="COMMITTED"),
+                name="unique_committed_product_import_source",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Import {self.pk} ({self.status})"
