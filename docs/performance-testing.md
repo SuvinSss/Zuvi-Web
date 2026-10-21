@@ -37,3 +37,10 @@ Environment: 2 vCPU container running Gunicorn (3 sync workers), PostgreSQL 16 a
 - The API list uses `select_related`/`prefetch_related` and fixed-size pages (max 100); list queries do not grow with page size.
 - Image processing/import commits run inside the request (CPU-bound). Fine for the 5 MB / 1000-row limits; move to a queue before raising them.
 - Not done: Redis/DB-backed shared cache for throttling (throttles use the default local-memory cache, so limits are per process), CDN for media, background workers.
+
+## Run of 2026-10-21 — API-only backend (measured, small machine)
+
+* **Setup:** gunicorn, 2 sync workers, PostgreSQL 16 on the same 2-vCPU / 8 GB container as the load generator (so the generator competes for CPU), throwaway database `zuuvi_load` with 3,000 products and 3 stores (dropped afterwards), `DEBUG=False`, per-user throttles raised on the test server only.
+* **Load:** Locust, 30 simulated users, 5 users/s ramp, 60 s, think time 0.5–2 s. Mix: anonymous browsing of the public API (3 parts) and a logged-in admin using the product-management API (1 part).
+* **Result:** 1,328 requests, **0 failures**, about 22 requests/s, median 80 ms, p95 230 ms, p99 470 ms, max 820 ms. Slowest routes: admin login (median 560 ms, password hashing) and public product search (median 150 ms).
+* **What this does and does not show:** the users spent most of their time "thinking", so 22 req/s is the offered load, not the server's ceiling. It is a smoke-level result for catalogue reads only. Checkout, delivery tracking pings, support and notification endpoints were **not** load-tested. No claim is made about production capacity or concurrent-user limits; repeat on production-like hardware before launch.

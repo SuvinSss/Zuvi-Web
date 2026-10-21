@@ -14,20 +14,26 @@ QUERIES = ["organic", "fresh", "Product 0042", "load", "zzz-no-match"]
 
 
 class Shopper(HttpUser):
+    """Anonymous browsing through the public API (the former HTML storefront no longer exists)."""
+
     weight = 3
     wait_time = between(0.5, 2)
 
     @task(5)
     def list_page(self):
-        self.client.get(f"/products/?page={random.randint(1, 20)}", name="/products/?page=N")
+        self.client.get(f"/api/v1/public/products/?page={random.randint(1, 20)}", name="public products?page=N")
 
     @task(3)
     def search(self):
-        self.client.get("/products/", params={"q": random.choice(QUERIES)}, name="/products/?q=")
+        self.client.get("/api/v1/public/products/", params={"q": random.choice(QUERIES)}, name="public products?q=")
 
     @task(1)
-    def home(self):
-        self.client.get("/", name="/")
+    def categories(self):
+        self.client.get("/api/v1/public/categories/", name="public categories")
+
+    @task(1)
+    def stores(self):
+        self.client.get("/api/v1/public/stores/", name="public stores")
 
 
 class Manager(HttpUser):
