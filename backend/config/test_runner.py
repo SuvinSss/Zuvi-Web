@@ -14,9 +14,14 @@ class IsolatedMediaTestRunner(DiscoverRunner):
         # Cover discovery, setup, execution and teardown; unwind on failure too.
         with ExitStack() as stack:
             media_root = stack.enter_context(TemporaryDirectory(prefix='zuvi-test-media-'))
+            private_root = stack.enter_context(TemporaryDirectory(prefix='zuvi-test-private-'))
             storages = {
                 **settings.STORAGES,
                 'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+                'private': {
+                    'BACKEND': 'django.core.files.storage.FileSystemStorage',
+                    'OPTIONS': {'location': private_root, 'base_url': None},
+                },
             }
             stack.enter_context(override_settings(MEDIA_ROOT=media_root, STORAGES=storages))
             stack.enter_context(patch(

@@ -148,6 +148,13 @@ INSTALLED_APPS = [
     'customers',
     'cart',
     'orders',
+    'rest_framework.authtoken',
+    'core',
+    'notifications',
+    'deliveries',
+    'reviews',
+    'feedback',
+    'support',
 ]
 
 MIDDLEWARE = [
@@ -335,6 +342,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = "/management/login/"
+# Private files (delivery evidence, complaint/ticket attachments). Never served from
+# MEDIA_URL: they are only streamed by authenticated API endpoints after an access check.
+PRIVATE_MEDIA_ROOT = BASE_DIR / 'private_media'
+STORAGES['private'] = {
+    'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    'OPTIONS': {'location': str(PRIVATE_MEDIA_ROOT), 'base_url': None},
+}
+if MEDIA_STORAGE_BACKEND == 's3':
+    STORAGES['private'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            **{k: v for k, v in STORAGES['default']['OPTIONS'].items() if k != 'location'},
+            'location': 'private',
+            'default_acl': 'private',
+        },
+    }
+
 LOGIN_REDIRECT_URL = "/management/dashboard/"
 LOGOUT_REDIRECT_URL = "/management/login/"
 STORE_LOGIN_URL = "/store/login/"
@@ -343,7 +367,9 @@ CUSTOMER_LOGIN_URL = "/customer/login/"
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ],
+    'EXCEPTION_HANDLER': 'core.exceptions.api_exception_handler',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],

@@ -11,5 +11,6 @@ urlpatterns = [
     path("auth/logout/", auth_api.LogoutView.as_view(), name="api_auth_logout"),
     path("schema/", SpectacularAPIView.as_view(permission_classes=[IsAuthenticated]), name="api_schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="api_schema", permission_classes=[IsAuthenticated]), name="api_docs"),
+    path("", include("notifications.urls")),
     path("", include("catalog.api.urls")),
 ]

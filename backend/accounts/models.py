@@ -12,6 +12,8 @@ class Role(models.TextChoices):
     STORE_USER = "STORE_USER", "Store User"
     CUSTOMER = "CUSTOMER", "Customer"
     DELIVERY_AGENT = "DELIVERY_AGENT", "Delivery Agent"
+    SUPPORT_AGENT = "SUPPORT_AGENT", "Support Agent"
+    SUPPORT_SUPERVISOR = "SUPPORT_SUPERVISOR", "Support Supervisor"
 
 
 class User(AbstractUser):
