@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a> &rsaquo; {{ title }}</div>
+{% endblock %}
+{% block content %}
+<div class="zv-confirm">
+  {% if intro %}<p>{{ intro }}</p>{% endif %}
+  <p>{{ objects|length }} selected record{{ objects|length|pluralize }}:</p>
+  <ul>{% for obj in objects|slice:":20" %}<li>{{ obj }}</li>{% endfor %}{% if objects|length > 20 %}<li>…and {{ objects|length|add:"-20" }} more</li>{% endif %}</ul>
+  <form method="post">{% csrf_token %}
+    {% for pk in selected %}<input type="hidden" name="_selected_action" value="{{ pk }}">{% endfor %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="apply" value="1">
+    {{ form.as_p }}
+    <p class="zv-note">Each record is checked against the same rules as the app. Records that are not allowed are skipped and listed afterwards.</p>
+    <div class="submit-row"><input type="submit" class="default" value="Confirm"> <a href="javascript:history.back()" class="button cancel-link">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,4 +1,5 @@
 """REST endpoints for the delivery domain (partner, store, customer, admin)."""
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -590,25 +591,13 @@ class _AdminPartnerDecision(APIView):
 
     @extend_schema(request=PartnerDecisionSerializer, responses=PartnerSerializer)
     def post(self, request, pk):
-        partner = get_object_or_404(DeliveryPartner.objects.select_related("user"), pk=pk)
+        get_object_or_404(DeliveryPartner, pk=pk)
         data = PartnerDecisionSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        reason = data.validated_data.get("reason", "")
-        if self.require_reason and not reason.strip():
-            return Response({"reason": ["A reason is required."]}, status=400)
-        if partner.status not in self.allowed_from:
-            return Response({"status": [f"A partner that is {partner.status.lower()} cannot be set to {self.target.lower()}."]}, status=400)
-        partner.status = self.target
-        partner.status_reason = reason[:255]
-        fields = ["status", "status_reason", "updated_at"]
-        if self.target == PartnerStatus.APPROVED:
-            partner.approved_by, partner.approved_at = request.user, timezone.now()
-            fields += ["approved_by", "approved_at"]
-        else:
-            partner.is_online = False
-            fields.append("is_online")
-        partner.save(update_fields=fields)
-        notify(partner.user, Kind.DELIVERY_ASSIGNED, f"Your delivery partner account is {self.target.lower()}", reason)
+        try:
+            partner = services.decide_partner(pk, self.target, actor=request.user, reason=data.validated_data.get("reason", ""))
+        except DjangoValidationError as exc:
+            return Response(exc.message_dict, status=400)
         return Response(PartnerSerializer(partner).data)
 
 

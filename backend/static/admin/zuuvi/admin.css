@@ -1,0 +1,67 @@
+/* Zuuvi admin theme: restrained eco-green accents over Django's own admin (light and dark). */
+:root {
+  --primary: #14532d;
+  --secondary: #166534;
+  --accent: #15803d;
+  --primary-fg: #fff;
+  --link-fg: #166534;
+  --link-hover-color: #14532d;
+  --link-selected-fg: #14532d;
+  --header-bg: #14532d;
+  --header-color: #ecfdf5;
+  --header-branding-color: #fff;
+  --header-link-color: #ecfdf5;
+  --breadcrumbs-bg: #166534;
+  --breadcrumbs-fg: #dcfce7;
+  --breadcrumbs-link-fg: #fff;
+  --object-tools-bg: #166534;
+  --object-tools-hover-bg: #14532d;
+  --button-bg: #166534;
+  --button-hover-bg: #14532d;
+  --default-button-bg: #15803d;
+  --default-button-hover-bg: #166534;
+  --zv-card: #f6faf7;
+  --zv-line: #d6e5da;
+  --zv-warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #0f3d21; --link-fg: #86efac; --link-hover-color: #bbf7d0; --header-bg: #0f3d21;
+    --breadcrumbs-bg: #14532d; --zv-card: #14201a; --zv-line: #28402f; --zv-warn: #fbbf24;
+  }
+}
+:root[data-theme="dark"] { --primary: #0f3d21; --link-fg: #86efac; --link-hover-color: #bbf7d0; --header-bg: #0f3d21;
+  --breadcrumbs-bg: #14532d; --zv-card: #14201a; --zv-line: #28402f; --zv-warn: #fbbf24; }
+
+#header #site-name a, #header #site-name a:visited, #header #site-name a:link { color: #fff !important; display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; letter-spacing: .01em; }
+.zv-mark { width: 1.1rem; height: 1.1rem; border-radius: 50% 0 50% 0; background: #86efac; display: inline-block; }
+.module h2, .module caption, .inline-group h2 { background: var(--secondary); }
+
+.zv-section { margin-bottom: 1.5rem; }
+.zv-section > h2 { font-size: 1rem; margin: 0 0 .6rem; color: var(--body-fg); }
+.zv-cards { list-style: none; list-style-type: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: .75rem; }
+.zv-card { list-style: none; background: var(--zv-card); border: 1px solid var(--zv-line); border-radius: 10px; }
+.zv-card a, .zv-card > span { display: flex; flex-direction: column; gap: .15rem; padding: .85rem 1rem; text-decoration: none; min-height: 5.2rem; }
+.zv-card a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+.zv-num { font-size: 1.75rem; font-weight: 700; line-height: 1.1; color: var(--primary); }
+.zv-label { font-size: .85rem; color: var(--body-fg); }
+.zv-hint { font-size: .75rem; color: var(--body-quiet-color); }
+.zv-attn { border-left: 4px solid var(--zv-warn); }
+.zv-attn .zv-num { color: var(--zv-warn); }
+.zv-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; align-items: start; }
+.zv-modules .module { margin: 0; }
+.zv-module-title { font-size: .95rem; padding: .6rem .9rem; color: #fff; }
+.zv-links { text-align: right; width: 5rem; }
+
+.zv-badge { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; border: 1px solid currentColor; }
+.zv-approved { color: #166534; } .zv-pending { color: #b45309; } .zv-suspended, .zv-rejected { color: #b91c1c; }
+.zv-p-urgent, .zv-p-high { color: #b91c1c; } .zv-p-normal { color: #166534; } .zv-p-low { color: #52606d; }
+.zv-stars { color: #b45309; letter-spacing: .08em; white-space: nowrap; }
+.zv-confirm { max-width: 42rem; } .zv-confirm textarea, .zv-confirm select { width: 100%; max-width: 100%; }
+.zv-note { color: var(--body-quiet-color); font-size: .85rem; }
+
+@media (max-width: 767px) {
+  .zv-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zv-modules { grid-template-columns: 1fr; }
+  #changelist-filter { width: 100%; }
+}

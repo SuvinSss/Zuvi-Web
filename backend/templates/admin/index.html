@@ -1,0 +1,46 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+{% block content %}
+<div id="content-main">
+  {% for group in dashboard %}
+  {% if group.items %}
+  <section class="zv-section" aria-labelledby="zv-{{ forloop.counter }}">
+    <h2 id="zv-{{ forloop.counter }}">{{ group.title }}</h2>
+    <ul class="zv-cards">
+      {% for it in group.items %}
+      <li class="zv-card{% if it.attention %} zv-attn{% endif %}">
+        {% if it.url %}<a href="{{ it.url }}">{% endif %}
+          <span class="zv-num">{{ it.value }}</span>
+          <span class="zv-label">{{ it.label }}</span>
+          {% if it.hint %}<span class="zv-hint">{{ it.hint }}</span>{% endif %}
+        {% if it.url %}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% endfor %}
+
+  {% if app_list %}
+  <div class="zv-modules">
+    {% for app in app_list %}
+    <section class="module" aria-labelledby="mod-{{ app.app_label }}">
+      <h2 id="mod-{{ app.app_label }}" class="zv-module-title">{{ app.name }}</h2>
+      <table>
+        {% for model in app.models %}
+        <tr class="model-{{ model.object_name|lower }}">
+          <th scope="row"><a href="{{ model.admin_url|default:'#' }}">{{ model.name }}</a></th>
+          <td class="zv-links">
+            {% if model.add_url %}<a href="{{ model.add_url }}" class="addlink">{% translate 'Add' %}</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </section>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>{% translate 'You don’t have permission to view or edit anything.' %}</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -670,3 +670,36 @@ def store_confirm_pickup(delivery_id, *, store, user) -> DeliveryEvidence:
         evidence.store_confirmed_at = timezone.now()
         evidence.save(update_fields=["store_confirmed_by", "store_confirmed_at"])
     return evidence
+
+
+PARTNER_TRANSITIONS = {
+    "APPROVED": {"from": ("PENDING", "SUSPENDED"), "reason": False},
+    "REJECTED": {"from": ("PENDING",), "reason": True},
+    "SUSPENDED": {"from": ("APPROVED",), "reason": True},
+}
+
+
+@transaction.atomic
+def decide_partner(partner_id, target, *, actor, reason="") -> DeliveryPartner:
+    """Approve, reject or suspend a delivery partner. Shared by the admin API and the Django admin."""
+    rule = PARTNER_TRANSITIONS.get(target)
+    if rule is None:
+        raise ValidationError({"status": "Unknown partner decision."})
+    partner = DeliveryPartner.objects.select_for_update(of=("self",)).select_related("user").get(pk=partner_id)
+    reason = (reason or "").strip()
+    if rule["reason"] and not reason:
+        raise ValidationError({"reason": "A reason is required."})
+    if partner.status not in rule["from"]:
+        raise ValidationError({"status": f"A partner that is {partner.status.lower()} cannot be set to {target.lower()}."})
+    partner.status = target
+    partner.status_reason = reason[:255]
+    fields = ["status", "status_reason", "updated_at"]
+    if target == "APPROVED":
+        partner.approved_by, partner.approved_at = actor, timezone.now()
+        fields += ["approved_by", "approved_at"]
+    else:
+        partner.is_online = False
+        fields.append("is_online")
+    partner.save(update_fields=fields)
+    notify(partner.user, Kind.DELIVERY_ASSIGNED, f"Your delivery partner account is {target.lower()}", reason)
+    return partner
