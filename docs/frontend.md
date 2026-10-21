@@ -23,7 +23,7 @@ that routing is in place.
 | Store | `STORE_USER` | `/store`, `/store/orders[/:id]`, `/store/products[/new, /:id]`, `/store/stock`, `/store/deliveries`, `/store/reviews`, `/store/notifications` |
 | Delivery partner | `DELIVERY_AGENT` | `/delivery`, `/delivery/assignments[/:id]`, `/delivery/profile`, `/delivery/notifications` (mobile bottom navigation) |
 | Support | `SUPPORT_AGENT`, `SUPPORT_SUPERVISOR` | `/support`, `/support/tickets[/:id]`, `/support/complaints[/:id]`, `/support/feedback`, `/support/notifications` |
-| Admin | `ADMIN`, `SUPER_ADMIN` | `/admin`, `/admin/orders[/:id]`, `/admin/deliveries[/:id]`, `/admin/users`, `/admin/stores`, `/admin/partners`, `/admin/products[/new, /:id, /import]`, `/admin/reviews`, `/admin/support/tickets|complaints[/:id]`, `/admin/feedback`, `/admin/audit`, `/admin/notifications` |
+| Admin | `ADMIN`, `SUPER_ADMIN` | `/admin` (dashboard), `/admin/reports`, `/admin/customers[/:id]`, `/admin/categories`, `/admin/orders[/:id]`, `/admin/deliveries[/:id]`, `/admin/users`, `/admin/stores`, `/admin/partners`, `/admin/products[/new, /:id, /import]`, `/admin/reviews`, `/admin/support/tickets|complaints[/:id]`, `/admin/feedback`, `/admin/audit`, `/admin/notifications` |
 
 Access is enforced by `RequireRole` (`src/routes/guards.tsx`) for navigation convenience only; the API enforces the real rules.
 A signed-in user who opens another role's area sees an "access denied" page, not a redirect loop.

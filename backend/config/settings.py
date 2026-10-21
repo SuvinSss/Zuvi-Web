@@ -169,6 +169,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Where the Django admin (technical fallback) is served. The React admin application owns /admin/.
+DJANGO_ADMIN_URL = env('DJANGO_ADMIN_URL', default='django-admin/').lstrip('/')
+if not DJANGO_ADMIN_URL.endswith('/'):
+    DJANGO_ADMIN_URL += '/'
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [

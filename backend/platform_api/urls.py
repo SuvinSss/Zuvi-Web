@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import admin, auth, customer, public, store
+from . import admin, analytics, auth, customer, public, store
 
 urlpatterns = [
     # auth (every role)
@@ -42,6 +42,13 @@ urlpatterns = [
     path("store/products/<int:pk>/images/", store.StoreProductImagesView.as_view(), name="api_store_product_images"),
     path("store/products/<int:pk>/stock/", store.StoreStockView.as_view(), name="api_store_stock"),
     # admin
+    path("admin/dashboard/", analytics.DashboardView.as_view(), name="api_admin_dashboard"),
+    path("admin/counts/", analytics.CountsView.as_view(), name="api_admin_counts"),
+    path("admin/search/", analytics.AdminSearchView.as_view(), name="api_admin_search"),
+    path("admin/customers/", analytics.AdminCustomersView.as_view(), name="api_admin_customers"),
+    path("admin/customers/<int:pk>/", analytics.AdminCustomerDetailView.as_view(), name="api_admin_customer"),
+    path("admin/categories/", analytics.AdminCategoriesView.as_view(), name="api_admin_categories"),
+    path("admin/orders/export/", analytics.OrdersExportView.as_view(), name="api_admin_orders_export"),
     path("admin/overview/", admin.AdminOverviewView.as_view(), name="api_admin_overview"),
     path("admin/users/", admin.AdminUsersView.as_view(), name="api_admin_users"),
     path("admin/users/<int:pk>/suspend/", admin.SuspendUserView.as_view(), name="api_admin_user_suspend"),

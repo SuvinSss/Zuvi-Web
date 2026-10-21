@@ -2,10 +2,11 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { Spinner } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { AdminLayout } from '@/layouts/AdminLayout'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { RequirePermission, RequireRole } from '@/routes/guards'
-import { ADMIN_NAV, DELIVERY_BOTTOM, DELIVERY_NAV, STORE_BOTTOM, STORE_NAV, SUPPORT_NAV } from './navigation'
+import { DELIVERY_BOTTOM, DELIVERY_NAV, STORE_BOTTOM, STORE_NAV, SUPPORT_NAV } from './navigation'
 
 // Route-level code splitting keeps the first load small.
 const L = lazy
@@ -53,6 +54,10 @@ const Assignments = L(() => import('@/pages/delivery/Assignments'))
 const AssignmentPage = L(() => import('@/pages/delivery/AssignmentPage'))
 const DeliveryProfile = L(() => import('@/pages/delivery/DeliveryProfile'))
 
+const AdminReports = L(() => import('@/pages/admin/AdminReports'))
+const AdminCategories = L(() => import('@/pages/admin/AdminCategories'))
+const AdminCustomersList = lazy(() => import('@/pages/admin/AdminCustomers').then((m) => ({ default: m.AdminCustomersList })))
+const AdminCustomerPage = lazy(() => import('@/pages/admin/AdminCustomers').then((m) => ({ default: m.AdminCustomerPage })))
 const AdminOverview = L(() => import('@/pages/admin/AdminOverview'))
 const AdminUsers = L(() => import('@/pages/admin/AdminUsers'))
 const AdminStores = L(() => import('@/pages/admin/AdminStores'))
@@ -169,9 +174,13 @@ export const routes: RouteObject[] = [
     path: 'admin',
     element: <RequireRole roles={['ADMIN', 'SUPER_ADMIN']} />,
     children: [{
-      element: <DashboardLayout base="/admin" areaLabel="Administration" groups={ADMIN_NAV} />,
+      element: <AdminLayout />,
       children: [
         { index: true, element: R(AdminOverview) },
+        { path: 'reports', element: R(AdminReports) },
+        { path: 'customers', element: R(AdminCustomersList) },
+        { path: 'customers/:id', element: R(AdminCustomerPage) },
+        { path: 'categories', element: R(AdminCategories) },
         { path: 'orders', element: R(AdminOrdersList) },
         { path: 'orders/:id', element: R(AdminOrderPage) },
         { path: 'deliveries', element: R(AdminDeliveriesList) },

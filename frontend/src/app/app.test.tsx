@@ -54,7 +54,7 @@ describe('session & routing', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'secret')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await waitFor(() => expect(auth.login).toHaveBeenCalledWith('admin', 'secret'))
-    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument()
   })
 
   it('validates the login form before calling the server', async () => {

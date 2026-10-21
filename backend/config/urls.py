@@ -24,7 +24,8 @@ from .health import live, ready
 urlpatterns = [
     path('health/live/', live, name='health_live'),
     path('health/ready/', ready, name='health_ready'),
-    path('admin/', admin.site.urls),
+    # Technical fallback for super administrators. The business admin app lives on the React site under /admin.
+    path(settings.DJANGO_ADMIN_URL, admin.site.urls),
     path('api/v1/', include('config.api_urls')),
 ]
 

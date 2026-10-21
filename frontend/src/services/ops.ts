@@ -3,6 +3,7 @@ import type { Page } from '@/types/api'
 import type { EvidenceRecord } from '@/components/evidence'
 import type { PublicReview } from '@/types/platform'
 import type {
+  AdminCategoryRow, AdminCounts, AdminCustomerDetail, AdminCustomerRow, DashboardData, SearchHit,
   AdminOrderRow, AdminOverview, AdminReview, AdminStore, AdminUser, Attempt, AuditEvent, DeliveryRecord, PartnerRecord,
   StoreMe, StoreOrderDetail, StoreOrderRow, StoreProductRow,
 } from '@/types/ops'
@@ -69,3 +70,21 @@ export const adminReviews = (q: { status?: string; target_type?: string; reporte
 export const moderateReview = (id: number, action: 'hide' | 'reject' | 'restore', reason = '') => post<AdminReview>(`/admin/reviews/${id}/${action}/`, { reason })
 export const auditEvents = (q: { action?: string; object_type?: string; actor?: string; page?: number }) => get<Page<AuditEvent>>('/admin/audit-events/', q)
 export const adminFeedbackList = (q: { status?: string; page?: number }) => get<Page<import('@/types/platform').FeedbackItem>>('/feedback/', q)
+
+/* ---------- admin dashboard, customers, search ---------- */
+export interface Period { from?: string; to?: string }
+export const adminDashboard = (p: Period) => get<DashboardData>('/admin/dashboard/', p)
+export const adminCounts = () => get<AdminCounts>('/admin/counts/')
+export const adminSearch = (q: string) => get<{ query: string; results: SearchHit[] }>('/admin/search/', { q })
+export const adminCustomers = (q: { q?: string; active?: string; ordering?: string; from?: string; to?: string; page?: number }) => get<Page<AdminCustomerRow>>('/admin/customers/', q)
+export const adminCustomer = (id: number) => get<AdminCustomerDetail>(`/admin/customers/${id}/`)
+export const adminCategories = () => get<{ results: AdminCategoryRow[] }>('/admin/categories/')
+export async function downloadOrdersCsv(filters: object): Promise<void> {
+  const res = await api.get('/admin/orders/export/', { params: clean(filters), responseType: 'blob' })
+  const url = URL.createObjectURL(res.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'zuuvi-orders.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}

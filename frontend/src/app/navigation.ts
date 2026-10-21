@@ -1,5 +1,5 @@
 import {
-  Bell, Bike, ClipboardList, FileSpreadsheet, Gauge, Home, LifeBuoy, MessageSquare, Package, ScrollText, Star, Store, Truck, User, Users, Warehouse,
+  BarChart3, Bell, Bike, ClipboardList, FileSpreadsheet, Gauge, Home, LifeBuoy, MessageSquare, Package, ScrollText, Star, Store, Tags, Truck, User, UserCog, Users, Warehouse,
 } from 'lucide-react'
 import type { NavGroup, NavItem } from '@/layouts/DashboardLayout'
 
@@ -24,8 +24,10 @@ export const SUPPORT_NAV: NavGroup[] = [
 ]
 
 export const ADMIN_NAV: NavGroup[] = [
-  { items: [{ to: '/admin', label: 'Overview', icon: Gauge, end: true }, { to: '/admin/orders', label: 'Orders', icon: ClipboardList }, { to: '/admin/deliveries', label: 'Deliveries', icon: Truck }] },
-  { heading: 'People', items: [{ to: '/admin/users', label: 'Users', icon: Users }, { to: '/admin/stores', label: 'Stores', icon: Store }, { to: '/admin/partners', label: 'Delivery partners', icon: Bike }] },
-  { heading: 'Catalogue', items: [{ to: '/admin/products', label: 'Products', icon: Package, end: true }, { to: '/admin/products/import', label: 'Excel import', icon: FileSpreadsheet }] },
-  { heading: 'Trust & support', items: [{ to: '/admin/reviews', label: 'Reviews', icon: Star }, { to: '/admin/support/tickets', label: 'Tickets', icon: LifeBuoy }, { to: '/admin/support/complaints', label: 'Complaints', icon: ClipboardList }, { to: '/admin/feedback', label: 'Feedback', icon: MessageSquare }, { to: '/admin/audit', label: 'Audit log', icon: ScrollText }, { to: '/admin/notifications', label: 'Notifications', icon: Bell }] },
+  { heading: 'Overview', items: [{ to: '/admin', label: 'Dashboard', icon: Gauge, end: true }, { to: '/admin/reports', label: 'Analytics and reports', icon: BarChart3 }] },
+  { heading: 'Commerce', items: [{ to: '/admin/orders', label: 'Orders', icon: ClipboardList }, { to: '/admin/products', label: 'Products', icon: Package, end: true }, { to: '/admin/products/import', label: 'Excel import', icon: FileSpreadsheet }, { to: '/admin/categories', label: 'Categories', icon: Tags }, { to: '/admin/stores', label: 'Stores', icon: Store }] },
+  { heading: 'People', items: [{ to: '/admin/customers', label: 'Customers', icon: Users }, { to: '/admin/partners', label: 'Delivery partners', icon: Bike }, { to: '/admin/users', label: 'Users and roles', icon: UserCog }] },
+  { heading: 'Delivery operations', items: [{ to: '/admin/deliveries', label: 'Deliveries', icon: Truck }] },
+  { heading: 'Engagement', items: [{ to: '/admin/reviews', label: 'Reviews and ratings', icon: Star }, { to: '/admin/feedback', label: 'Customer feedback', icon: MessageSquare }, { to: '/admin/support/tickets', label: 'Support tickets', icon: LifeBuoy }, { to: '/admin/support/complaints', label: 'Complaints', icon: ClipboardList }, { to: '/admin/notifications', label: 'Notifications', icon: Bell }] },
+  { heading: 'Administration', items: [{ to: '/admin/audit', label: 'Audit log', icon: ScrollText }] },
 ]

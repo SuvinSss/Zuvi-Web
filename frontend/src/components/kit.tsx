@@ -331,7 +331,7 @@ export function FilePicker({
 export function Section({ title, actions, children, className }: { title: string; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={className}>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex min-h-11 items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-forest">{title}</h2>
         {actions}
       </div>

@@ -54,3 +54,46 @@ export interface AdminOverview {
   support: { open_tickets: number; open_complaints: number }
   stores: { active: number; pending: number; average_rating: number }
 }
+
+/* ---------- admin dashboard ---------- */
+export interface Kpi { value: number | string; previous: number | string; change_percent: number | null }
+export interface SeriesPoint { date: string; orders: number; delivered: number; revenue: string; cancelled: number; new_customers: number; failed_deliveries: number }
+export interface DashboardData {
+  range: { from: string; to: string; days: number; previous: { from: string; to: string } }
+  kpis: { orders: Kpi; delivered: Kpi; revenue: Kpi; cancelled: Kpi; new_customers: Kpi }
+  live: {
+    orders_awaiting_confirmation: number; orders_being_prepared: number; orders_awaiting_delivery: number; orders_in_transit: number
+    deliveries_active: number; deliveries_waiting_for_partner: number; deliveries_needing_attention: number
+    customers_total: number; stores_active: number; partners_active: number; partners_online: number
+    products_total: number; products_active: number; tickets_open: number; complaints_open: number
+  }
+  series: SeriesPoint[]
+  status_distribution: { status: string; count: number }[]
+  top_stores: { store_id: number; name: string; orders: number; revenue: string }[]
+  best_products: { product_id: number | null; name: string; quantity: string; revenue: string }[]
+  delivery_performance: { total: number; delivered: number; failed: number; cancelled: number; retried: number; success_rate_percent: number | null; average_minutes_assignment_to_delivery: number | null }
+  queues: {
+    recent_orders: (AdminOrderRow & { customer: string })[]
+    needs_attention: { orders_unconfirmed_15_min: { id: number; order_number: string; placed_at: string }[]; deliveries: { id: number; status: string; store_order__store_order_number: string }[] }
+    new_customers: { id: number; customer_code: string; created_at: string; username: string }[]
+    pending_stores: { id: number; name: string; created_at: string }[]
+    pending_partners: { id: number; created_at: string; username: string }[]
+    pending_complaints: { id: number; reference: string; category: string; severity: string; created_at: string }[]
+    recent_reviews: { id: number; rating: number; target_type: string; comment: string; status: string; created_at: string }[]
+    recent_feedback: { id: number; reference: string; kind: string; message: string; status: string; created_at: string }[]
+  }
+  notes: { revenue: string }
+}
+export interface AdminCounts {
+  orders_awaiting_confirmation: number; deliveries_needing_attention: number; partners_pending: number; stores_pending: number
+  products_pending: number; tickets_open: number; complaints_open: number
+}
+export interface SearchHit { type: string; label: string; detail: string; path: string }
+export interface AdminCustomerRow {
+  id: number; customer_code: string; username: string; name: string; email: string; phone_number: string; is_active: boolean
+  user_id: number; created_at: string; order_count: number; delivered_value: string; last_order_at: string | null
+}
+export interface AdminCustomerDetail extends AdminCustomerRow {
+  orders_by_status: Record<string, number>; recent_orders: AdminOrderRow[]; tickets: number; complaints: number; reviews: number; registration_source: string
+}
+export interface AdminCategoryRow { id: number; name: string; slug: string; is_active: boolean; product_count: number; parent_name: string | null }

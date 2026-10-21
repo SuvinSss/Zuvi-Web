@@ -73,7 +73,7 @@ class AccessTests(AdminBase):
     def test_all_new_models_registered_read_only(self):
         for model in NEW_MODELS:
             registered = admin.site._registry[model]
-            request = self.http.get("/admin/").wsgi_request
+            request = self.http.get("/django-admin/").wsgi_request
             request.user = self.boss
             with self.subTest(model=model.__name__):
                 self.assertTrue(registered.has_view_permission(request))
@@ -240,7 +240,7 @@ class ActionTests(AdminBase):
         self.assertEqual(admin.site._registry[DeliveryPartner].get_actions(self._req(viewer)), {})
 
     def _req(self, user):
-        r = self.http.get("/admin/").wsgi_request
+        r = self.http.get("/django-admin/").wsgi_request
         r.user = User.objects.get(pk=user.pk)
         return r
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DataTable, KeyValue, Pagination, QueryBoundary, ReasonDialog, Section, Status, Timeline, useToast } from '@/components/kit'
@@ -8,16 +8,20 @@ import { useUrlState } from '@/hooks/useUrlState'
 import { errorMessage } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { DELIVERY_STATUS, label, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, STORE_ORDER_STATUS } from '@/lib/labels'
-import { adminOrder, adminOrderCancel, adminOrderStatus, adminOrders } from '@/services/ops'
+import { adminOrder, adminOrderCancel, adminOrderStatus, adminOrders, downloadOrdersCsv } from '@/services/ops'
 import type { OrderDetail } from '@/types/platform'
 
 export function AdminOrdersList() {
   const navigate = useNavigate()
   const { values, page, set } = useUrlState(['status', 'payment_status', 'q', 'from', 'to'] as const)
   const q = useQuery({ queryKey: ['admin-orders', values, page], queryFn: () => adminOrders({ ...values, page }), placeholderData: (p) => p })
+  const toast = useToast()
+  const exportCsv = useMutation({ mutationFn: () => downloadOrdersCsv(values), onSuccess: () => toast('success', 'Orders exported.'), onError: (e) => toast('error', errorMessage(e)) })
+  const filtered = Object.values(values).some(Boolean)
   return (
     <>
-      <PageHeader title="Orders" />
+      <PageHeader title="Orders" subtitle={q.data ? `${q.data.count} order${q.data.count === 1 ? '' : 's'}${filtered ? ' match the filters' : ''}` : undefined}
+        actions={<Button variant="secondary" icon={Download} loading={exportCsv.isPending} onClick={() => exportCsv.mutate()}>Export CSV</Button>} />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{Object.entries(ORDER_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
         <label className="text-sm">Payment<Select className="mt-1" value={values.payment_status} onChange={(e) => set({ payment_status: e.target.value })}><option value="">Any</option>{Object.entries(PAYMENT_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
@@ -25,7 +29,7 @@ export function AdminOrdersList() {
         <label className="text-sm">To<Input className="mt-1" type="date" value={values.to} onChange={(e) => set({ to: e.target.value })} /></label>
         <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Order, customer or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
-      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: 'No orders match' }}>
+      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: filtered ? 'No orders match these filters' : 'No orders yet', text: filtered ? 'Try clearing a filter.' : undefined, action: filtered ? <Button variant="secondary" onClick={() => set({ status: '', payment_status: '', q: '', from: '', to: '' })}>Reset filters</Button> : undefined }}>
         <DataTable caption="Orders" rows={q.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/admin/orders/${o.id}`)}
           columns={[
             { key: 'n', header: 'Order', primary: true, cell: (o) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/admin/orders/${o.id}`} onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },

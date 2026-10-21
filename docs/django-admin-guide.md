@@ -1,7 +1,7 @@
 # Zuuvi Django admin guide
 
-The Django admin at `/admin/` (for example `http://127.0.0.1:8010/admin/`) is the back-office for the owner and trusted staff.
-It is separate from the REST API (`/api/v1/`) and from the React app. Nothing here replaces either of them.
+The Django admin is now the **technical fallback**. It is served at `/django-admin/` (set `DJANGO_ADMIN_URL` to change it); the everyday business admin is the React application at `/admin` (see `docs/admin-dashboard-guide.md`).
+It is separate from the REST API (`/api/v1/`). Nothing here replaces either of them.
 
 ## 1. What was chosen and why
 Native Django admin (Django 5.2) plus a small theme. No third-party admin package was added.
@@ -22,9 +22,11 @@ Native Django admin (Django 5.2) plus a small theme. No third-party admin packag
 ```bash
 cd backend
 python manage.py migrate
-python manage.py runserver 8010        # http://127.0.0.1:8010/admin/
+python manage.py runserver 8010        # http://127.0.0.1:8010/django-admin/
 ```
 Production: run `python manage.py collectstatic --noinput`; WhiteNoise serves the theme from `staticfiles/`.
+
+> Access: ADMIN accounts can still open the fallback when they hold the matching Django permissions. To limit it to super administrators, grant admin staff no `view_…` permissions (the default) or block the path at the proxy.
 
 ## 4. Accounts and permissions
 * Create the first owner: `python manage.py createsuperuser` (the command sets role `SUPER_ADMIN`, staff and superuser together).
@@ -78,7 +80,7 @@ Each card links to the matching filtered list; a card is hidden if you cannot vi
 ## 9. Verification (what was run)
 * `python manage.py check`: no issues.
 * 20 new admin tests (`deliveries/tests_admin.py`): login page, anonymous and wrong-role refusal, permission enforcement on direct posts, read-only registration, list/detail rendering of every new model, search and filters, dashboard numbers and query count, no OTP/coordinates/notification body in pages, bulk actions through services (including reason-required and skipped records), API contract for partner decisions.
-* Full backend suite on PostgreSQL: see the result in the final report (not claimed here until run).
+* Full backend suite on PostgreSQL: 739 tests passed after the first admin work (before the dashboard API was added).
 * Rendered in headless Chromium against a throwaway SQLite database: dashboard and nine list pages at 1280 px and 390 px, no horizontal overflow, no page errors or failed requests.
 
 ## 10. Known limitations
