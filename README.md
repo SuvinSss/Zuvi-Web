@@ -394,8 +394,8 @@ Older sections of this README that mention `manage.py`, `scripts/`, `.env.exampl
 ## React admin and REST API
 
 Product management (list, create/edit, photos, Excel/CSV bulk import) is available as a React + TypeScript
-single-page app in `frontend/` talking to a Django REST API at `/api/v1/`. The storefront, cart, checkout,
-orders and store portal are unchanged Django templates. Local development can use a SQLite fallback when
+single-page app in `frontend/` talking to a Django REST API at `/api/v1/`. The backend is API-only: the old
+Django-rendered storefront, cart, orders and store portal were removed (see `docs/platform-api.md`). Local development can use a SQLite fallback when
 `DATABASE_URL` is unset; hosted environments still require PostgreSQL.
 
 Start here: `docs/setup.md`, then `docs/architecture.md`, `docs/api.md`, `docs/product-images-and-imports.md`,

@@ -377,22 +377,6 @@ class CartIsolationTests(CartModelTestMixin, TestCase):
             quantity=Decimal("2.000"),
         )
 
-        self.cart_url = reverse("cart:cart_detail")
-        self.add_url = reverse(
-            "cart:cart_add_item",
-            kwargs={"product_code": self.product.product_code},
-        )
-        self.update_b_url = reverse(
-            "cart:cart_update_item",
-            kwargs={"pk": self.item_b.pk},
-        )
-        self.remove_b_url = reverse(
-            "cart:cart_remove_item",
-            kwargs={"pk": self.item_b.pk},
-        )
-        self.clear_url = reverse("cart:cart_clear")
-        self.login_url = reverse("customers:customer_portal_login")
-        self.dashboard_url = reverse("customers:customer_portal_dashboard")
 
         self.store_user = User.objects.create_user(
             username="cart-store-user",
@@ -404,139 +388,13 @@ class CartIsolationTests(CartModelTestMixin, TestCase):
     def _csrf(self, url):
         return self.client.get(url).cookies["csrftoken"].value
 
-    def _login(self, user):
-        self.client.force_login(user)
-        self.client.get(self.dashboard_url)
 
-    def _post(self, url, payload=None, *, seed_url=None):
-        token = self._csrf(seed_url or self.cart_url)
-        data = dict(payload or {})
-        data["csrfmiddlewaretoken"] = token
-        return self.client.post(url, data)
 
-    def test_customer_a_sees_only_own_cart(self):
-        self._login(self.user_a)
-        response = self.client.get(self.cart_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Shared Item")
-        self.assertNotContains(response, "Bob Secret Item")
-        self.assertEqual(response.context["item_count"], 1)
 
-        sneaky = self.client.get(
-            self.cart_url,
-            {
-                "customer_id": self.customer_b.pk,
-                "cart_id": self.customer_b.cart.pk,
-            },
-        )
-        self.assertEqual(sneaky.status_code, 200)
-        self.assertEqual(sneaky.context["item_count"], 1)
-        self.assertNotContains(sneaky, "Bob Secret Item")
 
-    def test_customer_a_cannot_update_or_remove_customer_b_item(self):
-        self._login(self.user_a)
 
-        update = self._post(self.update_b_url, {"quantity": "9.000"})
-        self.assertEqual(update.status_code, 404)
 
-        remove = self._post(self.remove_b_url, {})
-        self.assertEqual(remove.status_code, 404)
 
-        self.item_b.refresh_from_db()
-        self.assertEqual(self.item_b.quantity, Decimal("2.000"))
-        self.assertTrue(CartItem.objects.filter(pk=self.item_b.pk).exists())
 
-    def test_manipulated_customer_id_and_cart_id_ignored_on_add(self):
-        self._login(self.user_a)
-        response = self._post(
-            self.add_url,
-            {
-                "quantity": "1.000",
-                "customer_id": self.customer_b.pk,
-                "cart_id": self.customer_b.cart.pk,
-            },
-        )
-        self.assertEqual(response.status_code, 302)
 
-        self.item_a.refresh_from_db()
-        self.assertEqual(self.item_a.quantity, Decimal("2.000"))
-        self.assertEqual(
-            CartItem.objects.filter(cart__customer=self.customer_b).count(),
-            1,
-        )
-        self.assertFalse(
-            CartItem.objects.filter(
-                cart__customer=self.customer_b,
-                product=self.product,
-            ).exists()
-        )
 
-    def test_clear_only_clears_own_cart(self):
-        self._login(self.user_a)
-        response = self._post(
-            self.clear_url,
-            {"customer_id": self.customer_b.pk, "cart_id": self.customer_b.cart.pk},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(
-            CartItem.objects.filter(cart__customer=self.customer_a).exists()
-        )
-        self.assertTrue(CartItem.objects.filter(pk=self.item_b.pk).exists())
-
-    def test_update_remove_clear_require_post(self):
-        self._login(self.user_a)
-        update_a = reverse("cart:cart_update_item", kwargs={"pk": self.item_a.pk})
-        remove_a = reverse("cart:cart_remove_item", kwargs={"pk": self.item_a.pk})
-        self.assertEqual(self.client.get(update_a).status_code, 405)
-        self.assertEqual(self.client.get(remove_a).status_code, 405)
-        self.assertEqual(self.client.get(self.clear_url).status_code, 405)
-        self.assertEqual(self.client.get(self.add_url).status_code, 405)
-
-    def test_csrf_required_for_mutations(self):
-        self._login(self.user_a)
-        plain = Client(enforce_csrf_checks=True)
-        plain.force_login(self.user_a)
-        response = plain.post(
-            reverse("cart:cart_update_item", kwargs={"pk": self.item_a.pk}),
-            {"quantity": "3.000"},
-        )
-        self.assertEqual(response.status_code, 403)
-
-    def test_anonymous_cart_redirects_to_login(self):
-        response = self.client.get(self.cart_url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/customer/login/", response.url)
-
-    def test_anonymous_add_returns_to_product_after_login(self):
-        product_path = reverse(
-            "catalog:public_product_detail",
-            kwargs={"slug": self.product.slug},
-        )
-        token = self.client.get(product_path).cookies["csrftoken"].value
-        response = self.client.post(
-            self.add_url,
-            {"quantity": "1", "csrfmiddlewaretoken": token},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/customer/login/", response["Location"])
-
-        parsed = urlparse(response["Location"])
-        next_path = parse_qs(parsed.query).get("next", [""])[0]
-        self.assertEqual(next_path, product_path)
-
-        token = self.client.get(response["Location"]).cookies["csrftoken"].value
-        login_response = self.client.post(
-            self.login_url,
-            {
-                "username": "cart-customer-a",
-                "password": "secure-password-123",
-                "next": next_path,
-                "csrfmiddlewaretoken": token,
-            },
-        )
-        self.assertEqual(login_response.status_code, 302)
-        self.assertEqual(login_response.url, product_path)
-
-    def test_store_user_cannot_access_customer_cart(self):
-        self.client.force_login(self.store_user)
-        self.assertEqual(self.client.get(self.cart_url).status_code, 403)

@@ -464,138 +464,14 @@ class ProductPricingWorkflowTests(CatalogTestMixin, TestCase):
             store_price=Decimal("100.00"),
             status=ProductStatus.PENDING,
         )
-        self.url = reverse(
-            "catalog:product_pricing", kwargs={"pk": self.product.pk}
-        )
 
-    def test_url_shape(self):
-        self.assertEqual(self.url, f"/management/products/{self.product.pk}/pricing/")
 
-    def test_fixed_margin_and_fixed_discount_via_portal(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "25.00",
-                "discount_type": DiscountType.FIXED,
-                "discount_value": "10.00",
-                "reason": "Launch pricing",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.selling_price, Decimal("125.00"))
-        self.assertEqual(self.product.final_price, Decimal("115.00"))
-        history = ProductPriceHistory.objects.filter(product=self.product).latest(
-            "created_at"
-        )
-        self.assertEqual(history.selling_price, Decimal("125.00"))
-        self.assertEqual(history.final_price, Decimal("115.00"))
-        self.assertEqual(history.reason, "Launch pricing")
 
-    def test_percentage_margin_and_percentage_discount_via_portal(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.PERCENTAGE,
-                "profit_margin": "20.00",
-                "discount_type": DiscountType.PERCENTAGE,
-                "discount_value": "10.00",
-                "reason": "Promo",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.selling_price, Decimal("120.00"))
-        self.assertEqual(self.product.final_price, Decimal("108.00"))
 
-    def test_manipulated_post_selling_and_final_are_ignored(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "10.00",
-                "discount_type": DiscountType.PERCENTAGE,
-                "discount_value": "5.00",
-                "selling_price": "0.01",
-                "final_price": "0.01",
-                "store_price": "1.00",
-                "reason": "Tamper attempt",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.store_price, Decimal("100.00"))
-        self.assertEqual(self.product.selling_price, Decimal("110.00"))
-        self.assertEqual(self.product.final_price, Decimal("104.50"))
 
-    def test_negative_margin_rejected(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "-5.00",
-                "discount_type": "",
-                "discount_value": "0",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.product.refresh_from_db()
-        self.assertIsNone(self.product.selling_price)
 
-    def test_percentage_discount_over_100_rejected(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "10.00",
-                "discount_type": DiscountType.PERCENTAGE,
-                "discount_value": "101.00",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "between 0 and 100")
-        self.product.refresh_from_db()
-        self.assertIsNone(self.product.final_price)
 
-    def test_fixed_discount_exceeding_selling_rejected(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        response = self.client.post(
-            self.url,
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "5.00",
-                "discount_type": DiscountType.FIXED,
-                "discount_value": "200.00",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "cannot exceed the selling price")
 
-    def test_no_duplicate_price_history_when_unchanged(self):
-        self.client.login(username="price-admin", password="secure-password-123")
-        payload = {
-            "profit_margin_type": MarginType.FIXED,
-            "profit_margin": "12.00",
-            "discount_type": "",
-            "discount_value": "0",
-            "reason": "Initial",
-        }
-        self.assertEqual(self.client.post(self.url, payload).status_code, 302)
-        count_after_first = ProductPriceHistory.objects.filter(
-            product=self.product
-        ).count()
-        payload["reason"] = "Same values again"
-        self.assertEqual(self.client.post(self.url, payload).status_code, 302)
-        self.assertEqual(
-            ProductPriceHistory.objects.filter(product=self.product).count(),
-            count_after_first,
-        )
 
     def test_apply_admin_pricing_service_fixed_and_percentage(self):
         apply_admin_pricing(
@@ -696,9 +572,6 @@ class ProductApprovalRejectionTests(CatalogTestMixin, TestCase):
             store_price=Decimal("50.00"),
             status=ProductStatus.DRAFT,
         )
-        self.status_url = reverse(
-            "catalog:product_change_status", kwargs={"pk": self.product.pk}
-        )
 
     def test_allowed_transition_matrix(self):
         self.assertTrue(
@@ -774,15 +647,6 @@ class ProductApprovalRejectionTests(CatalogTestMixin, TestCase):
             ).exists()
         )
 
-    def test_draft_to_pending_by_management(self):
-        self.client.login(username="approve-admin", password="secure-password-123")
-        response = self.client.post(
-            self.status_url,
-            {"new_status": ProductStatus.PENDING, "reason": ""},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.status, ProductStatus.PENDING)
 
     def test_pending_to_approved_sets_metadata_and_history(self):
         self.product.status = ProductStatus.PENDING
@@ -992,44 +856,7 @@ class ProductApprovalRejectionTests(CatalogTestMixin, TestCase):
                 changed_by=self.admin,
             )
 
-    def test_status_change_post_only_via_portal(self):
-        self.client.login(username="approve-admin", password="secure-password-123")
-        self.assertEqual(self.client.get(self.status_url).status_code, 405)
 
-    def test_portal_approve_and_reject_flows(self):
-        self.product.status = ProductStatus.PENDING
-        self.product.save(update_fields=["status"])
-        self.prepare_product_for_approval(self.product, priced_by=self.admin)
-        self.client.login(username="approve-admin", password="secure-password-123")
-        response = self.client.post(
-            self.status_url,
-            {"new_status": ProductStatus.APPROVED, "reason": ""},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.status, ProductStatus.APPROVED)
-        self.assertEqual(self.product.approved_by_id, self.admin.pk)
-
-        # Move back to pending via commercial reapproval path is not available
-        # from APPROVED→REJECTED; reject from PENDING instead.
-        record_product_status_change(
-            product=self.product,
-            new_status=ProductStatus.INACTIVE,
-            changed_by=self.admin,
-        )
-        record_product_status_change(
-            product=self.product,
-            new_status=ProductStatus.PENDING,
-            changed_by=self.admin,
-        )
-        response = self.client.post(
-            self.status_url,
-            {"new_status": ProductStatus.REJECTED, "reason": "Incomplete description"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.status, ProductStatus.REJECTED)
-        self.assertEqual(self.product.rejection_reason, "Incomplete description")
 
 
 class ProductWorkflowServiceTests(CatalogTestMixin, TestCase):
@@ -1513,49 +1340,7 @@ class ProductImageManagementTests(CatalogTestMixin, TestCase):
             )
         self.assertEqual(self.product_a.images.count(), MAX_IMAGES_PER_PRODUCT)
 
-    def test_management_upload_and_set_primary_via_portal(self):
-        self.client.login(username="img-admin", password="secure-password-123")
-        url = reverse("catalog:product_images", kwargs={"pk": self.product_a.pk})
-        response = self.client.post(
-            url,
-            {
-                "image": self._uploaded_image(name="mgmt.jpg"),
-                "alt_text": "Front",
-                "sort_order": "0",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(self.product_a.images.count(), 1)
-        primary = self.product_a.images.get()
-        self.assertTrue(primary.is_primary)
 
-        second = add_product_image(
-            product=self.product_a,
-            image=self._uploaded_image(name="second.jpg"),
-        )
-        response = self.client.post(
-            reverse(
-                "catalog:product_image_set_primary",
-                kwargs={"pk": self.product_a.pk, "image_id": second.pk},
-            )
-        )
-        self.assertEqual(response.status_code, 302)
-        second.refresh_from_db()
-        self.assertTrue(second.is_primary)
-
-    def test_management_delete_requires_post(self):
-        image = add_product_image(
-            product=self.product_a,
-            image=self._uploaded_image(name="del.jpg"),
-        )
-        self.client.login(username="img-admin", password="secure-password-123")
-        url = reverse(
-            "catalog:product_image_delete",
-            kwargs={"pk": self.product_a.pk, "image_id": image.pk},
-        )
-        self.assertEqual(self.client.get(url).status_code, 405)
-        self.assertEqual(self.client.post(url).status_code, 302)
-        self.assertFalse(self.product_a.images.filter(pk=image.pk).exists())
 
     def test_cannot_delete_last_image_on_approved_product(self):
         image = add_product_image(
@@ -1568,65 +1353,8 @@ class ProductImageManagementTests(CatalogTestMixin, TestCase):
             delete_product_image(product=self.product_a, image_id=image.pk)
         self.assertTrue(self.product_a.images.filter(pk=image.pk).exists())
 
-    def test_store_user_can_manage_own_store_images(self):
-        self.client.login(username="img-store-a", password="secure-password-123")
-        url = reverse(
-            "catalog:store_product_images", kwargs={"pk": self.product_a.pk}
-        )
-        response = self.client.post(
-            url,
-            {"image": self._uploaded_image(name="store.jpg"), "alt_text": ""},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(self.product_a.images.count(), 1)
 
-    def test_store_user_cannot_manage_other_store_images(self):
-        image = add_product_image(
-            product=self.product_a,
-            image=self._uploaded_image(name="owned.jpg"),
-        )
-        self.client.login(username="img-store-b", password="secure-password-123")
-        self.assertEqual(
-            self.client.get(
-                reverse(
-                    "catalog:store_product_images",
-                    kwargs={"pk": self.product_a.pk},
-                )
-            ).status_code,
-            404,
-        )
-        self.assertEqual(
-            self.client.post(
-                reverse(
-                    "catalog:store_product_image_delete",
-                    kwargs={"pk": self.product_a.pk, "image_id": image.pk},
-                )
-            ).status_code,
-            404,
-        )
-        self.assertEqual(
-            self.client.post(
-                reverse(
-                    "catalog:store_product_image_set_primary",
-                    kwargs={"pk": self.product_a.pk, "image_id": image.pk},
-                )
-            ).status_code,
-            404,
-        )
-        self.assertTrue(self.product_a.images.filter(pk=image.pk).exists())
 
-    def test_management_images_require_change_permission(self):
-        limited = User.objects.create_user(
-            username="img-view-only",
-            email="img-view-only@example.com",
-            password="secure-password-123",
-            role=Role.ADMIN,
-            is_staff=True,
-        )
-        self.grant_catalog_perms(limited, "view_product")
-        self.client.login(username="img-view-only", password="secure-password-123")
-        url = reverse("catalog:product_images", kwargs={"pk": self.product_a.pk})
-        self.assertEqual(self.client.get(url).status_code, 403)
 
 
 class ProductCodeConcurrencyTests(CatalogTestMixin, TransactionTestCase):
@@ -1696,265 +1424,23 @@ class ManagementProductPermissionTests(CatalogTestMixin, TestCase):
             is_active=True,
         )
 
-    def test_admin_without_perm_gets_403(self):
-        self.client.login(username="prod-admin", password="secure-password-123")
-        response = self.client.get(reverse("catalog:product_list"))
-        self.assertEqual(response.status_code, 403)
 
-    def test_admin_with_view_can_list(self):
-        self.grant_catalog_perms(self.admin, "view_product")
-        self.client.login(username="prod-admin", password="secure-password-123")
-        response = self.client.get(reverse("catalog:product_list"))
-        self.assertEqual(response.status_code, 200)
 
-    def test_product_list_avoids_n_plus_one_for_related_fields(self):
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
 
-        for index in range(8):
-            self.create_product(
-                store=self.store,
-                category=self.category,
-                brand=self.brand,
-                sku=f"N1-{index}",
-                name=f"N+1 Product {index}",
-            )
-        self.client.login(username="prod-super", password="secure-password-123")
-        with CaptureQueriesContext(connection) as ctx:
-            response = self.client.get(reverse("catalog:product_list"))
-        self.assertEqual(response.status_code, 200)
-        self.assertGreaterEqual(len(response.context["page_obj"]), 9)
-        # Prefetch/select_related should keep query count stable vs product count.
-        self.assertLessEqual(len(ctx.captured_queries), 20)
 
-    def test_super_admin_can_list(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.get(reverse("catalog:product_list"))
-        self.assertEqual(response.status_code, 200)
 
-    def test_list_search_and_filters(self):
-        other = self.create_product(
-            store=self.store,
-            category=self.category,
-            sku="OTHER-1",
-            name="Other Item",
-            stock_quantity=Decimal("0"),
-            is_active=False,
-        )
-        self.client.login(username="prod-super", password="secure-password-123")
-        by_brand = self.client.get(
-            reverse("catalog:product_list"), {"q": "PermBrand"}
-        )
-        self.assertContains(by_brand, "Permission Product")
-        self.assertNotContains(by_brand, "Other Item")
 
-        out_of_stock = self.client.get(
-            reverse("catalog:product_list"), {"stock": "out_of_stock"}
-        )
-        self.assertContains(out_of_stock, "Other Item")
-        self.assertNotContains(out_of_stock, "Permission Product")
 
-        inactive = self.client.get(
-            reverse("catalog:product_list"), {"is_active": "false"}
-        )
-        self.assertContains(inactive, "Other Item")
-        self.assertNotContains(inactive, "Permission Product")
-        self.assertEqual(other.is_active, False)
 
-    def test_list_columns_present(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.get(reverse("catalog:product_list"))
-        for label in (
-            "Code",
-            "SKU",
-            "Name",
-            "Store",
-            "Category",
-            "Brand",
-            "Store price",
-            "Final price",
-            "Stock",
-            "Status",
-            "Active",
-            "Created",
-        ):
-            self.assertContains(response, label)
 
-    def test_detail_sections_present(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.get(
-            reverse("catalog:product_detail", kwargs={"pk": self.product.pk})
-        )
-        self.assertEqual(response.status_code, 200)
-        for section in (
-            "General information",
-            "Store information",
-            "Pricing breakdown",
-            "Images",
-            "Dates",
-            "Approval information",
-            "Status history",
-            "Price history",
-        ):
-            self.assertContains(response, section)
 
-    def test_pricing_requires_manage_product_pricing(self):
-        self.grant_catalog_perms(self.admin, "view_product")
-        self.client.login(username="prod-admin", password="secure-password-123")
-        url = reverse("catalog:product_pricing", kwargs={"pk": self.product.pk})
-        self.assertEqual(self.client.get(url).status_code, 403)
-        self.grant_catalog_perms(self.admin, "manage_product_pricing")
-        self.assertEqual(self.client.get(url).status_code, 200)
 
-    def test_pricing_ignores_submitted_final_price(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:product_pricing", kwargs={"pk": self.product.pk}),
-            {
-                "profit_margin_type": MarginType.FIXED,
-                "profit_margin": "15.00",
-                "discount_type": "",
-                "discount_value": "0",
-                "final_price": "1.00",
-                "selling_price": "1.00",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.selling_price, Decimal("115.00"))
-        self.assertEqual(self.product.final_price, Decimal("115.00"))
-        self.assertTrue(
-            AdminAuditLog.objects.filter(
-                action=AdminAuditLog.Action.PRODUCT_PRICING_CHANGED
-            ).exists()
-        )
 
-    def test_pricing_page_shows_readonly_store_price_and_previews(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.get(
-            reverse("catalog:product_pricing", kwargs={"pk": self.product.pk})
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Store price")
-        self.assertContains(response, "Calculated selling price preview")
-        self.assertContains(response, "Calculated final price preview")
-        self.assertContains(response, "Change reason")
-        self.assertContains(response, str(self.product.store_price))
-        self.assertContains(response, 'id="id_store_price_display"')
-        self.assertContains(response, "readonly")
 
-    def test_status_change_is_post_only(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        url = reverse("catalog:product_change_status", kwargs={"pk": self.product.pk})
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 405)
 
-    def test_reject_requires_reason(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:product_change_status", kwargs={"pk": self.product.pk}),
-            {"new_status": ProductStatus.REJECTED, "reason": ""},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.status, ProductStatus.PENDING)
 
-    def test_approve_flow_via_portal(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        self.prepare_product_for_approval(self.product, priced_by=self.super_admin)
-        response = self.client.post(
-            reverse("catalog:product_change_status", kwargs={"pk": self.product.pk}),
-            {"new_status": ProductStatus.APPROVED, "reason": ""},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.status, ProductStatus.APPROVED)
-        self.assertEqual(self.product.approved_by.username, "prod-super")
-        self.assertIsNotNone(self.product.approved_at)
-        self.assertTrue(
-            AdminAuditLog.objects.filter(
-                action=AdminAuditLog.Action.PRODUCT_STATUS_CHANGED
-            ).exists()
-        )
 
-    def test_audit_ip_ignores_spoofed_x_forwarded_for(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        self.prepare_product_for_approval(self.product, priced_by=self.super_admin)
-        response = self.client.post(
-            reverse("catalog:product_change_status", kwargs={"pk": self.product.pk}),
-            {"new_status": ProductStatus.APPROVED, "reason": "IP spoof check"},
-            HTTP_X_FORWARDED_FOR="203.0.113.50, 198.51.100.1",
-            REMOTE_ADDR="127.0.0.1",
-        )
-        self.assertEqual(response.status_code, 302)
-        audit = AdminAuditLog.objects.filter(
-            action=AdminAuditLog.Action.PRODUCT_STATUS_CHANGED,
-        ).latest("created_at")
-        self.assertEqual(audit.ip_address, "127.0.0.1")
-        self.assertNotEqual(audit.ip_address, "203.0.113.50")
 
-    def test_images_page_requires_change_permission(self):
-        self.grant_catalog_perms(self.admin, "view_product")
-        self.client.login(username="prod-admin", password="secure-password-123")
-        url = reverse("catalog:product_images", kwargs={"pk": self.product.pk})
-        self.assertEqual(self.client.get(url).status_code, 403)
-        self.grant_catalog_perms(self.admin, "change_product")
-        self.assertEqual(self.client.get(url).status_code, 200)
-
-    def test_image_delete_is_post_only(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        url = reverse(
-            "catalog:product_image_delete",
-            kwargs={"pk": self.product.pk, "image_id": 1},
-        )
-        self.assertEqual(self.client.get(url).status_code, 405)
-
-    def test_taxonomy_urls(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        self.assertEqual(
-            self.client.get(reverse("catalog:category_list")).status_code, 200
-        )
-        self.assertEqual(
-            self.client.get(reverse("catalog:brand_list")).status_code, 200
-        )
-        self.assertEqual(self.client.get(reverse("catalog:tag_list")).status_code, 200)
-        self.assertEqual(
-            reverse("catalog:category_list"), "/management/product-categories/"
-        )
-        self.assertEqual(reverse("catalog:brand_list"), "/management/brands/")
-        self.assertEqual(reverse("catalog:tag_list"), "/management/tags/")
-        self.assertEqual(
-            reverse("catalog:product_images", kwargs={"pk": self.product.pk}),
-            f"/management/products/{self.product.pk}/images/",
-        )
-
-    def test_create_product_logs_audit(self):
-        self.client.login(username="prod-super", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:product_create"),
-            {
-                "store": self.store.pk,
-                "name": "Created Via Portal",
-                "sku": "CREATE-1",
-                "category": self.category.pk,
-                "brand": self.brand.pk,
-                "store_price": "25.00",
-                "unit": "PIECE",
-                "stock_quantity": "2",
-                "is_active": "on",
-                "description": "",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        product = Product.objects.get(sku="CREATE-1")
-        self.assertEqual(product.status, ProductStatus.PENDING)
-        self.assertEqual(product.stock_quantity, Decimal("0.000"))
-        self.assertTrue(
-            AdminAuditLog.objects.filter(
-                action=AdminAuditLog.Action.PRODUCT_CREATED,
-                metadata__product_code=product.product_code,
-            ).exists()
-        )
 
     def test_django_admin_status_and_prices_readonly(self):
         from catalog.admin import ProductAdmin
@@ -1992,289 +1478,18 @@ class StorePortalProductIsolationTests(CatalogTestMixin, TestCase):
             name="B Product",
         )
 
-    def test_list_only_own_store_products(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.get(reverse("catalog:store_product_list"))
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn("A Product", content)
-        self.assertNotIn("B Product", content)
-        self.assertContains(response, "Final price")
-        self.assertContains(response, "Rejection")
-
-    def test_list_filters_category_brand_stock(self):
-        self.create_product(
-            store=self.store_a,
-            category=self.cat,
-            sku="ZERO",
-            name="Zero Stock",
-            stock_quantity=Decimal("0"),
-        )
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.get(
-            reverse("catalog:store_product_list"),
-            {"brand": self.brand.pk, "stock": "in_stock"},
-        )
-        self.assertContains(response, "A Product")
-        self.assertNotContains(response, "Zero Stock")
-
-    def test_foreign_product_detail_404(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.get(
-            reverse("catalog:store_product_detail", kwargs={"pk": self.product_b.pk})
-        )
-        self.assertEqual(response.status_code, 404)
-
-    def test_foreign_product_edit_404(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:store_product_edit", kwargs={"pk": self.product_b.pk}),
-            {"name": "Hacked", "sku": "HACK", "category": self.cat.pk, "store_price": "1"},
-        )
-        self.assertEqual(response.status_code, 404)
-        self.product_b.refresh_from_db()
-        self.assertEqual(self.product_b.name, "B Product")
-
-    def test_foreign_product_images_404(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.get(
-            reverse("catalog:store_product_images", kwargs={"pk": self.product_b.pk})
-        )
-        self.assertEqual(response.status_code, 404)
-
-    def test_create_binds_to_request_store_ignores_store_id(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:store_product_create"),
-            {
-                "name": "Bound Product",
-                "sku": "BOUND-1",
-                "category": self.cat.pk,
-                "brand": self.brand.pk,
-                "store_price": "33.00",
-                "unit": "KG",
-                "unit_value": "1.5",
-                "stock_quantity": "8",
-                "low_stock_threshold": "2",
-                "description": "",
-                "store": self.store_b.pk,
-                "store_id": self.store_b.pk,
-                "is_featured": "on",
-                "is_active": "on",
-                "final_price": "1.00",
-                "profit_margin": "99",
-                "profit_margin_type": "FIXED",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        product = Product.objects.get(sku="BOUND-1")
-        self.assertEqual(product.store_id, self.store_a.pk)
-        self.assertEqual(product.status, ProductStatus.PENDING)
-        self.assertFalse(product.is_featured)
-        self.assertIsNone(product.final_price)
-        self.assertFalse(product.profit_margin_type)
-        self.assertEqual(product.unit_value, Decimal("1.500"))
-        self.assertEqual(product.low_stock_threshold, Decimal("2.000"))
-        self.assertEqual(product.stock_quantity, Decimal("0.000"))
-
-    def test_create_as_draft(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:store_product_create"),
-            {
-                "name": "Draft Product",
-                "sku": "DRAFT-1",
-                "category": self.cat.pk,
-                "store_price": "12.00",
-                "description": "",
-                "save_as_draft": "on",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        product = Product.objects.get(sku="DRAFT-1")
-        self.assertEqual(product.status, ProductStatus.DRAFT)
-
-    def test_create_without_images_is_optional(self):
-        """Multi-file widget must not fail when no images are chosen."""
-        from django.utils.datastructures import MultiValueDict
-        from catalog.forms import StoreProductCreateForm
-
-        data = {
-            "name": "No Img Product",
-            "sku": "NOIMG-1",
-            "category": str(self.cat.pk),
-            "store_price": "12.00",
-            "description": "",
-        }
-        # Browser multi-file empty selection surfaces as an empty list.
-        form = StoreProductCreateForm(data, MultiValueDict({"images": []}))
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["images"], [])
-
-    def test_create_with_multiple_images(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        img_a = self._uploaded_image(name="a.jpg")
-        img_b = self._uploaded_image(name="b.jpg")
-        response = self.client.post(
-            reverse("catalog:store_product_create"),
-            {
-                "name": "With Images",
-                "sku": "IMGS-1",
-                "category": self.cat.pk,
-                "store_price": "12.00",
-                "description": "",
-                "images": [img_a, img_b],
-            },
-        )
-        self.assertEqual(response.status_code, 302, response.content)
-        product = Product.objects.get(sku="IMGS-1")
-        self.assertEqual(product.images.count(), 2)
-        self.assertEqual(product.images.filter(is_primary=True).count(), 1)
-
-    def test_submit_draft_post_only(self):
-        draft = self.create_product(
-            store=self.store_a,
-            category=self.cat,
-            sku="DRAFT-SUB",
-            status=ProductStatus.DRAFT,
-        )
-        self.client.login(username="portal-a", password="secure-password-123")
-        url = reverse("catalog:store_product_submit", kwargs={"pk": draft.pk})
-        self.assertEqual(self.client.get(url).status_code, 405)
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, 302)
-        draft.refresh_from_db()
-        self.assertEqual(draft.status, ProductStatus.PENDING)
-
-    def test_store_cannot_set_management_pricing_or_feature(self):
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:store_product_edit", kwargs={"pk": self.product_a.pk}),
-            {
-                "name": self.product_a.name,
-                "sku": self.product_a.sku,
-                "category": self.cat.pk,
-                "brand": self.brand.pk,
-                "store_price": "150.00",
-                "unit": "PIECE",
-                "unit_value": "1",
-                "stock_quantity": "10",
-                "low_stock_threshold": "3",
-                "description": "",
-                "final_price": "1.00",
-                "selling_price": "1.00",
-                "profit_margin": "999.00",
-                "is_featured": "on",
-                "is_active": "",
-                "status": ProductStatus.APPROVED,
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product_a.refresh_from_db()
-        self.assertEqual(self.product_a.store_price, Decimal("150.00"))
-        self.assertIsNone(self.product_a.final_price)
-        self.assertFalse(self.product_a.profit_margin_type)
-        self.assertFalse(self.product_a.is_featured)
-        self.assertTrue(self.product_a.is_active)
-        self.assertNotEqual(self.product_a.status, ProductStatus.APPROVED)
-
-    def test_edit_approved_commercial_fields_returns_pending(self):
-        admin = User.objects.create_user(
-            username="iso-admin",
-            email="iso-admin@example.com",
-            password="secure-password-123",
-            role=Role.SUPER_ADMIN,
-            is_staff=True,
-            is_superuser=True,
-        )
-        apply_admin_pricing(
-            product=self.product_a,
-            profit_margin_type=MarginType.FIXED,
-            profit_margin=Decimal("10.00"),
-            changed_by=admin,
-        )
-        self.attach_product_image(self.product_a)
-        record_product_status_change(
-            product=self.product_a,
-            new_status=ProductStatus.APPROVED,
-            changed_by=admin,
-        )
-        self.product_a.refresh_from_db()
-        self.assertEqual(self.product_a.status, ProductStatus.APPROVED)
-        prior_selling = self.product_a.selling_price
-        prior_final = self.product_a.final_price
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:store_product_edit", kwargs={"pk": self.product_a.pk}),
-            {
-                "name": self.product_a.name,
-                "sku": self.product_a.sku,
-                "category": self.cat.pk,
-                "brand": self.brand.pk,
-                "store_price": "199.00",
-                "unit": "PIECE",
-                "unit_value": "1",
-                "stock_quantity": "10",
-                "low_stock_threshold": "3",
-                "description": "",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.product_a.refresh_from_db()
-        self.assertEqual(self.product_a.status, ProductStatus.PENDING)
-        self.assertEqual(self.product_a.store_price, Decimal("199.00"))
-        self.assertEqual(self.product_a.selling_price, prior_selling)
-        self.assertEqual(self.product_a.final_price, prior_final)
-        self.assertFalse(product_is_publicly_available(self.product_a))
-        self.assertTrue(
-            ProductStatusHistory.objects.filter(
-                product=self.product_a,
-                old_status=ProductStatus.APPROVED,
-                new_status=ProductStatus.PENDING,
-            ).exists()
-        )
-
-    def test_suspended_store_blocked(self):
-        self.store_a.status = StoreStatus.SUSPENDED
-        self.store_a.save(update_fields=["status", "updated_at"])
-        self.client.login(username="portal-a", password="secure-password-123")
-        response = self.client.get(reverse("catalog:store_product_list"))
-        self.assertEqual(response.status_code, 403)
-
-    def test_images_url_shape(self):
-        self.assertEqual(
-            reverse("catalog:store_product_images", kwargs={"pk": self.product_a.pk}),
-            f"/store/products/{self.product_a.pk}/images/",
-        )
 
 
-class TaxonomyPermissionTests(CatalogTestMixin, TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.admin = User.objects.create_user(
-            username="tax-admin",
-            email="tax-admin@example.com",
-            password="secure-password-123",
-            role=Role.ADMIN,
-            is_staff=True,
-        )
 
-    def test_category_list_requires_permission(self):
-        self.client.login(username="tax-admin", password="secure-password-123")
-        self.assertEqual(
-            self.client.get(reverse("catalog:category_list")).status_code, 403
-        )
-        self.grant_catalog_perms(self.admin, "view_productcategory")
-        self.assertEqual(
-            self.client.get(reverse("catalog:category_list")).status_code, 200
-        )
 
-    def test_create_brand(self):
-        self.grant_catalog_perms(self.admin, "view_brand", "add_brand")
-        self.client.login(username="tax-admin", password="secure-password-123")
-        response = self.client.post(
-            reverse("catalog:brand_create"),
-            {"name": "NewBrand", "description": "", "is_active": "on"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(Brand.objects.filter(name="NewBrand").exists())
+
+
+
+
+
+
+
+
+
+
+

@@ -281,7 +281,6 @@ class InventoryDashboardIsolationTests(TestCase):
             can_manage_inventory=True,
             designation="Manager",
         )
-        self.dashboard_url = reverse("stores:store_portal_dashboard")
 
     def test_store_stats_are_isolated(self):
         with CaptureQueriesContext(connection) as ctx:
@@ -302,101 +301,5 @@ class InventoryDashboardIsolationTests(TestCase):
         self.assertEqual(stats_b["expired"], 1)
         self.assertEqual(stats_b["expiring_soon"], 1)
 
-    def test_store_dashboard_renders_only_own_inventory_counts(self):
-        self.client.login(username="inv-dash-a", password="secure-password-123")
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.status_code, 200)
-        stats = response.context["inventory_stats"]
-        self.assertEqual(stats["total"], 5)
-        self.assertEqual(stats["expired"], 1)
-        self.assertContains(response, "<strong>Total inventory Products:</strong> 5")
-        self.assertContains(response, "<strong>In-stock Products:</strong> 3")
-        self.assertContains(response, "<strong>Low-stock Products:</strong> 1")
-        self.assertContains(response, "<strong>Out-of-stock Products:</strong> 1")
-        self.assertContains(response, "<strong>Expired Products:</strong> 1")
-        self.assertContains(
-            response, "<strong>Products expiring within 30 days:</strong> 1"
-        )
-        self.assertContains(response, "Open Inventory")
-
-        self.client.login(username="inv-dash-b", password="secure-password-123")
-        response_b = self.client.get(self.dashboard_url)
-        self.assertEqual(response_b.context["inventory_stats"]["total"], 3)
-        self.assertContains(
-            response_b, "<strong>Total inventory Products:</strong> 3"
-        )
 
 
-class ManagementInventoryDashboardTests(TestCase):
-    def setUp(self):
-        self.client = Client()
-        self.today = timezone.localdate()
-        self.super_admin = User.objects.create_superuser(
-            username="inv-dash-super",
-            email="inv-dash-super@example.com",
-            password="secure-password-123",
-            role=Role.SUPER_ADMIN,
-        )
-
-        store = Store.objects.create(
-            name="Mgmt Inv Dash",
-            store_type=StoreType.OWN_STORE,
-            status=StoreStatus.ACTIVE,
-            is_active=True,
-            commission_percentage=Decimal("5.00"),
-            address=Address.objects.create(
-                line1="Mgmt Rd",
-                city="Bengaluru",
-                state="Karnataka",
-                postal_code="560001",
-                latitude=Decimal("12.971600"),
-                longitude=Decimal("77.594600"),
-            ),
-            category=StoreCategory.objects.create(name="Mgmt Inv Cat"),
-        )
-        category = ProductCategory.objects.create(name="Mgmt Inv Goods")
-        Product.objects.create(
-            store=store,
-            name="Dash In",
-            sku="MGMT-IN",
-            category=category,
-            store_price=Decimal("10.00"),
-            status=ProductStatus.APPROVED,
-            stock_quantity=Decimal("10"),
-            low_stock_threshold=Decimal("2"),
-        )
-        Product.objects.create(
-            store=store,
-            name="Dash Out",
-            sku="MGMT-OUT",
-            category=category,
-            store_price=Decimal("10.00"),
-            status=ProductStatus.APPROVED,
-            stock_quantity=Decimal("0"),
-            low_stock_threshold=Decimal("2"),
-        )
-        Product.objects.create(
-            store=store,
-            name="Dash Expired",
-            sku="MGMT-EXP",
-            category=category,
-            store_price=Decimal("10.00"),
-            status=ProductStatus.APPROVED,
-            stock_quantity=Decimal("3"),
-            low_stock_threshold=Decimal("1"),
-            expiry_date=self.today - timedelta(days=1),
-        )
-        self.dashboard_url = reverse("accounts:management_dashboard")
-
-    def test_management_dashboard_shows_inventory_counts(self):
-        self.client.login(username="inv-dash-super", password="secure-password-123")
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.status_code, 200)
-        stats = response.context["inventory_stats"]
-        self.assertEqual(stats["total"], 3)
-        self.assertEqual(stats["in_stock"], 2)
-        self.assertEqual(stats["out_of_stock"], 1)
-        self.assertEqual(stats["expired"], 1)
-        self.assertContains(response, "<strong>Total inventory Products:</strong> 3")
-        self.assertContains(response, "<strong>Out-of-stock Products:</strong> 1")
-        self.assertContains(response, "<strong>Expired Products:</strong> 1")

@@ -33,8 +33,6 @@ class ManagementDashboardCustomerCardTests(TestCase):
             codename="view_customer",
             content_type__app_label="customers",
         )
-        self.dashboard_url = reverse("accounts:management_dashboard")
-        self.customers_url = reverse("customers:customer_list")
 
         # Website: 2 active unverified, 1 inactive unverified
         for index in range(1, 3):
@@ -106,70 +104,9 @@ class ManagementDashboardCustomerCardTests(TestCase):
             registration_source=RegistrationSource.MOBILE_APP,
         )
 
-    def _assert_customer_card_counts(self, response):
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Customers")
-        self.assertContains(response, f'href="{self.customers_url}"')
-        stats = response.context["customer_stats"]
-        self.assertEqual(stats["total"], 7)
-        self.assertEqual(stats["active"], 6)
-        self.assertEqual(stats["inactive"], 1)
-        self.assertEqual(stats["verified"], 2)
-        self.assertEqual(stats["unverified"], 5)
-        self.assertEqual(stats["website"], 3)
-        self.assertEqual(stats["management"], 3)
-        self.assertContains(
-            response, f"<strong>Total Customers:</strong> {stats['total']}"
-        )
-        self.assertContains(
-            response, f"<strong>Active Customers:</strong> {stats['active']}"
-        )
-        self.assertContains(
-            response, f"<strong>Inactive Customers:</strong> {stats['inactive']}"
-        )
-        self.assertContains(
-            response, f"<strong>Verified Customers:</strong> {stats['verified']}"
-        )
-        self.assertContains(
-            response,
-            f"<strong>Unverified Customers:</strong> {stats['unverified']}",
-        )
-        self.assertContains(
-            response,
-            f"<strong>Website registrations:</strong> {stats['website']}",
-        )
-        self.assertContains(
-            response,
-            f"<strong>Management registrations:</strong> {stats['management']}",
-        )
 
-    def test_customer_card_hidden_for_admin_without_view_customer(self):
-        self.client.login(username="cust-dash-admin", password="secure-password-123")
-        with CaptureQueriesContext(connection) as ctx:
-            response = self.client.get(self.dashboard_url)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.context["customer_stats"])
-        self.assertNotContains(response, "Total Customers")
-        self.assertNotContains(response, "Website registrations")
-        self.assertNotContains(response, self.customers_url)
-        customer_table_queries = [
-            query["sql"]
-            for query in ctx.captured_queries
-            if "customers_customer" in query["sql"].lower()
-        ]
-        self.assertEqual(customer_table_queries, [])
 
-    def test_customer_card_visible_with_counts_for_admin_with_view_customer(self):
-        self.admin.user_permissions.add(self.view_customer)
-        self.client.login(username="cust-dash-admin", password="secure-password-123")
-        response = self.client.get(self.dashboard_url)
-        self._assert_customer_card_counts(response)
-
-    def test_customer_card_visible_with_counts_for_super_admin(self):
-        self.client.login(username="cust-dash-super", password="secure-password-123")
-        response = self.client.get(self.dashboard_url)
-        self._assert_customer_card_counts(response)
 
     def test_customer_dashboard_stats_uses_single_aggregate_query(self):
         with CaptureQueriesContext(connection) as ctx:

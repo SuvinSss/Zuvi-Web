@@ -181,8 +181,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'locations.context_processors.delivery_location',
-                'cart.context_processors.cart_summary',
             ],
         },
     },
@@ -345,6 +343,10 @@ LOGIN_URL = "/management/login/"
 # Private files (delivery evidence, complaint/ticket attachments). Never served from
 # MEDIA_URL: they are only streamed by authenticated API endpoints after an access check.
 PRIVATE_MEDIA_ROOT = BASE_DIR / 'private_media'
+if len(sys.argv) > 1 and sys.argv[1] == 'test':
+    # Tests must never write evidence files into the working tree.
+    import tempfile
+    PRIVATE_MEDIA_ROOT = Path(tempfile.mkdtemp(prefix='zuuvi-test-private-'))
 STORAGES['private'] = {
     'BACKEND': 'django.core.files.storage.FileSystemStorage',
     'OPTIONS': {'location': str(PRIVATE_MEDIA_ROOT), 'base_url': None},
@@ -421,4 +423,3 @@ EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='ZuuVi <noreply@zuuvi.in>')
 CUSTOMER_EMAIL_ENABLED = bool(EMAIL_HOST)
 PASSWORD_RESET_TIMEOUT = 3600
-TEMPLATES[0]['OPTIONS']['context_processors'].append('customers.authentication.auth_options')

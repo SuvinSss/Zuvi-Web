@@ -10,15 +10,6 @@ from .models import ProductImage
 from .pricing import DiscountType
 
 class ReleaseCatalogueTests(PublicCatalogueTestMixin, TestCase):
-    def test_offers_filter_keeps_visibility_and_backend_prices(self):
-        deal=self.create_public_product(name='Eligible Deal',discount_type=DiscountType.FIXED,discount_value=Decimal('10.00'))
-        self.create_public_product(name='Regular Product')
-        self.create_public_product(name='Hidden Deal',discount_type=DiscountType.FIXED,discount_value=Decimal('10.00'),is_active=False)
-        r=self.client.get(reverse('catalog:public_product_list'),{'offers':'1'})
-        self.assertContains(r,'Eligible Deal');self.assertContains(r,'Grab Deal')
-        self.assertNotContains(r,'Regular Product');self.assertNotContains(r,'Hidden Deal')
-        self.assertNotContains(r,'Most ordered');self.assertNotContains(r,'Trending')
-        self.assertContains(r,'name="offers"')
 
     def test_derivative_preserves_original_and_metadata_does_not_reencode(self):
         product=self.create_public_product();image=self.attach_image(product)
@@ -28,11 +19,6 @@ class ReleaseCatalogueTests(PublicCatalogueTestMixin, TestCase):
         self.assertEqual(image.display_image.name,derived)
         self.assertTrue(image.image.storage.exists(original))
 
-    def test_manifest_and_service_worker_do_not_cache_private_pages(self):
-        r=self.client.get('/manifest.webmanifest');self.assertEqual(r.status_code,200)
-        self.assertEqual(r.json()['display'],'standalone')
-        sw=self.client.get('/service-worker.js')
-        self.assertEqual(sw.status_code,200);self.assertNotContains(sw,'cache.put');self.assertNotContains(sw,'caches.open')
 
 class ImageNormalizationTests(SimpleTestCase):
     def test_transparent_trim_and_non_destructive_fit(self):

@@ -19,24 +19,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from accounts.views import management_permission_denied_view
 from .health import live, ready
-
-handler403 = management_permission_denied_view
 
 urlpatterns = [
     path('health/live/', live, name='health_live'),
     path('health/ready/', ready, name='health_ready'),
     path('admin/', admin.site.urls),
     path('api/v1/', include('config.api_urls')),
-    path("", include("catalog.urls")),
-    path("", include("cart.urls")),
-    path("", include("orders.urls")),
-    path("", include("accounts.urls")),
-    path("", include("stores.urls")),
-    path("", include("inventory.urls")),
-    path("", include("customers.urls")),
-    path("", include("locations.urls")),
 ]
 
 if settings.DEBUG:

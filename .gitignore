@@ -31,3 +31,6 @@ backend/loadtests/results/
 frontend/test-results/
 frontend/playwright-report/
 frontend/e2e/.auth.json
+
+# Private uploads (delivery evidence, attachments) are never committed
+backend/private_media/

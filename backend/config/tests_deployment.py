@@ -234,7 +234,7 @@ class StaticBuildTests(SimpleTestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             manifest = json.loads((root / 'staticfiles.json').read_text())
-            for asset in ('css/responsive.css', 'cart/js/cart.js', 'locations/js/location_picker.js', 'admin/css/base.css'):
+            for asset in ('pwa/icon-192.png', 'pwa/favicon.svg', 'admin/css/base.css'):
                 self.assertIn(asset, manifest['paths'])
                 self.assertTrue((root / manifest['paths'][asset]).is_file())
             media = Path(directory) / 'media'
@@ -248,7 +248,7 @@ settings.MEDIA_ROOT = sys.argv[1]
 from config.wsgi import application
 from django.test import Client
 client = Client(HTTP_HOST='localhost')
-response = client.get('/static/css/responsive.css', secure=True)
+response = client.get('/static/pwa/favicon.svg', secure=True)
 assert response.status_code == 200, response.status_code
 response.close()
 response = client.get('/media/private-test.txt', secure=True)
@@ -384,24 +384,6 @@ class HealthEndpointTests(SimpleTestCase):
                         self.assertNotIn('Location', response.headers)
                         self.assert_uncached(response)
 
-    def test_ordinary_http_routes_still_redirect_to_exact_https_location(self):
-        paths = (
-            '/', reverse('customers:customer_portal_login'),
-            reverse('customers:customer_portal_dashboard'),
-            reverse('accounts:management_login'),
-            reverse('accounts:management_dashboard'), reverse('admin:index'),
-        )
-        for path in paths:
-            for method in ('get', 'head'):
-                with self.subTest(path=path, method=method):
-                    # An untrusted forwarded header must not bypass HTTPS.
-                    response = getattr(self.client, method)(
-                        f'{path}?next=%2Fcart%2F', HTTP_X_FORWARDED_PROTO='https',
-                    )
-                    self.assertEqual(response.status_code, 301)
-                    self.assertEqual(
-                        response.headers['Location'], f'https://testserver{path}?next=%2Fcart%2F',
-                    )
 
     def test_health_like_paths_still_redirect_to_exact_https_location(self):
         for path in (

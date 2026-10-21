@@ -344,151 +344,16 @@ class CheckoutViewIsolationTests(CheckoutTestMixin, TestCase):
             product_code=self.product.product_code,
             quantity=Decimal("1.000"),
         )
-        self.preview_url = reverse("orders:checkout_preview")
-        self.place_url = reverse("orders:checkout_place")
-        self.dashboard_url = reverse("customers:customer_portal_dashboard")
 
     def _csrf(self, url):
         return self.client.get(url).cookies["csrftoken"].value
 
-    def _login(self, user):
-        self.client.force_login(user)
-        self.client.get(self.dashboard_url)
 
-    def test_preview_shows_own_addresses_and_issues_token(self):
-        self._login(self.user_a)
-        response = self.client.get(self.preview_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Item")
-        self.assertContains(response, "1 Alice Road")
-        self.assertNotContains(response, "99 Bob Secret")
-        self.assertContains(response, "checkout_token")
-        self.assertContains(response, "Cash on Delivery")
-        self.assertContains(
-            response,
-            "Delivery eligibility will be confirmed based on your location",
-        )
-        self.assertIn("checkout_token", self.client.session)
 
-    def test_cannot_place_with_other_customers_address(self):
-        self._login(self.user_a)
-        preview = self.client.get(self.preview_url)
-        token = preview.context["checkout_token"]
-        csrf = preview.cookies["csrftoken"].value
-        response = self.client.post(
-            self.place_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "checkout_token": token,
-                "fulfillment_type": FulfillmentType.DELIVERY,
-                "payment_method": PaymentMethod.COD,
-                "delivery_address_id": self.address_b.pk,
-                "customer_id": self.customer_b.pk,
-                "items_subtotal": "1.00",
-                "grand_total": "1.00",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(Order.objects.count(), 0)
 
-    def test_rejects_invalid_pickup_location_on_place(self):
-        self._login(self.user_a)
-        preview = self.client.get(self.preview_url)
-        token = preview.context["checkout_token"]
-        csrf = preview.cookies["csrftoken"].value
 
-        other_store = self.create_store(name="Foreign")
-        foreign_pickup = self.create_pickup(other_store, code="PK-X")
 
-        response = self.client.post(
-            self.place_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "checkout_token": token,
-                "fulfillment_type": FulfillmentType.FACILITY_PICKUP,
-                "payment_method": PaymentMethod.PAY_AT_PICKUP,
-                f"pickup_location_{self.store.pk}": foreign_pickup.pk,
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(Order.objects.count(), 0)
 
-    def test_place_requires_post_and_csrf(self):
-        self._login(self.user_a)
-        self.assertEqual(self.client.get(self.place_url).status_code, 405)
-        plain = Client(enforce_csrf_checks=True)
-        plain.force_login(self.user_a)
-        response = plain.post(
-            self.place_url,
-            {
-                "checkout_token": "x",
-                "fulfillment_type": FulfillmentType.DELIVERY,
-                "payment_method": PaymentMethod.COD,
-                "delivery_address_id": self.address_a.pk,
-            },
-        )
-        self.assertEqual(response.status_code, 403)
-
-    def test_successful_delivery_place(self):
-        self._login(self.user_a)
-        preview = self.client.get(self.preview_url)
-        token = preview.context["checkout_token"]
-        csrf = preview.cookies["csrftoken"].value
-        response = self.client.post(
-            self.place_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "checkout_token": token,
-                "fulfillment_type": FulfillmentType.DELIVERY,
-                "payment_method": PaymentMethod.COD,
-                "delivery_address_id": self.address_a.pk,
-                "customer_notes": "Ring bell",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        order = Order.objects.get()
-        self.assertEqual(
-            response.url,
-            reverse(
-                "orders:customer_order_detail",
-                kwargs={"order_number": order.order_number},
-            ),
-        )
-        self.assertEqual(order.customer_id, self.customer_a.pk)
-        self.assertEqual(order.delivery_line1, "1 Alice Road")
-        self.assertEqual(order.customer_notes, "Ring bell")
-        self.assertNotIn("checkout_token", self.client.session)
-
-    def test_facility_pickup_is_disabled_at_checkout(self):
-        self._login(self.user_a)
-        preview = self.client.get(self.preview_url)
-        self.assertNotContains(preview, "FACILITY_PICKUP")
-        self.assertNotContains(preview, "Pay at Pickup")
-        token = preview.context["checkout_token"]
-        csrf = preview.cookies["csrftoken"].value
-        response = self.client.post(
-            self.place_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "checkout_token": token,
-                "fulfillment_type": FulfillmentType.FACILITY_PICKUP,
-                "payment_method": PaymentMethod.PAY_AT_PICKUP,
-                f"pickup_location_{self.store.pk}": self.pickup.pk,
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(Order.objects.count(), 0)
-
-        with self.assertRaises(ValidationError) as ctx:
-            place_order(
-                customer=self.customer_a,
-                checkout_token=token,
-                fulfillment_type=FulfillmentType.FACILITY_PICKUP,
-                payment_method=PaymentMethod.PAY_AT_PICKUP,
-                pickup_post_data={f"pickup_location_{self.store.pk}": self.pickup.pk},
-            )
-        self.assertIn("fulfillment_type", ctx.exception.message_dict)
-        self.assertEqual(Order.objects.count(), 0)
 
 class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
     def setUp(self):
@@ -511,43 +376,6 @@ class CheckoutAddressGateTests(CheckoutTestMixin, TestCase):
             product_code=self.product.product_code,
             quantity=Decimal("1.000"),
         )
-        self.preview_url = reverse("orders:checkout_preview")
-        self.dashboard_url = reverse("customers:customer_portal_dashboard")
 
-    def _login(self):
-        self.client.force_login(self.user)
-        self.client.get(self.dashboard_url)
 
-    def test_redirects_to_add_address_when_none_exist(self):
-        self._login()
-        response = self.client.get(self.preview_url)
-        self.assertEqual(response.status_code, 302)
-        expected_prefix = reverse("customers:customer_portal_address_create")
-        self.assertTrue(response.url.startswith(expected_prefix))
-        self.assertIn(f"next={self.preview_url}", response.url)
-        self.assertNotIn("checkout_token", self.client.session)
 
-    def test_can_reach_checkout_once_address_exists(self):
-        create_customer_delivery_address(
-            customer=self.customer,
-            data={
-                "label": AddressLabel.HOME,
-                "recipient_name": "No Address",
-                "phone_number": "9000000401",
-                "line1": "1 Gate Road",
-                "line2": "",
-                "landmark": "",
-                "city": "Bengaluru",
-                "district": "",
-                "state": "Karnataka",
-                "postal_code": "560001",
-                "latitude": "12.971600",
-                "longitude": "77.594600",
-                "delivery_instructions": "",
-                "is_default": True,
-            },
-        )
-        self._login()
-        response = self.client.get(self.preview_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("checkout_token", self.client.session)

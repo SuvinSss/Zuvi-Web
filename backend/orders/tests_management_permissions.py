@@ -211,179 +211,19 @@ class OrderManagementPermissionViewTests(OrderPermissionTestMixin, TestCase):
         )
         self.order = self.place_sample_order()
         self.store_order = self.order.store_orders.get()
-        self.list_url = reverse("orders:management_order_list")
-        self.detail_url = reverse(
-            "orders:management_order_detail",
-            kwargs={"order_number": self.order.order_number},
-        )
-        self.change_url = reverse(
-            "orders:management_order_change_status",
-            kwargs={"order_number": self.order.order_number},
-        )
-        self.store_order_url = reverse(
-            "orders:management_store_order_detail",
-            kwargs={"store_order_number": self.store_order.store_order_number},
-        )
 
     def _login_admin_with(self, *codenames):
         self.admin = self.grant_order_perms(self.admin, *codenames)
         self.client.login(username="order-admin", password="secure-password-123")
 
-    def _csrf(self):
-        return self.client.get(self.detail_url).cookies["csrftoken"].value
 
-    def test_super_admin_can_view_and_mutate(self):
-        self.client.login(username="order-super", password="secure-password-123")
-        self.assertEqual(self.client.get(self.list_url).status_code, 200)
-        self.assertEqual(self.client.get(self.detail_url).status_code, 200)
-        self.assertEqual(self.client.get(self.store_order_url).status_code, 200)
 
-        csrf = self._csrf()
-        response = self.client.post(
-            self.change_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "action": "update_status",
-                "status-status": OrderStatus.CONFIRMED,
-                "status-reason": "Confirmed by super",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.CONFIRMED)
 
-    def test_admin_requires_view_order_to_list_and_detail(self):
-        self.client.login(username="order-admin", password="secure-password-123")
-        self.assertEqual(self.client.get(self.list_url).status_code, 403)
-        self.assertEqual(self.client.get(self.detail_url).status_code, 403)
-        self.assertEqual(self.client.get(self.store_order_url).status_code, 403)
 
-        self._login_admin_with("view_order")
-        self.assertEqual(self.client.get(self.list_url).status_code, 200)
-        detail = self.client.get(self.detail_url)
-        self.assertEqual(detail.status_code, 200)
-        self.assertContains(detail, self.order.order_number)
-        self.assertContains(detail, self.store_order.store_order_number)
-        self.assertEqual(self.client.get(self.store_order_url).status_code, 200)
 
-    def test_admin_requires_change_order_for_status_update(self):
-        self._login_admin_with("view_order")
-        csrf = self._csrf()
-        response = self.client.post(
-            self.change_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "action": "update_status",
-                "status-status": OrderStatus.CONFIRMED,
-                "status-reason": "No change perm",
-            },
-        )
-        self.assertEqual(response.status_code, 403)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.PLACED)
 
-        self._login_admin_with("view_order", "change_order")
-        csrf = self._csrf()
-        response = self.client.post(
-            self.change_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "action": "update_status",
-                "status-status": OrderStatus.CONFIRMED,
-                "status-reason": "Allowed",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.CONFIRMED)
 
-    def test_admin_requires_cancel_order_for_cancellation(self):
-        self._login_admin_with("view_order", "change_order")
-        csrf = self._csrf()
-        response = self.client.post(
-            self.change_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "action": "cancel",
-                "cancel-reason": "Should be denied",
-            },
-        )
-        self.assertEqual(response.status_code, 403)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.PLACED)
 
-        self._login_admin_with("view_order", "cancel_order")
-        csrf = self._csrf()
-        response = self.client.post(
-            self.change_url,
-            {
-                "csrfmiddlewaretoken": csrf,
-                "action": "cancel",
-                "cancel-reason": "Admin cancellation",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.CANCELLED)
-        self.assertEqual(self.order.payment_status, PaymentStatus.CANCELLED)
-
-    def test_state_change_requires_post(self):
-        self._login_admin_with("view_order", "change_order")
-        response = self.client.get(self.change_url)
-        self.assertEqual(response.status_code, 405)
-
-    def test_store_user_and_customer_cannot_access_management_orders(self):
-        self.client.login(username="mgmt-store-user", password="secure-password-123")
-        self.assertEqual(self.client.get(self.list_url).status_code, 403)
-        self.assertEqual(self.client.get(self.detail_url).status_code, 403)
-        self.assertEqual(self.client.get(self.store_order_url).status_code, 403)
-
-        self.client.logout()
-        self.client.login(
-            username="mgmt-order-customer",
-            password="secure-password-123",
-        )
-        self.assertEqual(self.client.get(self.list_url).status_code, 403)
-        self.assertEqual(self.client.get(self.detail_url).status_code, 403)
-        self.assertEqual(self.client.get(self.store_order_url).status_code, 403)
-
-    def test_list_search_and_filters(self):
-        self._login_admin_with("view_order")
-        response = self.client.get(
-            self.list_url,
-            {
-                "q": self.order.order_number,
-                "status": OrderStatus.PLACED,
-                "store": self.store.pk,
-                "customer": self.customer.pk,
-                "fulfillment_type": FulfillmentType.DELIVERY,
-                "payment_method": PaymentMethod.COD,
-                "payment_status": PaymentStatus.PENDING,
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.order.order_number)
-        self.assertContains(response, "Mgmt Customer")
-
-        response = self.client.get(
-            self.list_url,
-            {"q": self.store_order.store_order_number},
-        )
-        self.assertContains(response, self.order.order_number)
-
-        response = self.client.get(self.list_url, {"q": "no-such-order-xyz"})
-        self.assertNotContains(response, self.order.order_number)
-
-    def test_dashboard_orders_module_links_when_permitted(self):
-        dashboard = reverse("accounts:management_dashboard")
-        self.client.login(username="order-admin", password="secure-password-123")
-        response = self.client.get(dashboard)
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, reverse("orders:management_order_list"))
-
-        self._login_admin_with("view_order")
-        response = self.client.get(dashboard)
-        self.assertContains(response, reverse("orders:management_order_list"))
 
 
 class ManagementStatusRuleTests(OrderPermissionTestMixin, TestCase):

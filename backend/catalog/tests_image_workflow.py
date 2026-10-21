@@ -273,68 +273,6 @@ class ImageServiceWorkflowTests(WorkflowFixtures, TestCase):
         self.assertEqual(len(self.storage.objects), 1)
 
 
-class ImagePortalWorkflowTests(WorkflowFixtures, TestCase):
-    def test_management_and_store_direct_post_capacity_and_reapproval(self):
-        store_user = self.create_store_user(self.product.store)
-        for user, route in ((self.actor, 'product_images'), (store_user, 'store_product_images')):
-            with self.subTest(route=route):
-                self.client.force_login(user)
-                url = reverse('catalog:' + route, args=[self.product.pk])
-                if not self.product.images.exists():
-                    self.add()
-                self.approve_fixture()
-                response = self.client.post(url, {'image': self.unique_image()})
-                self.assertEqual(response.status_code, 302)
-                self.product.refresh_from_db()
-                self.assertEqual(self.product.status, ProductStatus.PENDING)
-                while self.product.images.count() < 5:
-                    self.add()
-                response = self.client.post(url, {'image': self.unique_image()})
-                self.assertEqual(self.product.images.count(), 5)
-                self.assertContains(response, 'at most 5')
-                ProductImage.objects.filter(product=self.product).exclude(is_primary=True).delete()
-
-    def test_foreign_image_ids_remain_404_on_own_product_routes(self):
-        other = self.create_product()
-        foreign = self.add(other)
-        own = self.add()
-        store_user = self.create_store_user(self.product.store)
-        for user, prefix in ((self.actor, "product"), (store_user, "store_product")):
-            self.client.force_login(user)
-            for operation in ("delete", "set_primary"):
-                url = reverse(f"catalog:{prefix}_image_{operation}", args=[self.product.pk, foreign.pk])
-                self.assertEqual(self.client.post(url).status_code, 404)
-        self.assertTrue(ProductImage.objects.filter(pk=foreign.pk).exists())
-        self.assertTrue(ProductImage.objects.filter(pk=own.pk).exists())
-
-    def test_portal_storage_failure_is_generic_logged_and_not_success(self):
-        self.client.force_login(self.actor)
-        url = reverse('catalog:product_images', args=[self.product.pk])
-        with patch.object(self.storage, '_save', side_effect=self.storage_error()), self.assertLogs('config.storage_errors', 'ERROR') as logs:
-            response = self.client.post(url, {'image': self.unique_image()})
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual([str(m) for m in get_messages(response.wsgi_request)], [STORAGE_ERROR_MESSAGE])
-        self.assertIn('synthetic-private-backend-detail', '\n'.join(logs.output))
-        self.assertFalse(self.product.images.exists())
-
-    def test_store_multiupload_failure_returns_no_success_and_no_product(self):
-        self.client.force_login(self.create_store_user(self.product.store))
-        original = self.storage._save
-        def later_failure(name, content):
-            if self.storage.objects:
-                raise self.storage_error()
-            return original(name, content)
-        payload = {'name': 'New upload', 'sku': 'multi', 'category': self.product.category_id,
-            'store_price': '100.00', 'unit': self.product.unit, 'unit_value': self.product.unit_value,
-            'low_stock_threshold': '0', 'images': [self.unique_image(), self.unique_image()]}
-        with patch.object(self.storage, '_save', side_effect=later_failure), self.assertLogs('config.storage_errors', 'ERROR'):
-            response = self.client.post(reverse('catalog:store_product_create'), payload)
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(Product.objects.filter(sku='multi').exists())
-        self.assertEqual([str(m) for m in get_messages(response.wsgi_request)], [STORAGE_ERROR_MESSAGE])
-        self.assertEqual(len(self.storage.objects), 1)
-
-
 class ImageAdminWorkflowTests(WorkflowFixtures, TestCase):
     def setUp(self):
         super().setUp()

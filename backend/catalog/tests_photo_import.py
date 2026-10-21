@@ -188,57 +188,9 @@ class PhotoImportTests(CatalogTestMixin, TestCase):
         with self.assertRaises(PermissionDenied):
             import_item(item_id=self.item.pk, actor=admin)
 
-    def test_store_user_cannot_access_import(self):
-        user = self.create_store_user(self.store)
-        self.client.force_login(user)
-        self.assertEqual(
-            self.client.get(reverse("catalog:photo_import")).status_code, 403
-        )
-        self.assertEqual(
-            self.client.post(
-                reverse("catalog:photo_import_create"),
-                data="{}",
-                content_type="application/json",
-            ).status_code,
-            403,
-        )
 
-    def test_other_admin_cannot_read_batch(self):
-        admin = get_user_model().objects.create_user(
-            username="other", email="other@example.test", role=Role.ADMIN, is_staff=True
-        )
-        admin.user_permissions.add(Permission.objects.get(codename="add_product"))
-        self.client.force_login(admin)
-        self.assertEqual(
-            self.client.get(
-                reverse("catalog:photo_import_batch", args=[self.batch.pk])
-            ).status_code,
-            404,
-        )
 
-    def test_post_required_and_invalid_image(self):
-        url = reverse("catalog:photo_import_action", args=[self.batch.pk, self.item.pk])
-        self.assertEqual(self.client.get(url).status_code, 405)
-        self.assertEqual(
-            self.client.post(
-                url,
-                {"action": "upload", "image": SimpleUploadedFile("bad.jpg", b"bad")},
-            ).status_code,
-            400,
-        )
-        self.assertEqual(self.item.photos.count(), 1)
 
-    def test_upload_retry_deduplicates_and_max_five(self):
-        url = reverse("catalog:photo_import_action", args=[self.batch.pk, self.item.pk])
-        self.item.photos.all().delete()
-        for _ in range(2):
-            self.assertEqual(
-                self.client.post(
-                    url, {"action": "upload", "image": image_file()}
-                ).status_code,
-                200,
-            )
-        self.assertEqual(self.item.photos.count(), 1)
 
     def test_offers_reject_bad_values_and_mismatches(self):
         for price in ["NaN", "Infinity", "-1", "0", "1.234"]:
@@ -265,70 +217,9 @@ class PhotoImportTests(CatalogTestMixin, TestCase):
         self.assertEqual(p.final_price, Decimal("120"))
         self.assertEqual(p.stock_quantity, 0)
 
-    def test_page_and_json(self):
-        self.assertContains(
-            self.client.get(reverse("catalog:photo_import")), "Read photo text"
-        )
-        r = self.client.get(reverse("catalog:photo_import_batch", args=[self.batch.pk]))
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.json()["items"][0]["source_key"], "Z001")
 
-    def test_photo_selection_and_split(self):
-        url = reverse("catalog:photo_import_action", args=[self.batch.pk, self.item.pk])
-        photo = self.item.photos.get()
-        photo.sha256 = hashlib.sha256(image_file().read()).hexdigest()
-        photo.save(update_fields=["sha256"])
-        result = self.client.post(
-            url,
-            data={
-                "action": "split",
-                "source_key": "Z001-blue",
-                "photo_ids": [photo.pk],
-            },
-            content_type="application/json",
-        )
-        self.assertEqual(result.status_code, 200)
-        split = self.batch.items.get(source_key="Z001-blue")
-        self.assertEqual(split.photos.count(), 1)
-        self.assertEqual(self.item.photos.count(), 0)
-        resumed = self.client.post(url, {"action": "upload", "image": image_file()})
-        self.assertEqual(resumed.status_code, 200)
-        self.assertEqual(self.item.photos.count(), 0)
-        self.assertEqual(split.photos.count(), 1)
-        self.item.refresh_from_db()
-        self.assertFalse(self.item.details["identity_verified"])
-        with self.assertRaises(ValidationError):
-            import_item(item_id=self.item.pk, actor=self.actor, publish=True)
 
-    def test_photo_endpoint_is_private_and_parent_scoped(self):
-        photo = self.item.photos.get()
-        url = reverse(
-            "catalog:photo_import_photo", args=[self.batch.pk, self.item.pk, photo.pk]
-        )
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(b"".join(response.streaming_content))
-        bad = reverse(
-            "catalog:photo_import_photo",
-            args=[self.batch.pk, self.item.pk + 100, photo.pk],
-        )
-        self.assertEqual(self.client.get(bad).status_code, 404)
-        self.client.logout()
-        self.assertEqual(self.client.get(url).status_code, 302)
 
-    def test_selection_rejects_foreign_photos(self):
-        url = reverse("catalog:photo_import_action", args=[self.batch.pk, self.item.pk])
-        r = self.client.post(
-            url,
-            data={
-                "action": "save",
-                "details": self.item.details,
-                "selected_photo_ids": [99999],
-            },
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 400)
-        self.assertTrue(self.item.photos.get().selected)
 
     def test_admin_requires_approval_and_inventory_adjustment(self):
         admin = get_user_model().objects.create_user(

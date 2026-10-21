@@ -84,14 +84,6 @@ class DeliveryWorkflowTestMixin(OrderPermissionTestMixin):
         )
         self.order = self.place_sample_order(token="tok-delivery-workflow")
         self.store_order = self.order.store_orders.get()
-        self.detail_url = reverse(
-            "orders:management_order_detail",
-            kwargs={"order_number": self.order.order_number},
-        )
-        self.change_url = reverse(
-            "orders:management_order_change_status",
-            kwargs={"order_number": self.order.order_number},
-        )
 
     def make_store_order_ready(self):
         for step in (
@@ -332,35 +324,7 @@ class ReversalTests(DeliveryWorkflowTestMixin, TestCase):
         self.assertEqual(order.status, OrderStatus.COMPLETED)
         self.assertIsNotNone(order.delivered_at)
 
-    def test_view_rejects_reversal_without_note(self):
-        self.client.login(username="order-super", password="secure-password-123")
-        response = self.client.post(
-            self.change_url,
-            {
-                "action": "update_status",
-                "status-status": OrderStatus.IN_PROGRESS,
-                "status-reason": "",
-                "status-correction_note": "",
-            },
-            follow=True,
-        )
-        self.assertContains(response, "A correction note is required")
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.COMPLETED)
 
-    def test_view_accepts_reversal_with_note(self):
-        self.client.login(username="order-super", password="secure-password-123")
-        response = self.client.post(
-            self.change_url,
-            {
-                "action": "update_status",
-                "status-status": OrderStatus.IN_PROGRESS,
-                "status-correction_note": "Customer was not home",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.order.refresh_from_db()
-        self.assertEqual(self.order.status, OrderStatus.IN_PROGRESS)
 
 
 class AuditHistoryTests(DeliveryWorkflowTestMixin, TestCase):
@@ -402,60 +366,7 @@ class AuditHistoryTests(DeliveryWorkflowTestMixin, TestCase):
             ).exists()
         )
 
-    def test_management_detail_shows_audit_history(self):
-        self.make_store_order_ready()
-        self.mark_delivered()
-        self.mark_collected()
-        update_order_payment_status(
-            order=self.order,
-            new_payment_status=PaymentStatus.PENDING,
-            actor=self.super_admin,
-            correction_note="Cash counted short",
-        )
 
-        self.client.login(username="order-super", password="secure-password-123")
-        response = self.client.get(self.detail_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Order &amp; payment audit history")
-        self.assertContains(response, 'id="order-audit-history"')
-
-        rows = response.context["audit_entries"]
-        kinds = [(row["kind"], row["previous"], row["new"]) for row in rows]
-        self.assertIn(("Order status", "In Progress", "Delivered"), kinds)
-        self.assertIn(("Payment", "Pending", "Collected"), kinds)
-        self.assertIn(("Payment", "Collected", "Pending"), kinds)
-        correction = next(row for row in rows if row["correction_note"])
-        self.assertEqual(correction["changed_by"], self.super_admin)
-        self.assertIsNotNone(correction["created_at"])
-
-        self.assertContains(response, "Cash counted short")
-        self.assertContains(response, "Correction")
-        self.assertContains(response, str(self.super_admin))
-        self.assertContains(response, "Delivered at")
-        self.assertContains(response, "Collected at")
-
-    def test_customer_tracking_still_shows_status_without_internal_notes(self):
-        self.make_store_order_ready()
-        self.mark_delivered()
-        update_order_status(
-            order=self.order,
-            new_status=OrderStatus.IN_PROGRESS,
-            actor=self.super_admin,
-            correction_note="Internal: driver error",
-        )
-        self.mark_delivered()
-
-        self.client.login(username="delivery-customer", password="secure-password-123")
-        response = self.client.get(
-            reverse(
-                "orders:customer_order_detail",
-                kwargs={"order_number": self.order.order_number},
-            )
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Delivered")
-        self.assertContains(response, "Status history")
-        self.assertNotContains(response, "Internal: driver error")
 
 
 class InventoryUnchangedTests(DeliveryWorkflowTestMixin, TestCase):
@@ -506,53 +417,8 @@ class DeliveryPermissionTests(DeliveryWorkflowTestMixin, TestCase):
         super().setUp()
         self.make_store_order_ready()
 
-    def _post(self, data):
-        return self.client.post(self.change_url, data)
 
-    def _deliver_and_collect_via_views(self):
-        delivered = self._post(
-            {"action": "update_status", "status-status": OrderStatus.COMPLETED}
-        )
-        collected = self._post(
-            {"action": "update_payment", "payment-payment_status": PaymentStatus.COLLECTED}
-        )
-        self.order.refresh_from_db()
-        return delivered, collected
 
-    def test_super_admin_can_deliver_and_collect(self):
-        self.client.login(username="order-super", password="secure-password-123")
-        delivered, collected = self._deliver_and_collect_via_views()
-        self.assertEqual((delivered.status_code, collected.status_code), (302, 302))
-        self.assertEqual(self.order.status, OrderStatus.COMPLETED)
-        self.assertEqual(self.order.payment_status, PaymentStatus.COLLECTED)
 
-    def test_admin_with_order_permissions_can_deliver_and_collect(self):
-        self.grant_order_perms(
-            self.admin, "view_order", "change_order", "manage_payment_status"
-        )
-        self.client.login(username="order-admin", password="secure-password-123")
-        delivered, collected = self._deliver_and_collect_via_views()
-        self.assertEqual((delivered.status_code, collected.status_code), (302, 302))
-        self.assertEqual(self.order.status, OrderStatus.COMPLETED)
-        self.assertEqual(self.order.payment_status, PaymentStatus.COLLECTED)
-        self.assertEqual(
-            self.order.payment_history.get().changed_by_id, self.admin.pk
-        )
 
-    def test_admin_without_permissions_is_denied(self):
-        self.grant_order_perms(self.admin, "view_order")
-        self.client.login(username="order-admin", password="secure-password-123")
-        delivered, collected = self._deliver_and_collect_via_views()
-        self.assertEqual((delivered.status_code, collected.status_code), (403, 403))
-        self.assertEqual(self.order.status, OrderStatus.IN_PROGRESS)
-        self.assertEqual(self.order.payment_status, PaymentStatus.PENDING)
 
-    def test_store_user_and_customer_are_denied(self):
-        for username in ("delivery-store-user", "delivery-customer"):
-            self.client.logout()
-            self.client.login(username=username, password="secure-password-123")
-            delivered, collected = self._deliver_and_collect_via_views()
-            for response in (delivered, collected):
-                self.assertNotEqual(response.get("Location"), self.detail_url)
-            self.assertEqual(self.order.status, OrderStatus.IN_PROGRESS)
-            self.assertEqual(self.order.payment_status, PaymentStatus.PENDING)

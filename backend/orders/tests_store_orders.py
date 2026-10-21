@@ -118,12 +118,7 @@ class StoreOrderPortalIsolationTests(CheckoutTestMixin, TestCase):
             },
         )
 
-        self.list_url = reverse("orders:store_order_list")
-        self.login_url = reverse("stores:store_portal_login")
 
-    def _login(self, user):
-        self.client.force_login(user)
-        self.client.get(reverse("stores:store_portal_dashboard"))
 
     def _place_multi_store(self, *, token):
         add_product_to_cart(
@@ -146,11 +141,6 @@ class StoreOrderPortalIsolationTests(CheckoutTestMixin, TestCase):
             actor=self.customer_user,
         )
 
-    def _detail_url(self, number):
-        return reverse(
-            "orders:store_order_detail",
-            kwargs={"store_order_number": number},
-        )
 
     def _action_url(self, name, number):
         return reverse(
@@ -158,184 +148,9 @@ class StoreOrderPortalIsolationTests(CheckoutTestMixin, TestCase):
             kwargs={"store_order_number": number},
         )
 
-    def test_list_shows_only_own_store_orders(self):
-        order = self._place_multi_store(token="tok-store-list")
-        so_a = order.store_orders.get(store=self.store_a)
-        so_b = order.store_orders.get(store=self.store_b)
 
-        self._login(self.manager_a)
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, so_a.store_order_number)
-        self.assertContains(response, order.order_number)
-        self.assertContains(response, "Please pack carefully")
-        self.assertNotContains(response, so_b.store_order_number)
-        # Forged store_id query must not leak Store B.
-        response = self.client.get(self.list_url, {"store_id": self.store_b.pk})
-        self.assertNotContains(response, so_b.store_order_number)
 
-    def test_detail_isolation_and_content(self):
-        order = self._place_multi_store(token="tok-store-detail")
-        so_a = order.store_orders.get(store=self.store_a)
-        so_b = order.store_orders.get(store=self.store_b)
 
-        self._login(self.manager_a)
-        response = self.client.get(self._detail_url(so_a.store_order_number))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Alpha Order Item")
-        self.assertContains(response, "15 Portal Lane")
-        self.assertContains(response, f"₹{self.product_a.final_price}")
-        self.assertNotContains(response, "store_price")
-        self.assertNotContains(response, "profit_margin")
-        self.assertNotContains(response, str(self.product_a.store_price))
 
-        # Store A cannot open Store B's order number.
-        self.assertEqual(
-            self.client.get(self._detail_url(so_b.store_order_number)).status_code,
-            404,
-        )
 
-    def test_status_actions_require_post_and_permission(self):
-        order = self._place_multi_store(token="tok-store-post")
-        so_a = order.store_orders.get(store=self.store_a)
-        accept_url = self._action_url("store_order_accept", so_a.store_order_number)
 
-        self._login(self.manager_a)
-        self.assertEqual(self.client.get(accept_url).status_code, 405)
-
-        # Viewer without can_manage_orders may view but not mutate.
-        self._login(self.viewer_a)
-        self.assertEqual(
-            self.client.get(self._detail_url(so_a.store_order_number)).status_code,
-            200,
-        )
-        csrf = self.client.get(self._detail_url(so_a.store_order_number)).cookies[
-            "csrftoken"
-        ].value
-        response = self.client.post(
-            accept_url,
-            {"csrfmiddlewaretoken": csrf, "note-reason": ""},
-        )
-        self.assertEqual(response.status_code, 403)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.PENDING)
-
-    def test_accept_processing_ready_and_invalid_transition(self):
-        order = self._place_multi_store(token="tok-store-flow")
-        so_a = order.store_orders.get(store=self.store_a)
-        self._login(self.manager_a)
-
-        def post(action_name, extra=None):
-            csrf = self.client.get(
-                self._detail_url(so_a.store_order_number)
-            ).cookies["csrftoken"].value
-            data = {"csrfmiddlewaretoken": csrf, "note-reason": "ok"}
-            if extra:
-                data.update(extra)
-            return self.client.post(
-                self._action_url(action_name, so_a.store_order_number),
-                data,
-            )
-
-        self.assertEqual(post("store_order_accept").status_code, 302)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.ACCEPTED)
-
-        # Cannot jump to ready from ACCEPTED.
-        response = post("store_order_ready")
-        self.assertEqual(response.status_code, 302)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.ACCEPTED)
-
-        self.assertEqual(post("store_order_processing").status_code, 302)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.PREPARING)
-
-        self.assertEqual(post("store_order_ready").status_code, 302)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.READY)
-
-        # Invalid further accept.
-        with self.assertRaises(ValidationError):
-            transition_store_order(
-                store_order=so_a,
-                store=self.store_a,
-                action="accept",
-                actor=self.manager_a,
-            )
-
-    def test_reject_requires_reason_and_isolates_stock(self):
-        order = self._place_multi_store(token="tok-store-reject")
-        so_a = order.store_orders.get(store=self.store_a)
-        so_b = order.store_orders.get(store=self.store_b)
-        self.product_a.refresh_from_db()
-        stock_a_before = self.product_a.stock_quantity
-        self.product_b.refresh_from_db()
-        stock_b_before = self.product_b.stock_quantity
-
-        self._login(self.manager_a)
-        csrf = self.client.get(self._detail_url(so_a.store_order_number)).cookies[
-            "csrftoken"
-        ].value
-        # Missing reason.
-        response = self.client.post(
-            self._action_url("store_order_reject", so_a.store_order_number),
-            {"csrfmiddlewaretoken": csrf, "reject-reason": "  "},
-        )
-        self.assertEqual(response.status_code, 302)
-        so_a.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.PENDING)
-
-        csrf = self.client.get(self._detail_url(so_a.store_order_number)).cookies[
-            "csrftoken"
-        ].value
-        response = self.client.post(
-            self._action_url("store_order_reject", so_a.store_order_number),
-            {
-                "csrfmiddlewaretoken": csrf,
-                "reject-reason": "Out of stock locally",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        so_a.refresh_from_db()
-        so_b.refresh_from_db()
-        self.assertEqual(so_a.status, StoreOrderStatus.REJECTED)
-        self.assertEqual(so_b.status, StoreOrderStatus.PENDING)
-        self.product_a.refresh_from_db()
-        self.product_b.refresh_from_db()
-        self.assertEqual(
-            self.product_a.stock_quantity,
-            stock_a_before + Decimal("2.000"),
-        )
-        self.assertEqual(self.product_b.stock_quantity, stock_b_before)
-
-        # Store A cannot reject Store B's order.
-        csrf = self.client.get(self.list_url).cookies["csrftoken"].value
-        response = self.client.post(
-            self._action_url("store_order_reject", so_b.store_order_number),
-            {
-                "csrfmiddlewaretoken": csrf,
-                "reject-reason": "Cross store",
-            },
-        )
-        self.assertEqual(response.status_code, 404)
-        so_b.refresh_from_db()
-        self.assertEqual(so_b.status, StoreOrderStatus.PENDING)
-
-    def test_suspended_store_cannot_access_orders(self):
-        order = self._place_multi_store(token="tok-store-suspend")
-        so_a = order.store_orders.get(store=self.store_a)
-        self.store_a.status = StoreStatus.SUSPENDED
-        self.store_a.save(update_fields=["status", "updated_at"])
-
-        self._login(self.manager_a)
-        response = self.client.get(self.list_url)
-        self.assertIn(response.status_code, (302, 403))
-        response = self.client.get(self._detail_url(so_a.store_order_number))
-        self.assertIn(response.status_code, (302, 403))
-
-    def test_anonymous_redirected_to_store_login(self):
-        client = Client()
-        response = client.get(self.list_url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/store/login/", response.url)

@@ -198,6 +198,7 @@ class ProductImageDetailView(APIView):
     permission_classes = [CatalogManagementPermission]
     required_permission = "catalog.change_product"
 
+    @extend_schema(request=None, responses={204: None})
     def delete(self, request, pk, image_id):
         product = _get_product(pk)
         try:

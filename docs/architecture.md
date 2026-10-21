@@ -1,23 +1,19 @@
 # Architecture
 
 ```
-Browser ── React SPA (frontend/, Vite) ──/api/v1──▶ Django + DRF ──▶ PostgreSQL (SQLite for local only)
-   │                                                    │
-   └── storefront, cart, orders, store portal ──────────┘   (unchanged Django templates)
-                                                        └──▶ media storage (filesystem locally, S3 hosted)
+Clients (React admin today; customer / store / partner apps to come) ──/api/v1──▶ Django + DRF ──▶ PostgreSQL (SQLite for local only)
+                                                                                   ├──▶ public media storage (product images)
+                                                                                   └──▶ private storage (delivery evidence, attachments)
 ```
 
-## What changed, what did not
+The backend is a **pure API**: the Django-rendered storefront, cart, checkout, orders, customer and store portal pages, forms and templates were removed. Only Django admin, health checks and the API docs render HTML. See [platform-api.md](platform-api.md) for the order, delivery, evidence, review, support and notification workflows, and for the known limitations.
 
 | Area | Status |
 | --- | --- |
-| Storefront, cart, checkout, orders, store portal, inventory, Django admin | **Unchanged** Django templates and views. |
-| Product management (list, create, edit, photos) | New React screens on `/api/v1/products/…`. The classic management screens still work. |
-| Bulk Excel/CSV import | New (API + React). |
-| Image pipeline | New shared module `catalog/image_pipeline.py`, used by manual upload, the API and import. |
-| Authentication | Same Django users and sessions; a thin JSON layer in `accounts/api.py`. |
-
-This is a **phased** migration: the API plus an admin SPA first. Moving the storefront/cart/orders to React is future work and is *not* done.
+| Customer, store, delivery-partner, support and admin workflows | REST endpoints under `/api/v1/` (`platform_api`, `deliveries`, `reviews`, `feedback`, `support`, `notifications`). |
+| Product management and bulk Excel/CSV import | API plus the React admin in `frontend/`. |
+| Image pipeline | Shared `catalog/image_pipeline.py`, used by manual upload, the API, import, evidence and attachments. |
+| Authentication | Django users; session+CSRF for browsers, DRF tokens for mobile. |
 
 ## Repository layout
 

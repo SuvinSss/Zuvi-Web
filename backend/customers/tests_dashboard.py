@@ -22,7 +22,6 @@ User = get_user_model()
 
 class CustomerPortalDashboardTests(CustomerModelTestMixin, TestCase):
     def setUp(self):
-        self.dashboard_url = reverse("customers:customer_portal_dashboard")
 
         self.customer_a, self.user_a = create_customer_with_user(
             user_data={
@@ -83,86 +82,9 @@ class CustomerPortalDashboardTests(CustomerModelTestMixin, TestCase):
             ),
         )
 
-    def test_dashboard_displays_own_profile_and_address_summary(self):
-        self.client.force_login(self.user_a)
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Alice Alpha")
-        self.assertContains(response, self.customer_a.customer_code)
-        self.assertContains(response, "dash-a@example.com")
-        self.assertContains(response, "9111111111")
-        self.assertContains(response, "Unverified")
-        self.assertContains(response, "10 Alice Street")
-        self.assertContains(response, "Saved addresses")
-        self.assertContains(response, "Your profile is complete.")
-        self.assertContains(response, "Browse Products")
-        self.assertContains(response, "Cart")
-        self.assertContains(response, "My Orders")
-        self.assertContains(response, "Manage addresses")
-        self.assertNotContains(response, "Coming Soon")
-        self.assertEqual(response.context["saved_address_count"], 2)
-        self.assertEqual(response.context["default_address"].pk, self.address_a.pk)
-        self.assertTrue(response.context["profile_is_complete"])
 
-    def test_dashboard_ignores_customer_id_query_parameter(self):
-        self.client.force_login(self.user_a)
-        response = self.client.get(
-            self.dashboard_url,
-            {"customer_id": self.customer_b.pk},
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["customer"].pk, self.customer_a.pk)
-        self.assertContains(response, self.customer_a.customer_code)
-        self.assertContains(response, "Alice Alpha")
-        self.assertNotContains(response, self.customer_b.customer_code)
-        self.assertNotContains(response, "Bob Beta")
-        self.assertNotContains(response, "dash-b@example.com")
-        self.assertNotContains(response, "99 Bob Secret Lane")
-        self.assertNotContains(response, "Bob Beta Secret")
 
-    def test_dashboard_data_isolation_between_customers(self):
-        self.client.force_login(self.user_a)
-        response_a = self.client.get(self.dashboard_url)
-        self.assertEqual(response_a.status_code, 200)
-        self.assertEqual(response_a.context["customer"].pk, self.customer_a.pk)
-        self.assertEqual(response_a.context["saved_address_count"], 2)
-        self.assertNotContains(response_a, self.customer_b.customer_code)
-        self.assertNotContains(response_a, "Bob Beta Secret")
-        self.assertNotContains(response_a, "99 Bob Secret Lane")
-        self.assertNotContains(response_a, "Mysuru")
 
-        self.client.force_login(self.user_b)
-        response_b = self.client.get(self.dashboard_url)
-        self.assertEqual(response_b.status_code, 200)
-        self.assertEqual(response_b.context["customer"].pk, self.customer_b.pk)
-        self.assertEqual(response_b.context["saved_address_count"], 1)
-        self.assertContains(response_b, self.customer_b.customer_code)
-        self.assertContains(response_b, "99 Bob Secret Lane")
-        self.assertNotContains(response_b, self.customer_a.customer_code)
-        self.assertNotContains(response_b, "10 Alice Street")
-        self.assertNotContains(response_b, "Alice Alpha")
-
-    def test_dashboard_without_default_address_shows_prompt(self):
-        incomplete, user = create_customer_with_user(
-            user_data={
-                "username": "dash-incomplete",
-                "email": "incomplete@example.com",
-                "first_name": "Ivy",
-                "last_name": "",
-                "phone_number": None,
-                "password": "secure-password-123",
-            },
-            registration_source=RegistrationSource.WEBSITE,
-        )
-        self.client.force_login(user)
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["saved_address_count"], 0)
-        self.assertIsNone(response.context["default_address"])
-        self.assertFalse(response.context["profile_is_complete"])
-        self.assertContains(response, "Complete your profile")
-        self.assertContains(response, "No default delivery address set.")
-        self.assertContains(response, incomplete.customer_code)
 
     def test_inactive_addresses_are_not_counted(self):
         self.create_customer_address(
@@ -202,17 +124,10 @@ class CustomerPortalDashboardTests(CustomerModelTestMixin, TestCase):
             "Your profile is complete.",
         )
 
-    def test_verified_status_displayed(self):
-        self.customer_a.verification_status = VerificationStatus.VERIFIED
-        self.customer_a.save(update_fields=["verification_status", "updated_at"])
-        self.client.force_login(self.user_a)
-        response = self.client.get(self.dashboard_url)
-        self.assertContains(response, "Verified")
 
 
 class CustomerPortalOrderDashboardTests(OrderModelTestMixin, TestCase):
     def setUp(self):
-        self.dashboard_url = reverse("customers:customer_portal_dashboard")
         self.customer_a, self.user_a = create_customer_with_user(
             user_data={
                 "username": "dash-ord-a",
@@ -280,29 +195,4 @@ class CustomerPortalOrderDashboardTests(OrderModelTestMixin, TestCase):
         self.assertEqual(get_cart_item_count(self.customer_a), 2)
         self.assertEqual(get_cart_item_count(self.customer_b), 1)
 
-    def test_dashboard_shows_cart_pending_and_recent_orders(self):
-        self.client.force_login(self.user_a)
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["cart_item_count"], 2)
-        self.assertEqual(response.context["pending_order_count"], 1)
-        recent = response.context["recent_orders"]
-        recent_ids = {order.pk for order in recent}
-        self.assertIn(self.pending_a.pk, recent_ids)
-        self.assertIn(self.completed_a.pk, recent_ids)
-        self.assertNotIn(self.pending_b.pk, recent_ids)
-        self.assertContains(response, "<strong>Items in cart:</strong> 2")
-        self.assertContains(response, "<strong>Pending orders:</strong> 1")
-        self.assertContains(response, self.pending_a.order_number)
-        self.assertNotContains(response, self.pending_b.order_number)
-        self.assertContains(response, reverse("cart:cart_detail"))
-        self.assertContains(response, reverse("orders:customer_order_list"))
 
-    def test_dashboard_ignores_other_customer_cart_and_orders(self):
-        self.client.force_login(self.user_b)
-        response = self.client.get(self.dashboard_url)
-        self.assertEqual(response.context["cart_item_count"], 1)
-        self.assertEqual(response.context["pending_order_count"], 1)
-        self.assertContains(response, self.pending_b.order_number)
-        self.assertNotContains(response, self.pending_a.order_number)
-        self.assertNotContains(response, self.completed_a.order_number)
