@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui'
 import { COMPLAINT_STATUS, label, TICKET_STATUS } from '@/lib/labels'
 import { supportSummary } from '@/services/platform'
 
-const go = (to: string, text: string) => <Link className="mt-1 inline-block text-sm font-semibold text-forest underline" to={to}>{text}</Link>
+const go = (to: string, text: string) => <Link className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to={to}>{text}</Link>
 
 export default function SupportHome({ base = '/support' }: { base?: string }) {
   const q = useQuery({ queryKey: ['support-summary'], queryFn: supportSummary, refetchInterval: 60_000 })

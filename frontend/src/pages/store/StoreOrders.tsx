@@ -24,7 +24,7 @@ export default function StoreOrders() {
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: 'No orders found', text: 'New orders appear here as customers place them.' }}>
         <DataTable caption="Store orders" rows={q.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/store/orders/${o.id}`)}
           columns={[
-            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link to={`/store/orders/${o.id}`} className="font-semibold text-forest hover:underline" onClick={(e) => e.stopPropagation()}>{o.store_order_number}</Link> },
+            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link to={`/store/orders/${o.id}`} className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" onClick={(e) => e.stopPropagation()}>{o.store_order_number}</Link> },
             { key: 'c', header: 'Customer', cell: (o) => o.recipient_first_name },
             { key: 't', header: 'Type', cell: (o) => (o.fulfillment_type === 'PICKUP' ? 'Pickup' : 'Delivery') },
             { key: 'p', header: 'Payment', cell: (o) => label(PAYMENT_METHOD, o.payment_method) },

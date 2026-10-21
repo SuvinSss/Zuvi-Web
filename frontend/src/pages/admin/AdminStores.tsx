@@ -33,7 +33,7 @@ export default function AdminStores() {
       <PageHeader title="Stores" />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Segmented label="Status" value={values.status} onChange={(v) => set({ status: v })} options={[{ value: '', label: 'All' }, { value: 'PENDING', label: 'Pending' }, { value: 'ACTIVE', label: 'Active' }, { value: 'SUSPENDED', label: 'Suspended' }, { value: 'REJECTED', label: 'Rejected' }]} />
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Name or code" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Name or code" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Store, title: 'No stores match' }}>
         <DataTable caption="Stores" rows={q.data?.results ?? []} rowKey={(s) => s.id}

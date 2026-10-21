@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target: backend, changeOrigin: false },
         '/media': { target: backend, changeOrigin: false },
-        // The classic Django portal (orders, inventory, stores...) stays reachable from the dev app.
+        // Django admin / API docs assets when browsing them through the dev server.
         '/static': { target: backend, changeOrigin: false },
       },
     },

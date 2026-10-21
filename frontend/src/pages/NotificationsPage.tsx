@@ -43,7 +43,7 @@ export default function NotificationsPage({ area = '/account' }: { area?: string
                       <p className="font-semibold">{!n.is_read && <span className="mr-2 rounded-full bg-emerald px-2 py-0.5 text-xs text-white">New</span>}{n.title}</p>
                       {n.body && <p className="mt-1 whitespace-pre-line break-words text-sm">{n.body}</p>}
                       <p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString('en-IN')}</p>
-                      {to && <Link to={to} className="mt-1 inline-block text-sm font-semibold text-forest underline" onClick={() => !n.is_read && readOne.mutate(n.id)}>View details</Link>}
+                      {to && <Link to={to} className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" onClick={() => !n.is_read && readOne.mutate(n.id)}>View details</Link>}
                     </div>
                     {!n.is_read && <Button variant="ghost" onClick={() => readOne.mutate(n.id)}>Mark read</Button>}
                   </div>

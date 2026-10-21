@@ -71,8 +71,8 @@ export default function LoginPage() {
           </Field>
           <Button type="submit" loading={isSubmitting} className="w-full">Sign in</Button>
           <div className="flex flex-col gap-1 text-center text-sm">
-            <Link to="/forgot-password" className="font-medium text-forest hover:underline">Forgot your password?</Link>
-            <span className="text-muted">New here? <Link to="/register" className="font-medium text-forest hover:underline">Create an account</Link></span>
+            <Link to="/forgot-password" className="inline-flex min-h-11 items-center font-medium text-forest hover:underline">Forgot your password?</Link>
+            <span className="text-muted">New here? <Link to="/register" className="inline-flex min-h-11 items-center font-medium text-forest hover:underline">Create an account</Link></span>
           </div>
         </form>
       </div>

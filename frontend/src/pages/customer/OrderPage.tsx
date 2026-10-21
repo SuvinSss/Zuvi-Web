@@ -64,7 +64,7 @@ export default function OrderPage() {
               {o.delivery_address && <Card className="p-4"><h2 className="mb-2 font-semibold text-forest">Delivering to</h2>
                 <address className="text-sm not-italic">{o.delivery_address.recipient_name}<br />{o.delivery_address.line1}{o.delivery_address.line2 ? `, ${o.delivery_address.line2}` : ''}<br />{o.delivery_address.city}, {o.delivery_address.state} {o.delivery_address.postal_code}<br />{o.delivery_address.phone_number}</address></Card>}
               {o.customer_notes && <Card className="p-4"><h2 className="mb-1 font-semibold text-forest">Your note</h2><p className="whitespace-pre-line text-sm">{o.customer_notes}</p></Card>}
-              <Link className="block text-sm font-semibold text-forest underline" to={`/account/support/new-complaint?order=${o.id}`}>Report a problem with this order</Link>
+              <Link className="block inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to={`/account/support/new-complaint?order=${o.id}`}>Report a problem with this order</Link>
             </aside>
           </div>
           <ConfirmDialog open={cancelling} onClose={() => setCancelling(false)} onConfirm={() => cancel.mutate()} busy={cancel.isPending} danger confirmLabel="Cancel order" title="Cancel this order?">

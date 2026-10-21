@@ -30,7 +30,7 @@ export default function AdminUsers() {
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Segmented label="Account state" value={values.active} onChange={(v) => set({ active: v })} options={[{ value: '', label: 'All' }, { value: '1', label: 'Active' }, { value: '0', label: 'Suspended' }]} />
         <label className="text-sm">Role<Select className="mt-1" value={values.role} onChange={(e) => set({ role: e.target.value })}><option value="">Any</option>{Object.entries(roleLabel).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Username, email or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Username, email or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Users, title: 'No users match' }}>
         <DataTable caption="Users" rows={q.data?.results ?? []} rowKey={(u) => u.id}

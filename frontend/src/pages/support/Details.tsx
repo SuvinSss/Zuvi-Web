@@ -44,7 +44,7 @@ export function TicketDetailPage({ base, staff, supervisor }: { base: string; st
     <QueryBoundary query={q} skeleton="detail">
       {t && (
         <>
-          <PageHeader title={t.reference} subtitle={t.subject} actions={<Link className="text-sm font-semibold text-forest underline" to={base}>Back to tickets</Link>} />
+          <PageHeader title={t.reference} subtitle={t.subject} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to={base}>Back to tickets</Link>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <div className="space-y-6">
               <Card className="p-4"><div className="mb-2 flex flex-wrap items-center gap-2"><Status value={t.status} label={label(TICKET_STATUS, t.status)} />{t.escalated && <span className="rounded-full bg-warn/15 px-2 py-0.5 text-xs text-warn">Escalated</span>}<SlaBadges sla={t.sla} /></div>
@@ -108,7 +108,7 @@ export function ComplaintDetailPage({ base, staff, supervisor }: { base: string;
     <QueryBoundary query={q} skeleton="detail">
       {c && (
         <>
-          <PageHeader title={c.reference} subtitle={`${label(COMPLAINT_CATEGORY, c.category)} · ${label(AGAINST, c.against_type)}`} actions={<Link className="text-sm font-semibold text-forest underline" to={`${base}/complaints`}>Back to complaints</Link>} />
+          <PageHeader title={c.reference} subtitle={`${label(COMPLAINT_CATEGORY, c.category)} · ${label(AGAINST, c.against_type)}`} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to={`${base}/complaints`}>Back to complaints</Link>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <div className="space-y-6">
               <Card className="p-4">

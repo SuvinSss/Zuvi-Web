@@ -37,7 +37,7 @@ export default function DeliveryHome() {
       </QueryBoundary>
       {offers.length > 0 && <Alert tone="info" title={`${offers.length} delivery offer${offers.length > 1 ? 's' : ''} waiting`}>Offers expire quickly — open one to accept or decline.</Alert>}
       <div className="my-4 grid grid-cols-2 gap-3"><Stat label="Active deliveries" value={active.data?.count ?? '—'} /><Stat label="Offers" value={offers.length} /></div>
-      <Section title="Active" actions={<Link className="text-sm font-semibold text-forest underline" to="/delivery/assignments">See all</Link>}>
+      <Section title="Active" actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/delivery/assignments">See all</Link>}>
         <QueryBoundary query={active} isEmpty={active.data?.count === 0} empty={{ icon: Truck, title: 'No active deliveries', text: me.data?.is_online ? 'Stay online — offers will appear here.' : 'Go online to start receiving offers.' }}>
           <ul className="space-y-2">
             {active.data?.results.map((d) => (

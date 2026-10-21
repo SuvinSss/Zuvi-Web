@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Bell, Home, LifeBuoy, LogIn, Package, Search, ShoppingBag, Store, User } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -8,6 +8,7 @@ import { homePath } from '@/lib/roles'
 import { getCart, unreadCount } from '@/services/platform'
 
 function SearchBox({ className = '' }: { className?: string }) {
+  const id = useId()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [text, setText] = useState(params.get('q') ?? '')
@@ -17,9 +18,9 @@ function SearchBox({ className = '' }: { className?: string }) {
   }
   return (
     <form role="search" onSubmit={submit} className={`relative ${className}`}>
-      <label htmlFor="site-search" className="sr-only">Search products</label>
+      <label htmlFor={id} className="sr-only">Search products</label>
       <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden="true" />
-      <input id="site-search" type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search groceries, snacks, household…"
+      <input id={id} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search groceries, snacks, household…"
         className="min-h-11 w-full rounded-full border border-line bg-white pl-10 pr-4 text-base placeholder:text-muted/70 focus:border-emerald focus:outline-none focus:ring-2 focus:ring-emerald/30 sm:text-sm" />
     </form>
   )
@@ -97,15 +98,15 @@ export function PublicLayout() {
           <div><Logo variant="light" className="w-24" /><p className="mt-2 max-w-xs text-muted">Groceries and essentials from local stores, delivered by local delivery partners.</p></div>
           <nav aria-label="Footer" className="flex flex-col gap-1.5">
             <p className="font-semibold text-forest">Shop</p>
-            <Link to="/shop" className="text-muted hover:text-forest">All products</Link>
-            <Link to="/stores" className="text-muted hover:text-forest">Stores</Link>
-            <Link to="/register-partner" className="text-muted hover:text-forest">Deliver with us</Link>
+            <Link to="/shop" className="inline-flex min-h-11 items-center text-muted hover:text-forest">All products</Link>
+            <Link to="/stores" className="inline-flex min-h-11 items-center text-muted hover:text-forest">Stores</Link>
+            <Link to="/register-partner" className="inline-flex min-h-11 items-center text-muted hover:text-forest">Deliver with us</Link>
           </nav>
           <nav aria-label="Support" className="flex flex-col gap-1.5">
             <p className="font-semibold text-forest">Help</p>
-            <Link to="/help" className="text-muted hover:text-forest">Help &amp; support</Link>
-            <Link to="/account/support" className="text-muted hover:text-forest">My tickets &amp; complaints</Link>
-            <Link to="/account/feedback" className="text-muted hover:text-forest">Send feedback</Link>
+            <Link to="/help" className="inline-flex min-h-11 items-center text-muted hover:text-forest">Help &amp; support</Link>
+            <Link to="/account/support" className="inline-flex min-h-11 items-center text-muted hover:text-forest">My tickets &amp; complaints</Link>
+            <Link to="/account/feedback" className="inline-flex min-h-11 items-center text-muted hover:text-forest">Send feedback</Link>
           </nav>
         </div>
       </footer>

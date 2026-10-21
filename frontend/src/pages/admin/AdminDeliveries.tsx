@@ -24,7 +24,7 @@ export function AdminDeliveriesList() {
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Truck, title: 'No deliveries match' }}>
         <DataTable caption="Deliveries" rows={q.data?.results ?? []} rowKey={(d) => d.id} onRowClick={(d) => navigate(`/admin/deliveries/${d.id}`)}
           columns={[
-            { key: 'id', header: 'Delivery', primary: true, cell: (d) => <Link className="font-semibold text-forest hover:underline" to={`/admin/deliveries/${d.id}`} onClick={(e) => e.stopPropagation()}>#{d.id} · {d.store_order_number}</Link> },
+            { key: 'id', header: 'Delivery', primary: true, cell: (d) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/admin/deliveries/${d.id}`} onClick={(e) => e.stopPropagation()}>#{d.id} · {d.store_order_number}</Link> },
             { key: 's', header: 'Status', cell: (d) => <><Status value={d.status} label={label(DELIVERY_STATUS, d.status)} />{d.needs_attention && <span className="ml-2 text-xs text-warn">Needs attention</span>}</> },
             { key: 'st', header: 'Store', cell: (d) => d.store_name },
             { key: 'p', header: 'Partner', cell: (d) => d.partner?.name ?? 'Unassigned' },
@@ -53,7 +53,7 @@ export function AdminDeliveryPage() {
     <QueryBoundary query={q} skeleton="detail">
       {d && (
         <>
-          <PageHeader title={`Delivery #${d.id}`} subtitle={`${d.store_order_number} · ${d.store_name}`} actions={<Link className="text-sm font-semibold text-forest underline" to="/admin/deliveries">All deliveries</Link>} />
+          <PageHeader title={`Delivery #${d.id}`} subtitle={`${d.store_order_number} · ${d.store_name}`} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/admin/deliveries">All deliveries</Link>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
             <div className="space-y-6">
               <Card className="p-4"><div className="flex flex-wrap items-center gap-3"><Status value={d.status} label={label(DELIVERY_STATUS, d.status)} />{d.needs_attention && <span className="text-sm font-medium text-warn">Needs attention — automatic assignment stopped</span>}</div>

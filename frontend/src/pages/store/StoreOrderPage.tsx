@@ -28,7 +28,7 @@ export default function StoreOrderPage() {
     <QueryBoundary query={q} skeleton="detail">
       {o && (
         <>
-          <PageHeader title={o.store_order_number} subtitle={`Order ${o.order_number}`} actions={<Link className="text-sm font-semibold text-forest underline" to="/store/orders">Back to orders</Link>} />
+          <PageHeader title={o.store_order_number} subtitle={`Order ${o.order_number}`} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/store/orders">Back to orders</Link>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <div className="space-y-6">
               <Card className="p-4">

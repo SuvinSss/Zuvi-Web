@@ -22,7 +22,7 @@ export default function OrdersPage() {
         empty={{ icon: ShoppingBag, title: values.status ? 'No orders with this status' : 'No orders yet', text: values.status ? 'Try another filter.' : 'When you place an order it will appear here.', action: values.status ? undefined : <Link to="/shop"><Button>Start shopping</Button></Link> }}>
         <DataTable caption="Orders" rows={orders.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/account/orders/${o.id}`)}
           columns={[
-            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link to={`/account/orders/${o.id}`} className="font-semibold text-forest hover:underline" onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },
+            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link to={`/account/orders/${o.id}`} className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },
             { key: 'd', header: 'Placed', cell: (o) => formatDate(o.placed_at) },
             { key: 's', header: 'Status', cell: (o) => <Status value={o.status} label={label(ORDER_STATUS, o.status)} /> },
             { key: 't', header: 'Total', className: 'text-right tabular-nums', cell: (o) => formatMoney(o.grand_total) },

@@ -32,13 +32,13 @@ export default function HomePage() {
         </QueryBoundary>
       </Section>
 
-      <Section title="Newly added" actions={<Link to="/shop" className="text-sm font-semibold text-forest hover:underline">See all</Link>}>
+      <Section title="Newly added" actions={<Link to="/shop" className="inline-flex min-h-11 items-center text-sm font-semibold text-forest hover:underline">See all</Link>}>
         <QueryBoundary query={products} skeleton="cards" isEmpty={products.data?.count === 0} empty={{ icon: Package, title: 'No products available right now', text: 'Check back soon — stores are adding products.' }}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{products.data?.results.map((p) => <ProductCard key={p.id} product={p} />)}</div>
         </QueryBoundary>
       </Section>
 
-      <Section title="Stores near you" actions={<Link to="/stores" className="text-sm font-semibold text-forest hover:underline">See all</Link>}>
+      <Section title="Stores near you" actions={<Link to="/stores" className="inline-flex min-h-11 items-center text-sm font-semibold text-forest hover:underline">See all</Link>}>
         <QueryBoundary query={stores} skeleton="detail" isEmpty={stores.data?.count === 0} empty={{ icon: Store, title: 'No stores are open yet', text: 'Stores will show up here once they are approved.' }}>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{stores.data?.results.slice(0, 6).map((s) => <StoreCard key={s.id} store={s} />)}</div>
         </QueryBoundary>

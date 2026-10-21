@@ -17,9 +17,9 @@ export default function StoreDashboard() {
           <div className="space-y-6">
             {d.store.status !== 'ACTIVE' && <Alert tone="warn" title={`Your store is ${d.store.status.toLowerCase()}`}>Customers cannot order from your store until it is active. Contact Zuuvi support if you have questions.</Alert>}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Stat label="Waiting for you" value={d.orders_by_status.PENDING ?? 0} to={<Link className="mt-1 inline-block text-sm font-semibold text-forest underline" to="/store/orders?status=PENDING">Review orders</Link>} />
+              <Stat label="Waiting for you" value={d.orders_by_status.PENDING ?? 0} to={<Link className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/store/orders?status=PENDING">Review orders</Link>} />
               <Stat label="Being prepared" value={(d.orders_by_status.ACCEPTED ?? 0) + (d.orders_by_status.PREPARING ?? 0)} />
-              <Stat label="Low stock" value={d.low_stock_products} to={<Link className="mt-1 inline-block text-sm font-semibold text-forest underline" to="/store/stock?low_stock=1">View products</Link>} />
+              <Stat label="Low stock" value={d.low_stock_products} to={<Link className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/store/stock?low_stock=1">View products</Link>} />
               <Stat label="Rating" value={d.rating?.count ? `${Number(d.rating.average).toFixed(1)} ★` : '—'} hint={d.rating?.count ? `${d.rating.count} reviews` : 'No reviews yet'} />
             </div>
             <Section title="Orders by status">

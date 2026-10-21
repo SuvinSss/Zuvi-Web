@@ -74,7 +74,7 @@ export default function CheckoutPage() {
                           <input type="radio" name="address" className="mt-1" checked={chosen === a.id} onChange={() => setAddressId(a.id)} />
                           <span><span className="font-semibold">{a.recipient_name}</span> · {a.phone_number}<br />{[a.line1, a.line2, a.landmark, a.city, a.state, a.postal_code].filter(Boolean).join(', ')}{a.is_default && <span className="ml-2 text-xs text-emerald">Default</span>}</span>
                         </label>))}</div>
-                      <Link to="/account/addresses" className="mt-2 inline-block text-sm font-semibold text-forest hover:underline">Manage addresses</Link>
+                      <Link to="/account/addresses" className="mt-2 inline-block inline-flex min-h-11 items-center text-sm font-semibold text-forest hover:underline">Manage addresses</Link>
                     </fieldset>
                   )}
                 </Card>

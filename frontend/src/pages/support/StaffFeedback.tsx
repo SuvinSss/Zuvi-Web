@@ -23,7 +23,7 @@ export default function StaffFeedback() {
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: MessageSquare, title: 'No feedback' }}>
         <DataTable caption="Feedback" rows={q.data?.results ?? []} rowKey={(f) => f.id} onRowClick={(f) => setOpen(f.id)}
           columns={[
-            { key: 'r', header: 'Reference', primary: true, cell: (f) => <button type="button" className="font-semibold text-forest hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(f.id) }}>{f.reference}</button> },
+            { key: 'r', header: 'Reference', primary: true, cell: (f) => <button type="button" className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(f.id) }}>{f.reference}</button> },
             { key: 'k', header: 'Type', cell: (f) => `${f.kind.toLowerCase()} · ${f.subject_type.toLowerCase()}` },
             { key: 'm', header: 'Message', cell: (f) => <span className="line-clamp-2 break-words">{f.message}</span> },
             { key: 'a', header: 'From', cell: (f) => f.author_name },

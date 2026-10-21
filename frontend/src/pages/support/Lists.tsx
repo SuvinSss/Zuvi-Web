@@ -25,12 +25,12 @@ export function TicketsList({ base, staff }: { base: string; staff: boolean }) {
         {staff && <Segmented label="Queue" value={values.scope} onChange={(v) => set({ scope: v })} options={[{ value: '', label: 'All' }, { value: 'mine', label: 'Mine' }, { value: 'unassigned', label: 'Unassigned' }, { value: 'escalated', label: 'Escalated' }]} />}
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{TICKET_STATUSES.map((s) => <option key={s} value={s}>{label(TICKET_STATUS, s)}</option>)}</Select></label>
         {staff && <label className="text-sm">Priority<Select className="mt-1" value={values.priority} onChange={(e) => set({ priority: e.target.value })}><option value="">Any</option>{PRIORITIES.map((s) => <option key={s} value={s}>{label({}, s)}</option>)}</Select></label>}
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} placeholder="Reference or subject" /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} placeholder="Reference or subject" /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: staff ? Inbox : LifeBuoy, title: 'No tickets found', text: staff ? 'Nothing matches these filters.' : 'Need help with an order? Start a new request.' }}>
         <DataTable caption="Support tickets" rows={q.data?.results ?? []} rowKey={(t) => t.id} onRowClick={(t) => navigate(`${base}/tickets/${t.id}`)}
           columns={[
-            { key: 'r', header: 'Ticket', primary: true, cell: (t) => <Link className="font-semibold text-forest hover:underline" to={`${base}/tickets/${t.id}`} onClick={(e) => e.stopPropagation()}>{t.reference}</Link> },
+            { key: 'r', header: 'Ticket', primary: true, cell: (t) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`${base}/tickets/${t.id}`} onClick={(e) => e.stopPropagation()}>{t.reference}</Link> },
             { key: 's', header: 'Subject', cell: (t) => <span className="break-words">{t.subject}</span> },
             { key: 'c', header: 'Category', cell: (t) => label(TICKET_CATEGORY, t.category) },
             { key: 'st', header: 'Status', cell: (t) => <Status value={t.status} label={label(TICKET_STATUS, t.status)} /> },
@@ -58,12 +58,12 @@ export function ComplaintsList({ base, staff }: { base: string; staff: boolean }
       <div className="mb-4 flex flex-wrap items-end gap-3">
         {staff && <Segmented label="Queue" value={values.scope} onChange={(v) => set({ scope: v })} options={[{ value: '', label: 'All' }, { value: 'mine', label: 'Mine' }, { value: 'unassigned', label: 'Unassigned' }]} />}
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{COMPLAINT_STATUSES.map((s) => <option key={s} value={s}>{label(COMPLAINT_STATUS, s)}</option>)}</Select></label>
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} placeholder="Reference" /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} placeholder="Reference" /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Inbox, title: 'No complaints found', text: staff ? 'Nothing matches these filters.' : 'You have not filed any complaints.' }}>
         <DataTable caption="Complaints" rows={q.data?.results ?? []} rowKey={(c) => c.id} onRowClick={(c) => navigate(`${base}/complaints/${c.id}`)}
           columns={[
-            { key: 'r', header: 'Complaint', primary: true, cell: (c) => <Link className="font-semibold text-forest hover:underline" to={`${base}/complaints/${c.id}`} onClick={(e) => e.stopPropagation()}>{c.reference}</Link> },
+            { key: 'r', header: 'Complaint', primary: true, cell: (c) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`${base}/complaints/${c.id}`} onClick={(e) => e.stopPropagation()}>{c.reference}</Link> },
             { key: 'a', header: 'Against', cell: (c) => label(AGAINST, c.against_type) + (c.store_name ? ` · ${c.store_name}` : '') },
             { key: 'c', header: 'Category', cell: (c) => label(COMPLAINT_CATEGORY, c.category) },
             { key: 's', header: 'Status', cell: (c) => <Status value={c.status} label={label(COMPLAINT_STATUS, c.status)} /> },

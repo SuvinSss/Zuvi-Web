@@ -30,7 +30,7 @@ export default function AssignmentPage() {
     <QueryBoundary query={q} skeleton="detail">
       {d && (
         <>
-          <PageHeader title={d.store_name} subtitle={`Order ${d.order_number} · attempt ${d.attempt_number}`} actions={<Link className="text-sm font-semibold text-forest underline" to="/delivery/assignments">All deliveries</Link>} />
+          <PageHeader title={d.store_name} subtitle={`Order ${d.order_number} · attempt ${d.attempt_number}`} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/delivery/assignments">All deliveries</Link>} />
           <div className="space-y-4">
             <Card className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><Status value={d.status} label={label(PARTNER_DELIVERY_STATUS, d.status)} />{d.offer_expires_at && d.status === 'OFFERED' && <span className="text-sm text-warn">Offer expires {new Date(d.offer_expires_at).toLocaleTimeString('en-IN', { timeStyle: 'short' })}</span>}</div></Card>
 

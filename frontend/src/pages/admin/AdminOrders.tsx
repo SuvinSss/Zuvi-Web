@@ -23,12 +23,12 @@ export function AdminOrdersList() {
         <label className="text-sm">Payment<Select className="mt-1" value={values.payment_status} onChange={(e) => set({ payment_status: e.target.value })}><option value="">Any</option>{Object.entries(PAYMENT_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
         <label className="text-sm">From<Input className="mt-1" type="date" value={values.from} onChange={(e) => set({ from: e.target.value })} /></label>
         <label className="text-sm">To<Input className="mt-1" type="date" value={values.to} onChange={(e) => set({ to: e.target.value })} /></label>
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Order, customer or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Order, customer or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: 'No orders match' }}>
         <DataTable caption="Orders" rows={q.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/admin/orders/${o.id}`)}
           columns={[
-            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link className="font-semibold text-forest hover:underline" to={`/admin/orders/${o.id}`} onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },
+            { key: 'n', header: 'Order', primary: true, cell: (o) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/admin/orders/${o.id}`} onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },
             { key: 'c', header: 'Customer', cell: (o) => o.customer },
             { key: 's', header: 'Status', cell: (o) => <Status value={o.status} label={label(ORDER_STATUS, o.status)} /> },
             { key: 'p', header: 'Payment', cell: (o) => `${label(PAYMENT_METHOD, o.payment_method)} · ${label(PAYMENT_STATUS, o.payment_status)}` },
@@ -64,7 +64,7 @@ export function AdminOrderPage() {
     <QueryBoundary query={q} skeleton="detail">
       {o && (
         <>
-          <PageHeader title={`Order ${o.order_number}`} subtitle={new Date(o.placed_at).toLocaleString('en-IN')} actions={<Link className="text-sm font-semibold text-forest underline" to="/admin/orders">Back to orders</Link>} />
+          <PageHeader title={`Order ${o.order_number}`} subtitle={new Date(o.placed_at).toLocaleString('en-IN')} actions={<Link className="inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/admin/orders">Back to orders</Link>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
             <div className="space-y-6">
               <Card className="p-4"><div className="flex flex-wrap items-center gap-3"><Status value={o.status} label={label(ORDER_STATUS, o.status)} /><span className="text-sm text-muted">{label(PAYMENT_METHOD, o.payment_method)} · {label(PAYMENT_STATUS, o.payment_status)}</span></div>

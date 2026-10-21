@@ -6,7 +6,7 @@ import { formatMoney } from '@/lib/format'
 import { DELIVERY_STATUS, label, ORDER_STATUS } from '@/lib/labels'
 import { adminOverview } from '@/services/ops'
 
-const link = (to: string, text: string) => <Link className="mt-1 inline-block text-sm font-semibold text-forest underline" to={to}>{text}</Link>
+const link = (to: string, text: string) => <Link className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to={to}>{text}</Link>
 
 export default function AdminOverview() {
   const q = useQuery({ queryKey: ['admin-overview'], queryFn: adminOverview, refetchInterval: 60_000 })

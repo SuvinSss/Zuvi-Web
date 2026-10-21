@@ -28,12 +28,12 @@ export default function StoreProducts({ mode }: { mode: 'products' | 'stock' }) 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Segmented label="Stock filter" value={values.low_stock} onChange={(v) => set({ low_stock: v })} options={[{ value: '', label: 'All' }, { value: '1', label: 'Low stock' }]} />
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{Object.entries(PRODUCT_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Name, SKU or code" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
+        <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Name, SKU or code" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
       <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Package, title: 'No products found', text: values.q || values.status || values.low_stock ? 'Try different filters.' : 'Add your first product to start selling.', action: canEdit && !values.q ? <Link to="/store/products/new"><Button>Add a product</Button></Link> : undefined }}>
         <DataTable caption={title} rows={q.data?.results ?? []} rowKey={(p) => p.id}
           columns={[
-            { key: 'n', header: 'Product', primary: true, cell: (p) => <Link className="font-semibold text-forest hover:underline" to={`/store/products/${p.id}`}>{p.name}</Link> },
+            { key: 'n', header: 'Product', primary: true, cell: (p) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/store/products/${p.id}`}>{p.name}</Link> },
             { key: 'sku', header: 'SKU', cell: (p) => p.sku },
             { key: 'st', header: 'Status', cell: (p) => <Status value={p.status} label={PRODUCT_STATUS[p.status] ?? p.status} /> },
             { key: 'q', header: 'In stock', className: 'text-right tabular-nums', cell: (p) => { const low = Number(p.stock_quantity) <= Number(p.low_stock_threshold); return <span className={low ? 'font-semibold text-warn' : ''}>{Number(p.stock_quantity)}{low ? ' · low' : ''}</span> } },
