@@ -49,7 +49,7 @@ def submit_feedback(*, user, kind, subject_type, message, store_id=None, order_i
 
 @transaction.atomic
 def reply(feedback_id, *, author, body, internal=False) -> FeedbackReply:
-    feedback = Feedback.objects.select_for_update().select_related("author").get(pk=feedback_id)
+    feedback = Feedback.objects.select_for_update(of=("self",)).select_related("author").get(pk=feedback_id)
     body = support_services.clean(body, 3000)
     if not body:
         raise ValidationError({"body": "A reply cannot be empty."})
@@ -97,7 +97,7 @@ def escalate_to_ticket(feedback_id, *, actor) -> Feedback:
     """Turn feedback that needs real follow-up into a support ticket for its author."""
     if not _staff(actor):
         raise PermissionDenied("Only support staff can escalate feedback.")
-    feedback = Feedback.objects.select_for_update().select_related("author").get(pk=feedback_id)
+    feedback = Feedback.objects.select_for_update(of=("self",)).select_related("author").get(pk=feedback_id)
     if feedback.ticket_id:
         raise ValidationError({"detail": "This feedback has already been escalated."})
     from support.models import Ticket, TicketEvent

@@ -131,7 +131,7 @@ def create_ticket(*, user, category, subject, description, order_id=None, attach
 
 
 def _locked_ticket(ticket_id):
-    return Ticket.objects.select_for_update().select_related("requester", "assigned_to").get(pk=ticket_id)
+    return Ticket.objects.select_for_update(of=("self",)).select_related("requester", "assigned_to").get(pk=ticket_id)
 
 
 @transaction.atomic
@@ -299,7 +299,7 @@ def _cevent(complaint, actor, kind, body="", *, internal=False, from_status="", 
 
 
 def _locked_complaint(complaint_id):
-    return Complaint.objects.select_for_update().select_related("complainant", "assigned_to").get(pk=complaint_id)
+    return Complaint.objects.select_for_update(of=("self",)).select_related("complainant", "assigned_to").get(pk=complaint_id)
 
 
 @transaction.atomic

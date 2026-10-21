@@ -74,7 +74,7 @@ TRANSITIONS = {
 
 def _lock(delivery_id) -> Delivery:
     return (
-        Delivery.objects.select_for_update()
+        Delivery.objects.select_for_update(of=("self",))
         .select_related("store_order__order__customer__user", "store_order__store", "partner__user")
         .get(pk=delivery_id)
     )
