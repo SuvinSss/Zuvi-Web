@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Home, LifeBuoy, LogIn, Package, Search, ShoppingBag, Store, User } from 'lucide-react'
+import { Bell, Home, LifeBuoy, LogIn, LogOut, Package, Search, ShoppingBag, Store, User } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
@@ -34,7 +34,8 @@ function useCartCount() {
 }
 
 export function PublicLayout() {
-  const { user, status } = useAuth()
+  const { user, status, signOut } = useAuth()
+  const navigate = useNavigate()
   const cartCount = useCartCount()
   const isCustomer = user?.role === 'CUSTOMER'
   const unread = useQuery({ queryKey: ['notifications', 'unread'], queryFn: unreadCount, enabled: isCustomer, staleTime: 30_000 })
@@ -85,6 +86,13 @@ export function PublicLayout() {
                   <Link to="/register" className="inline-flex min-h-11 items-center rounded-control bg-forest px-4 text-sm font-semibold text-white hover:bg-deep">Join</Link>
                 </>
               )
+            )}
+            {user && (
+              <button type="button" onClick={() => void signOut().then(() => navigate('/login'))} className="inline-flex min-h-11 items-center gap-2 rounded-control px-3 text-sm font-medium text-ink hover:bg-pale">
+                <LogOut className="size-5" aria-hidden="true" />
+                <span className="hidden sm:inline">Sign out</span>
+                <span className="sr-only sm:hidden">Sign out</span>
+              </button>
             )}
           </div>
         </div>
