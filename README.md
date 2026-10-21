@@ -384,6 +384,13 @@ products. New staging uploads use the existing UUID-based `products/images/`
 path so the production media permissions also cover photo imports. Existing
 staging paths remain valid; do not purge media merely because it was staged.
 
+## Repository layout: two applications
+
+- `backend/` — Django project and REST API. Run every `manage.py`, `pip` and `gunicorn` command from inside this folder; `railway.toml` and `requirements.txt` live here.
+- `frontend/` — React + TypeScript + Vite admin app. Run `npm` commands from inside this folder.
+
+Older sections of this README that mention `manage.py`, `scripts/`, `.env.example` or `railway.toml` refer to files now under `backend/`.
+
 ## React admin and REST API
 
 Product management (list, create/edit, photos, Excel/CSV bulk import) is available as a React + TypeScript

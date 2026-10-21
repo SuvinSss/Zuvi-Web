@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
-// Runs against a real Django (throwaway SQLite, see ../scripts/e2e_seed.py) and the Vite dev server.
+// Runs against a real Django (throwaway SQLite, see ../backend/scripts/e2e_seed.py) and the Vite dev server.
 // CI preinstalls Chromium; locally set PW_CHROMIUM_PATH if Playwright's own browser is not installed.
 const executablePath = process.env.PW_CHROMIUM_PATH || undefined
 

@@ -1,6 +1,6 @@
 # Deployment
 
-The Django service deploys as before (Railpack + Gunicorn, see README and `railway.toml`). New requirements: `openpyxl`, `defusedxml`, `drf-spectacular`, `django-cors-headers` (in `requirements.txt`); migration `catalog.0013`.
+The Django service lives in `backend/` and deploys as before (Railpack + Gunicorn, see README and `backend/railway.toml`). **Set the Railway service's Root Directory to `backend`** — the build, migrate and start commands in `railway.toml` are relative to it. New requirements: `openpyxl`, `defusedxml`, `drf-spectacular`, `django-cors-headers` (in `requirements.txt`); migration `catalog.0013`.
 
 ## Serving the React app
 

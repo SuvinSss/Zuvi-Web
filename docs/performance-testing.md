@@ -1,10 +1,11 @@
 # Performance testing
 
-Tool: **Locust** (`loadtests/locustfile.py`). Scenarios: public catalogue (pages, search, home) and authenticated management API (list/page, search, filter, detail, meta, login).
+Tool: **Locust** (`backend/loadtests/locustfile.py`). Scenarios: public catalogue (pages, search, home) and authenticated management API (list/page, search, filter, detail, meta, login).
 
 ## How to run
 
 ```bash
+cd backend
 createdb zuvi_load                       # throwaway database — never a real one
 DATABASE_URL=postgres://…/zuvi_load python manage.py migrate
 DATABASE_URL=… LOAD_PRODUCTS=3000 python manage.py shell < scripts/load_seed.py

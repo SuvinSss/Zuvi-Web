@@ -27,7 +27,7 @@ Thumbs.db
 
 # Local SQLite fallback, test output
 data/
-loadtests/results/
+backend/loadtests/results/
 frontend/test-results/
 frontend/playwright-report/
 frontend/e2e/.auth.json

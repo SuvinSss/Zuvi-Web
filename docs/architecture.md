@@ -19,7 +19,17 @@ Browser ── React SPA (frontend/, Vite) ──/api/v1──▶ Django + DRF �
 
 This is a **phased** migration: the API plus an admin SPA first. Moving the storefront/cart/orders to React is future work and is *not* done.
 
-## Backend layout
+## Repository layout
+
+```
+backend/    Django project + REST API (own requirements.txt, manage.py, railway.toml, tests)
+frontend/   React + Vite admin app (own package.json, tests, Playwright)
+docs/       shared documentation
+```
+
+The two applications share nothing at build time; they communicate only through `/api/v1/` over HTTP.
+
+## Backend layout (`backend/`)
 
 - `config/api_urls.py` mounts `/api/v1/` (auth, OpenAPI schema/docs, catalog).
 - `catalog/api/` — permissions, pagination, serializers, views, urls. Views are thin; all writes call the existing services (`create_product`, `update_product`, `mutate_product_images`, …) so pricing, audit logs, store isolation and stock rules are enforced in one place. The API never accepts `final_price`, `selling_price` or `stock_quantity`.

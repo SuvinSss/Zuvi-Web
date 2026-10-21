@@ -5,6 +5,7 @@ Requirements: Python 3.13, Node 22+ (Node 24 recommended), PostgreSQL 16 (option
 ## Backend
 
 ```bash
+cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env            # set DJANGO_SECRET_KEY
@@ -20,7 +21,7 @@ With no `DATABASE_URL`, **local** runs (`DJANGO_ENVIRONMENT=local`) fall back to
 ```bash
 cd frontend
 npm install
-npm run dev                     # http://127.0.0.1:5173
+npm run dev                     # http://127.0.0.1:5173 (from the frontend/ folder)
 ```
 
 The dev server proxies `/api`, `/media`, `/management` and `/static` to Django (`VITE_DEV_BACKEND_URL`, default `http://127.0.0.1:8000`), so the session cookie is same-origin and no CORS setup is needed. Sign in with a Super Admin or Admin account.
@@ -28,7 +29,7 @@ The dev server proxies `/api`, `/media`, `/management` and `/static` to Django (
 ## Checks
 
 ```bash
-# backend
+# backend (run inside backend/)
 python manage.py test --parallel 4          # PostgreSQL via DATABASE_URL
 # frontend
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build

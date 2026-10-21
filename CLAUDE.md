@@ -3,8 +3,9 @@
 Read `AGENTS.md` first (store isolation, pricing, stock and audit rules still apply). This file adds the API/React layer.
 
 ## Layout
-- Django project (root) + DRF API at `/api/v1/` (`config/api_urls.py`, `catalog/api/`, `accounts/api.py`).
-- React + TypeScript (strict) + Vite admin app in `frontend/`. Storefront, cart, orders, store portal remain Django templates.
+Two independently runnable applications in one repository:
+- `backend/` — Django project + DRF API at `/api/v1/` (`config/api_urls.py`, `catalog/api/`, `accounts/api.py`).
+- `frontend/` — React + TypeScript (strict) + Vite admin app. Storefront, cart, orders, store portal remain Django templates.
 - Image pipeline: `catalog/image_pipeline.py`. Excel import: `catalog/product_import/`. Docs: `docs/`.
 
 ## Rules
@@ -18,8 +19,8 @@ Read `AGENTS.md` first (store isolation, pricing, stock and audit rules still ap
 
 ## Commands
 ```bash
-python manage.py test --parallel 4                       # needs PostgreSQL (DATABASE_URL)
+cd backend && python manage.py test --parallel 4         # needs PostgreSQL (DATABASE_URL)
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build
-cd frontend && PW_CHROMIUM_PATH=… npm run e2e            # needs Django (throwaway SQLite, scripts/e2e_seed.py) + Vite
-locust -f loadtests/locustfile.py …                      # see docs/performance-testing.md (throwaway DB only)
+cd frontend && PW_CHROMIUM_PATH=… npm run e2e            # needs Django (throwaway SQLite, backend/scripts/e2e_seed.py) + Vite
+cd backend && locust -f loadtests/locustfile.py …       # see docs/performance-testing.md (throwaway DB only)
 ```
