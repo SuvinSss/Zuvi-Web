@@ -49,9 +49,14 @@ class SessionView(APIView):
 
     @extend_schema(responses=dict)
     def get(self, request):
+        from platform_api.auth import account_payload  # local import: platform_api imports this module's helpers
+
         user = request.user
-        if user.is_authenticated and can_access_management_portal(user):
-            return Response({"authenticated": True, "user": user_payload(user), "csrf_token": get_token(request._request)})
+        if user.is_authenticated and user.is_active:
+            # Every role gets its own profile; ``permissions`` drives the catalogue screens for management users.
+            payload = {**user_payload(user), **account_payload(user), "name": user.get_full_name() or user.get_username(),
+                       "is_management": can_access_management_portal(user)}
+            return Response({"authenticated": True, "user": payload, "csrf_token": get_token(request._request)})
         return Response({"authenticated": False, "user": None, "csrf_token": get_token(request._request)})
 
 

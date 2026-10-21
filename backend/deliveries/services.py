@@ -638,7 +638,7 @@ def tracking_snapshot(delivery: Delivery, *, for_customer=False) -> dict:
         ],
     }
     if partner and delivery.status in (D.ACCEPTED, D.AT_STORE, D.IN_TRANSIT, D.ARRIVED, D.DELIVERED):
-        data["partner"] = {"first_name": partner.user.first_name, "vehicle_type": partner.vehicle_type}
+        data["partner"] = {"id": partner.pk, "first_name": partner.user.first_name, "vehicle_type": partner.vehicle_type}
     if ping:
         age = (now - ping.recorded_at).total_seconds()
         data["location"] = {

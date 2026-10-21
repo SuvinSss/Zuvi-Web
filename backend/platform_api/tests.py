@@ -480,6 +480,14 @@ class AdminApiTests(ApiTestBase):
 
 
 class StoreProductManagementTests(ApiTestBase):
+    def test_store_meta_is_for_store_users_only(self):
+        self.assertEqual(APIClient().get("/api/v1/store/meta/").status_code in (401, 403), True)
+        self.assertEqual(self.as_(self.customer_user).get("/api/v1/store/meta/").status_code, 403)
+        body = self.as_(self.store_user).get("/api/v1/store/meta/").json()
+        self.assertIn("categories", body)
+        self.assertIn("units", body)
+        self.assertNotIn("stores", body)  # other stores are never listed
+
     def payload(self, **extra):
         from catalog.models import ProductCategory
         category = ProductCategory.objects.first() or ProductCategory.objects.create(name="General")
@@ -529,3 +537,19 @@ class StoreProductManagementTests(ApiTestBase):
         from stores.models import StoreUser
         StoreUser.objects.filter(user=self.store_user).update(can_manage_inventory=False)
         self.assertEqual(self.as_(self.store_user).post("/api/v1/store/products/", self.payload(), format="json").status_code, 403)
+
+
+class SessionRestoreTests(ApiTestBase):
+    def test_session_reports_every_role_with_its_own_profile(self):
+        customer = self.as_(self.customer_user).get("/api/v1/auth/session/").json()
+        self.assertTrue(customer["authenticated"])
+        self.assertEqual(customer["user"]["role"], "CUSTOMER")
+        self.assertFalse(customer["user"]["is_management"])
+        store = self.as_(self.store_user).get("/api/v1/auth/session/").json()
+        self.assertEqual(store["user"]["store"]["id"], self.store.pk)
+        admin = self.as_(self.super_admin).get("/api/v1/auth/session/").json()
+        self.assertTrue(admin["user"]["is_management"])
+        self.assertTrue(admin["user"]["permissions"]["add"])
+        anonymous = self.as_(None).get("/api/v1/auth/session/").json()
+        self.assertFalse(anonymous["authenticated"])
+        self.assertIsNone(anonymous["user"])

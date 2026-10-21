@@ -62,6 +62,28 @@ class StoreMeView(APIView):
                          "orders_by_status": by_status, "low_stock_products": low, "rating": aggregate_for(TargetType.STORE, store.pk)})
 
 
+class StoreMetaView(APIView):
+    """Reference data for the store's product form (the admin meta endpoint is management-only)."""
+
+    permission_classes = [IsStoreUser]
+
+    @extend_schema(responses=dict)
+    def get(self, request):
+        from catalog.models import Brand, ProductCategory, ProductUnit, Tag
+        from catalog.validators import MAX_IMAGES_PER_PRODUCT
+
+        membership = get_store_membership(request.user)
+        return Response({
+            "categories": [{"id": c.pk, "name": str(c), "slug": c.slug}
+                           for c in ProductCategory.objects.filter(is_active=True).select_related("parent__parent")],
+            "brands": list(Brand.objects.filter(is_active=True).values("id", "name")),
+            "tags": list(Tag.objects.filter(is_active=True).values("id", "name")),
+            "units": [{"value": v, "label": l} for v, l in ProductUnit.choices],
+            "max_images": MAX_IMAGES_PER_PRODUCT,
+            "can": {"manage_inventory": membership.can_manage_inventory, "manage_orders": membership.can_manage_orders},
+        })
+
+
 class StoreOrdersView(generics.ListAPIView):
     permission_classes = [IsStoreUser]
     pagination_class = StandardPagination

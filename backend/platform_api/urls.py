@@ -32,6 +32,7 @@ urlpatterns = [
     path("orders/<int:pk>/", customer.OrderDetailView.as_view(), name="api_order"),
     path("orders/<int:pk>/cancel/", customer.OrderCancelView.as_view(), name="api_order_cancel"),
     # store
+    path("store/meta/", store.StoreMetaView.as_view(), name="api_store_meta"),
     path("store/me/", store.StoreMeView.as_view(), name="api_store_me"),
     path("store/orders/", store.StoreOrdersView.as_view(), name="api_store_orders"),
     path("store/orders/<int:pk>/", store.StoreOrderDetailView.as_view(), name="api_store_order"),
