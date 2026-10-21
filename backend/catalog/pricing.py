@@ -193,3 +193,60 @@ def product_has_complete_pricing(product):
         and product.selling_price is not None
         and product.final_price is not None
     )
+
+
+# --------------------------------------------------------------------------
+# Pricing explanations for the admin calculator.
+#
+# Zuuvi model (from the existing schema): the store supplies a product at
+# ``store_price`` (Zuuvi's unit cost); management adds a margin to get the
+# ``selling_price``; an optional discount gives the ``final_price`` customers
+# pay. Tax, payment fees and commission are NOT modelled in the catalogue, so
+# every profit figure here is an *estimated gross profit*, never net profit.
+# --------------------------------------------------------------------------
+def _pct(numerator, denominator):
+    """Percentage rounded to 2 places, or None when the denominator is not positive."""
+    if denominator is None or denominator <= 0:
+        return None
+    return quantize_money(numerator / denominator * HUNDRED)
+
+
+def price_breakdown(*, cost, selling_price, discount_type="", discount_value=None):
+    """Explain a price: discount, final price, estimated gross profit, margin and markup.
+
+    Margin = profit / final price. Markup = profit / cost. They are different
+    numbers and are never mixed up. Zero cost or zero price yields ``None``
+    percentages instead of a division error.
+    """
+    cost = quantize_money(cost)
+    selling = quantize_money(selling_price)
+    final = calculate_final_price(selling_price=selling, discount_type=discount_type or "", discount_value=discount_value)
+    profit = quantize_money(final - cost)
+    warnings = []
+    if final < cost:
+        warnings.append("The final price is below the store price, so every sale would lose money.")
+    elif profit == 0:
+        warnings.append("No profit at this price.")
+    return {
+        "cost": str(cost),
+        "selling_price": str(selling),
+        "discount_amount": str(quantize_money(selling - final)),
+        "final_price": str(final),
+        "profit_per_unit": str(profit),
+        "margin_percent": None if _pct(profit, final) is None else str(_pct(profit, final)),
+        "markup_percent": None if _pct(profit, cost) is None else str(_pct(profit, cost)),
+        "label": "Estimated gross profit (before tax, fees and commission)",
+        "warnings": warnings,
+        "below_cost": final < cost,
+    }
+
+
+def suggest_selling_price(*, cost, target_margin_percent):
+    """Selling price that earns ``target_margin_percent`` of the price: cost / (1 - margin)."""
+    cost = _as_decimal(cost)
+    margin = _as_decimal(target_margin_percent)
+    if cost is None or cost <= 0:
+        raise ValidationError({"cost": "Enter a store price above zero to suggest a selling price."})
+    if margin is None or margin < 0 or margin >= HUNDRED:
+        raise ValidationError({"target_margin": "Target margin must be at least 0 and below 100%."})
+    return quantize_money(cost / (Decimal("1") - margin / HUNDRED))

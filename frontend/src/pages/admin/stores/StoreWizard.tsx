@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
+import { useDebounced } from '@/hooks/useDebounced'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { FilePicker, Modal, QueryBoundary, useToast } from '@/components/kit'
 import { useBeforeUnload } from '@/components/management'
-import { Alert, Button, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
+import { Alert, Button, ButtonLink, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
 import { errorMessage, fieldErrors } from '@/lib/api'
-import { createStore, getStore, storeMeta, updateStore, uploadStoreDocument, uploadStoreImages } from '@/services/management'
-import type { Hours, StoreDetail, StoreWrite } from '@/types/management'
+import { createStore, getStore, ownerCandidates, storeMeta, updateStore, uploadStoreDocument, uploadStoreImages } from '@/services/management'
+import type { CreateOutcome, Hours, StoreDetail, StoreWrite } from '@/types/management'
 
 const DAY_LABEL: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' }
 const DOC_KINDS = [['GST', 'GST certificate'], ['FSSAI', 'FSSAI licence'], ['TRADE', 'Trade licence'], ['ID', 'Owner identity proof'], ['OTHER', 'Other']] as const
@@ -31,14 +32,22 @@ function fromDetail(d: StoreDetail): StoreWrite {
 }
 
 /** Serialise the form; empty optional numbers are omitted instead of being sent as made-up values. */
-function payload(form: StoreWrite, owner: ReturnType<typeof blankOwner> | null, draft: boolean, edit: boolean): Record<string, unknown> {
+type OwnerMode = 'invite' | 'password' | 'existing' | 'none'
+function payload(form: StoreWrite, owner: ReturnType<typeof blankOwner> | null, draft: boolean, edit: boolean, ownerMode: OwnerMode = 'none', existingOwner: number | null = null): Record<string, unknown> {
   const { address, ...rest } = form
   const body: Record<string, unknown> = { ...rest, category: form.category === '' ? undefined : form.category }
   for (const key of ['min_order_amount', 'service_radius_km'] as const) body[key] = rest[key] === '' ? null : rest[key]
   const addr: Record<string, unknown> = { ...address }
   for (const key of ['latitude', 'longitude'] as const) if (address[key] === '') delete addr[key]
   body.address = addr
-  if (!edit) { body.save_draft = draft; if (owner && owner.username) body.owner = { ...owner, phone_number: owner.phone_number || null } }
+  if (!edit) {
+    body.save_draft = draft
+    if (ownerMode === 'existing' && existingOwner) body.existing_owner = existingOwner
+    else if (owner && owner.username && (ownerMode === 'invite' || ownerMode === 'password')) {
+      const { password, ...rest2 } = owner
+      body.owner = { ...rest2, phone_number: owner.phone_number || null, ...(ownerMode === 'password' && password ? { password } : {}) }
+    }
+  }
   return body
 }
 
@@ -63,6 +72,13 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<StoreWrite>(initial)
   const [owner, setOwner] = useState(blankOwner)
+  const [ownerMode, setOwnerMode] = useState<OwnerMode>('invite')
+  const [existingOwner, setExistingOwner] = useState<{ id: number; label: string } | null>(null)
+  const [ownerQuery, setOwnerQuery] = useState('')
+  const [created, setCreated] = useState<(CreateOutcome & { problems?: string[] }) | null>(null)
+  const [copied, setCopied] = useState(false)
+  const search = useDebounced(ownerQuery.trim(), 300)
+  const candidates = useQuery({ queryKey: ['owner-candidates', search], queryFn: () => ownerCandidates(search), enabled: ownerMode === 'existing' && search.length >= 2 })
   const [logo, setLogo] = useState<File | null>(null)
   const [banner, setBanner] = useState<File | null>(null)
   const [docs, setDocs] = useState<{ kind: string; file: File }[]>([])
@@ -80,7 +96,7 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
   const save = useMutation({
     mutationFn: async (draft: boolean) => {
       if (edit) { await updateStore(editId, payload(form, null, false, true) as Partial<StoreWrite>); return { id: editId, status: '', missing: [] as string[], store_code: '' } }
-      const created = await createStore(payload(form, owner, draft, false) as unknown as StoreWrite)
+      const created = await createStore(payload(form, owner, draft, false, ownerMode, existingOwner?.id ?? null) as unknown as StoreWrite)
       const problems: string[] = []
       if (logo || banner) await uploadStoreImages(created.id, { image: logo, banner }).catch((e) => problems.push(`Images: ${errorMessage(e)}`))
       for (const doc of docs) await uploadStoreDocument(created.id, doc.kind, doc.file).catch((e) => problems.push(`${doc.file.name}: ${errorMessage(e)}`))
@@ -91,6 +107,8 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
       void qc.invalidateQueries({ queryKey: ['admin-stores'] }); void qc.invalidateQueries({ queryKey: ['admin-counts'] })
       const problems = (result as { problems?: string[] }).problems ?? []
       toast(problems.length ? 'error' : 'success', edit ? 'Store updated.' : `Store saved as ${String(result.status).toLowerCase().replace('_', ' ')}.${problems.length ? ` Some files were not uploaded: ${problems.join('; ')}` : ''}`)
+      const outcome = result as unknown as CreateOutcome
+      if (outcome.owner_setup) { setCreated(outcome); return }  // show the one-time link before leaving
       navigate(`/admin/stores/${result.id}`)
     },
     onError: (error) => { setErrors(fieldErrors(error)); window.scrollTo({ top: 0 }) },
@@ -101,12 +119,33 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
     !form.name.trim() && 'Store name', form.category === '' && 'Category', !form.contact_phone.trim() && 'Contact phone', !form.address.line1.trim() && 'Address line 1',
     !form.address.city.trim() && 'City', !form.address.state.trim() && 'State', !form.address.postal_code.trim() && 'Postal code',
     (!form.address.latitude || !form.address.longitude) && 'Map location', !(form.offers_delivery || form.offers_pickup) && 'Delivery or pickup',
-    !edit && !owner.username && 'Owner account',
+    !edit && (ownerMode === 'existing' ? !existingOwner : ownerMode === 'none' || !owner.username) && 'Owner account',
   ].filter(Boolean) as string[]
   const opsGaps = [!Object.values(form.opening_hours).some((s) => s.length) && 'Opening hours', form.offers_delivery && !form.service_radius_km && 'Delivery service radius'].filter(Boolean) as string[]
   const canSubmit = Boolean(form.name.trim() && form.category !== '')
   const setDay = (day: string, slot: { open: string; close: string } | null) => patch({ opening_hours: { ...form.opening_hours, [day]: slot ? [slot] : [] } as Hours })
   const errorList = Object.entries(errors)
+  if (created?.owner_setup) {
+    const setup = created.owner_setup
+    const full = setup.link.startsWith('http') ? setup.link : `${window.location.origin}${setup.link}`
+    return (
+      <>
+        <PageHeader title="Store created" subtitle={`${created.store_code} · saved as ${created.status.toLowerCase().replace('_', ' ')}`} />
+        <Card className="max-w-2xl space-y-4 p-4 sm:p-6">
+          {setup.email_sent
+            ? <Alert tone="success" title="Setup e-mail sent">A message with the setup link was handed to the mail server for {setup.email}.</Alert>
+            : <Alert tone="warn" title="No e-mail was sent">E-mail is not configured (or delivery failed), so nothing has been delivered. Give the owner this link yourself.</Alert>}
+          <Field label="One-time setup link" hint={`Valid for ${setup.expires_in_days} days and works once. It is shown only now; you can create a new one from the store’s Owner & Staff tab.`}>
+            {(p) => <Input {...p} readOnly value={full} onFocus={(e) => e.currentTarget.select()} />}
+          </Field>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => { void navigator.clipboard?.writeText(full).then(() => setCopied(true)) }}>{copied ? 'Copied' : 'Copy link'}</Button>
+            <ButtonLink to={`/admin/stores/${created.id}`}>Go to store</ButtonLink>
+          </div>
+        </Card>
+      </>
+    )
+  }
 
   const stepBody = [
     <Grid key="0">
@@ -184,16 +223,42 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
     </div>,
     edit ? <Alert key="4" tone="info">Owner and staff accounts are managed from the store’s Owner &amp; Staff tab.</Alert> : (
       <div key="4" className="space-y-4">
-        <Alert tone="info">The owner gets a store-portal account. Choose a strong temporary password and share it securely; it is never shown again.</Alert>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Who will run this store?</legend>
+          {([['invite', 'Create a new owner and send a setup link (recommended)'], ['existing', 'Assign an existing store user'], ['password', 'Create a new owner with a password I choose'], ['none', 'Add the owner later']] as const).map(([value, label]) => (
+            <label key={value} className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" name="owner-mode" className="accent-forest" checked={ownerMode === value} onChange={() => { setOwnerMode(value); setDirty(true) }} />{label}</label>
+          ))}
+        </fieldset>
+        {ownerMode === 'invite' && <Alert tone="info">The owner picks their own password from a one-time link that expires in 3 days. If e-mail is not set up, you will get the link to pass on yourself.</Alert>}
+        {ownerMode === 'password' && <Alert tone="warn">Prefer the setup link. If you set a password, share it securely: it is never shown again and the owner should change it after signing in.</Alert>}
+        {ownerMode === 'existing' && (
+          <div className="space-y-2">
+            <Field label="Search store users" error={err('owner')} hint="Search by username, name or e-mail (at least 2 characters). Customers, admins and delivery accounts cannot be assigned.">
+              {(p) => <Input {...p} value={ownerQuery} onChange={(e) => setOwnerQuery(e.target.value)} />}
+            </Field>
+            {existingOwner && <p className="text-sm">Selected: <strong>{existingOwner.label}</strong></p>}
+            <ul className="divide-y divide-line rounded-control border border-line" aria-label="Matching store users">
+              {(candidates.data ?? []).map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <span>{c.name || c.username} <span className="text-muted">· {c.email}{c.stores.length > 0 && ` · already on ${c.stores.join(', ')}`}</span></span>
+                  <Button size="sm" variant="outline" onClick={() => { setExistingOwner({ id: c.id, label: `${c.name || c.username} (${c.username})` }); setDirty(true) }}>Select</Button>
+                </li>
+              ))}
+              {search.length >= 2 && candidates.data?.length === 0 && <li className="px-3 py-2 text-sm text-muted">No matching store users.</li>}
+            </ul>
+          </div>
+        )}
+        {(ownerMode === 'invite' || ownerMode === 'password') && (
         <Grid>
           <Field label="Username" error={err('username')}>{(p) => <Input {...p} autoComplete="off" value={owner.username} onChange={(e) => patchOwner({ username: e.target.value })} />}</Field>
           <Field label="Email" error={err('email')}>{(p) => <Input {...p} type="email" autoComplete="off" value={owner.email} onChange={(e) => patchOwner({ email: e.target.value })} />}</Field>
           <Field label="First name">{(p) => <Input {...p} value={owner.first_name} onChange={(e) => patchOwner({ first_name: e.target.value })} />}</Field>
           <Field label="Last name">{(p) => <Input {...p} value={owner.last_name} onChange={(e) => patchOwner({ last_name: e.target.value })} />}</Field>
           <Field label="Phone" error={err('phone_number')}>{(p) => <Input {...p} type="tel" value={owner.phone_number} onChange={(e) => patchOwner({ phone_number: e.target.value })} />}</Field>
-          <Field label="Temporary password" error={err('owner_password') ?? err('password')} hint="At least 8 characters, not common or numeric only.">{(p) => <Input {...p} type="password" autoComplete="new-password" value={owner.password} onChange={(e) => patchOwner({ password: e.target.value })} />}</Field>
+          {ownerMode === 'password' && <Field label="Temporary password" error={err('owner_password') ?? err('password')} hint="At least 8 characters, not common or numeric only.">{(p) => <Input {...p} type="password" autoComplete="new-password" value={owner.password} onChange={(e) => patchOwner({ password: e.target.value })} />}</Field>}
         </Grid>
-        <p className="text-sm text-muted">Skip this step to create the store without an owner; it will be marked “needs information” until an owner is added.</p>
+        )}
+        <p className="text-sm text-muted">Without an owner the store is marked “needs information” until one is added.</p>
       </div>
     ),
     <div key="5" className="space-y-4">

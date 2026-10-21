@@ -7,8 +7,8 @@ import { FilePicker, KeyValue, Modal, QueryBoundary, Section, Stat, Status, Time
 import { Alert, Button, ButtonLink, Card, Field, Input, PageHeader, Select } from '@/components/ui'
 import { errorMessage, fieldErrors } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-import { addStoreStaff, getStore, storeDocuments, storeMeta, storeStaff, uploadStoreDocument, verifyStore } from '@/services/management'
-import type { StoreDetail } from '@/types/management'
+import { addStoreStaff, resendInvite, getStore, storeDocuments, storeMeta, storeStaff, uploadStoreDocument, verifyStore } from '@/services/management'
+import type { OwnerSetup, StoreDetail } from '@/types/management'
 
 const TABS = [
   { id: 'overview', label: 'Overview' }, { id: 'business', label: 'Business info' }, { id: 'address', label: 'Address' }, { id: 'staff', label: 'Owner & staff' },
@@ -29,9 +29,11 @@ function StaffTab({ store, canChange }: { store: StoreDetail; canChange: boolean
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ username: '', email: '', first_name: '', last_name: '', phone_number: '', password: '', designation: '' })
   const [primary, setPrimary] = useState(false)
+  const [link, setLink] = useState<OwnerSetup | null>(null)
+  const resend = useMutation({ mutationFn: (user: number) => resendInvite(store.id, user), onSuccess: (d) => setLink(d.owner_setup), onError: (e) => toast('error', errorMessage(e)) })
   const add = useMutation({
     mutationFn: () => addStoreStaff(store.id, { ...form, phone_number: form.phone_number || null, is_primary: primary }),
-    onSuccess: () => { toast('success', 'Staff account created.'); setOpen(false); setForm({ username: '', email: '', first_name: '', last_name: '', phone_number: '', password: '', designation: '' }); void qc.invalidateQueries({ queryKey: ['store-staff', store.id] }); void qc.invalidateQueries({ queryKey: ['admin-store', store.id] }) },
+    onSuccess: (data) => { toast('success', 'Staff account created.'); setOpen(false); if (data.owner_setup) setLink(data.owner_setup); setForm({ username: '', email: '', first_name: '', last_name: '', phone_number: '', password: '', designation: '' }); void qc.invalidateQueries({ queryKey: ['store-staff', store.id] }); void qc.invalidateQueries({ queryKey: ['admin-store', store.id] }) },
   })
   const errs = fieldErrors(add.error)
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value })
@@ -42,21 +44,30 @@ function StaffTab({ store, canChange }: { store: StoreDetail; canChange: boolean
           {staff.data?.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
               <div><p className="font-medium">{m.name || m.username} {m.is_primary && <span className="ml-1 rounded-full bg-mint px-2 text-xs text-deep">Owner</span>}</p><p className="text-xs text-muted">{m.username} · {m.email}{m.designation ? ` · ${m.designation}` : ''}</p></div>
-              <Status value={m.is_active ? 'ACTIVE' : 'INACTIVE'} />
+              <span className="flex items-center gap-2">
+                {m.setup_pending && <><span className="rounded-full bg-warn-bg px-2 text-xs text-warn">Setup pending</span>{canChange && <Button size="sm" variant="outline" loading={resend.isPending} onClick={() => resend.mutate(m.user_id)}>New setup link</Button>}</>}
+                <Status value={m.is_active ? 'ACTIVE' : 'INACTIVE'} />
+              </span>
             </li>
           ))}
         </ul>
       </QueryBoundary>
       <Modal open={open} onClose={() => setOpen(false)} title="Add staff account"
-        footer={<><Button variant="outline" onClick={() => setOpen(false)} disabled={add.isPending}>Cancel</Button><Button loading={add.isPending} disabled={!form.username || !form.email || !form.password} onClick={() => add.mutate()}>Create account</Button></>}>
+        footer={<><Button variant="outline" onClick={() => setOpen(false)} disabled={add.isPending}>Cancel</Button><Button loading={add.isPending} disabled={!form.username || !form.email} onClick={() => add.mutate()}>Create account</Button></>}>
         <div className="space-y-3">
           {add.isError && Object.keys(errs).length === 0 && <Alert tone="error">{errorMessage(add.error)}</Alert>}
           <Field label="Username" required error={errs.username}>{(p) => <Input {...p} autoComplete="off" value={form.username} onChange={set('username')} />}</Field>
           <Field label="Email" required error={errs.email}>{(p) => <Input {...p} type="email" autoComplete="off" value={form.email} onChange={set('email')} />}</Field>
           <Field label="Designation">{(p) => <Input {...p} value={form.designation} onChange={set('designation')} />}</Field>
-          <Field label="Temporary password" required error={errs.password} hint="Share it securely. It is never shown again.">{(p) => <Input {...p} type="password" autoComplete="new-password" value={form.password} onChange={set('password')} />}</Field>
+          <Field label="Temporary password (optional)" error={errs.password} hint="Leave empty to get a one-time setup link the person uses to choose their own password.">{(p) => <Input {...p} type="password" autoComplete="new-password" value={form.password} onChange={set('password')} />}</Field>
           <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-forest" checked={primary} onChange={(e) => setPrimary(e.target.checked)} />Make this the store owner (primary contact)</label>
         </div>
+      </Modal>
+      <Modal open={link !== null} onClose={() => setLink(null)} title="One-time setup link" footer={<Button onClick={() => setLink(null)}>Done</Button>}>
+        {link && <div className="space-y-3">
+          {link.email_sent ? <Alert tone="success">Setup e-mail handed to the mail server for {link.email}.</Alert> : <Alert tone="warn">No e-mail was sent. Give the person this link yourself.</Alert>}
+          <Field label="Link" hint={`Works once and expires in ${link.expires_in_days} days. It is not shown again.`}>{(p) => <Input {...p} readOnly onFocus={(e) => e.currentTarget.select()} value={link.link.startsWith('http') ? link.link : `${window.location.origin}${link.link}`} />}</Field>
+        </div>}
       </Modal>
     </Section>
   )

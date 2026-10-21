@@ -14,6 +14,7 @@ const LoginPage = L(() => import('@/pages/LoginPage'))
 const RegisterPage = L(() => import('@/pages/auth/RegisterPage'))
 const ForgotPasswordPage = L(() => import('@/pages/auth/ForgotPasswordPage'))
 const ResetPasswordPage = L(() => import('@/pages/auth/ResetPasswordPage'))
+const SetupAccountPage = L(() => import('@/pages/auth/SetupAccountPage'))
 const NotFoundPage = L(() => import('@/pages/NotFoundPage'))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
 
@@ -87,6 +88,7 @@ export const routes: RouteObject[] = [
   { path: '/register-partner', element: page(<RegisterPage partner />) },
   { path: '/forgot-password', element: page(<ForgotPasswordPage />) },
   { path: '/reset-password', element: page(<ResetPasswordPage />) },
+  { path: '/setup-account', element: page(<SetupAccountPage />) },
   {
     element: <PublicLayout />,
     children: [

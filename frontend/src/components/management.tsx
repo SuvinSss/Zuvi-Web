@@ -89,7 +89,8 @@ export function SelectCheckbox({ checked, indeterminate, onChange, label }: { ch
   )
 }
 
-export interface BulkActionDef { action: string; label: string; needsReason?: boolean; danger?: boolean }
+export interface BulkField { key: string; label: string; options?: { value: string; label: string }[]; hint?: string }
+export interface BulkActionDef { action: string; label: string; needsReason?: boolean; danger?: boolean; fields?: BulkField[] }
 
 /** The toolbar that appears once rows are selected; offers "select everything that matches" across pages. */
 export function BulkBar({ selection, pageCount, total, actions, onAction, onSelectAll, onClear }: {
@@ -136,10 +137,11 @@ export function BulkDialog({ module, def, selection, filters, total, onClose, on
   module: BulkModule; def: BulkActionDef | null; selection: Selection; filters: Record<string, string>; total: number; onClose: () => void; onDone: () => void
 }) {
   const [reason, setReason] = useState('')
+  const [params, setParams] = useState<Record<string, string>>({})
   const [preview, setPreview] = useState<BulkPreview | null>(null)
   const [result, setResult] = useState<BulkResult | null>(null)
   const request = (): BulkRequest => ({
-    action: def?.action ?? '', reason, ...(selection.selectAll ? { select_all: true, filters } : { ids: [...selection.ids] }),
+    action: def?.action ?? '', reason, ...(def?.fields ? { params } : {}), ...(selection.selectAll ? { select_all: true, filters } : { ids: [...selection.ids] }),
   })
   const run = useMutation({ mutationFn: () => bulkPreview(module, request()), onSuccess: setPreview })
   const apply = useMutation({
@@ -150,19 +152,20 @@ export function BulkDialog({ module, def, selection, filters, total, onClose, on
   const started = useRef<string | null>(null)
   useEffect(() => {
     if (!def) { started.current = null; return }
-    if (def.needsReason || started.current === def.action) return
+    if (def.needsReason || def.fields || started.current === def.action) return
     started.current = def.action
     run.mutate()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [def])
-  const close = () => { setReason(''); setPreview(null); setResult(null); started.current = null; run.reset(); apply.reset(); onClose() }
+  const close = () => { setReason(''); setParams({}); setPreview(null); setResult(null); started.current = null; run.reset(); apply.reset(); onClose() }
   const count = selection.selectAll ? total : selection.ids.size
   const needsReason = Boolean(def?.needsReason)
-  const reasonOk = !needsReason || reason.trim().length > 0
+  const needsInput = Boolean(def?.fields?.length)
+  const reasonOk = (!needsReason || reason.trim().length > 0) && (!needsInput || def!.fields!.every((f) => (params[f.key] ?? '').trim() !== ''))
 
   let footer: ReactNode
   if (result) footer = <Button onClick={close}>Done</Button>
-  else if (!preview) footer = <><Button variant="outline" onClick={close}>Cancel</Button>{needsReason && <Button disabled={!reasonOk} loading={run.isPending} onClick={() => run.mutate()}>Check {count} selected</Button>}</>
+  else if (!preview) footer = <><Button variant="outline" onClick={close}>Cancel</Button>{(needsReason || needsInput) && <Button disabled={!reasonOk} loading={run.isPending} onClick={() => run.mutate()}>Check {count} selected</Button>}</>
   else footer = (
     <>
       <Button variant="outline" onClick={close} disabled={apply.isPending}>Cancel</Button>
@@ -175,6 +178,18 @@ export function BulkDialog({ module, def, selection, filters, total, onClose, on
     <Modal open={open} onClose={close} title={result ? 'Result' : `${def?.label ?? ''} · ${count} selected`} footer={footer}>
       {!preview && !result && (
         <div className="space-y-3">
+          {def?.fields?.map((f) => (
+            <label key={f.key} className="block text-sm font-medium">{f.label}<span className="text-danger" aria-hidden="true"> *</span>
+              {f.options ? (
+                <select className="mt-1 block min-h-11 w-full rounded-control border border-line bg-white px-3 text-sm" value={params[f.key] ?? ''} onChange={(e) => setParams((p) => ({ ...p, [f.key]: e.target.value }))}>
+                  <option value="">Choose…</option>{f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input inputMode="decimal" className="mt-1 block min-h-11 w-full rounded-control border border-line bg-white px-3 text-sm" value={params[f.key] ?? ''} onChange={(e) => setParams((p) => ({ ...p, [f.key]: e.target.value }))} />
+              )}
+              {f.hint && <span className="mt-1 block text-xs font-normal text-muted">{f.hint}</span>}
+            </label>
+          ))}
           {needsReason && (
             <label className="block text-sm font-medium">Reason (recorded and shown to the owner)<span className="text-danger" aria-hidden="true"> *</span>
               <Textarea rows={3} maxLength={255} className="mt-1" value={reason} onChange={(e) => setReason(e.target.value)} />

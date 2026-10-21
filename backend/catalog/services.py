@@ -921,3 +921,38 @@ def guard_product_image_cascade(products):
 def assert_pricing_complete_for_approval(product):
     """Backward-compatible alias for full approval requirement checks."""
     validate_product_for_approval(product)
+
+
+def set_product_pricing(*, product, actor, selling_price=None, margin_type=None, margin=None,
+                        discount_type="", discount_value=None, reason="", request=None):
+    """Management pricing entry point shared by the API and bulk actions.
+
+    Either ``selling_price`` (stored as an exact fixed margin over the store price)
+    or ``margin_type`` + ``margin`` is given. Selling or final prices submitted by a
+    browser are never stored directly: they are re-derived here. The sale price may
+    not fall below the store price unless ``PRICING_ALLOW_BELOW_COST`` is enabled.
+    """
+    from django.conf import settings
+
+    from .pricing import MarginType, quantize_money
+
+    if not user_has_catalog_permission(actor, "catalog.manage_product_pricing"):
+        raise ValidationError({"detail": "You do not have permission to set prices."})
+    if selling_price not in (None, ""):
+        selling = quantize_money(selling_price)
+        if selling < product.store_price:
+            raise ValidationError({"selling_price": "The selling price cannot be below the store price."})
+        margin_type, margin = MarginType.FIXED, selling - product.store_price
+    elif not margin_type:
+        raise ValidationError({"selling_price": "Enter a selling price or a margin."})
+    selling_calc, final_calc = calculate_prices(
+        store_price=product.store_price, profit_margin_type=margin_type, profit_margin=margin,
+        discount_type=discount_type or "", discount_value=discount_value,
+    )
+    if final_calc < product.store_price and not getattr(settings, "PRICING_ALLOW_BELOW_COST", False):
+        raise ValidationError({"discount_value": "This discount puts the final price below the store price."})
+    return apply_admin_pricing(
+        product=product, profit_margin_type=margin_type, profit_margin=margin,
+        discount_type=discount_type or "", discount_value=discount_value,
+        changed_by=actor, reason=reason, request=request,
+    )

@@ -87,8 +87,18 @@ class ProductDetailSerializer(ProductListSerializer):
         fields = ProductListSerializer.Meta.fields + (
             "description", "tags", "low_stock_threshold", "manufacturing_date", "expiry_date", "is_featured",
             "profit_margin_type", "profit_margin", "discount_type", "discount_value", "rejection_reason",
-            "images", "created_at",
+            "images", "created_at", "pricing",
         )
+
+    pricing = serializers.SerializerMethodField()
+
+    def get_pricing(self, obj):
+        """Management-only explanation of the current price; None until a price is set."""
+        from catalog.pricing import price_breakdown, product_has_complete_pricing
+        if not product_has_complete_pricing(obj):
+            return None
+        return price_breakdown(cost=obj.store_price, selling_price=obj.selling_price,
+                               discount_type=obj.discount_type or "", discount_value=obj.discount_value)
 
     def get_tags(self, obj):
         return [{"id": t.pk, "name": t.name} for t in obj.tags.all()]

@@ -1,7 +1,7 @@
 import { api } from '@/lib/api'
-import type { Page } from '@/types/api'
+import type { Page, PriceBreakdown, ProductDetail } from '@/types/api'
 import type {
-  ApprovalCenter, BulkModule, BulkPreview, BulkRequest, BulkResult, CreateOutcome, ImportJob, SmartImportRow, StaffRow, StoreDetail,
+  ApprovalCenter, OwnerCandidate, OwnerSetup, BulkModule, BulkPreview, BulkRequest, BulkResult, CreateOutcome, ImportJob, SmartImportRow, StaffRow, StoreDetail,
   StoreDoc, StoreMeta, StoreRow, StoreWrite,
 } from '@/types/management'
 
@@ -17,7 +17,7 @@ export const getStore = (id: number | string) => get<StoreDetail>(`/admin/stores
 export const createStore = (body: StoreWrite) => post<CreateOutcome>('/admin/stores/', body)
 export const updateStore = (id: number, body: Partial<StoreWrite>) => patch<StoreDetail>(`/admin/stores/${id}/`, body)
 export const storeStaff = (id: number) => get<StaffRow[]>(`/admin/stores/${id}/staff/`)
-export const addStoreStaff = (id: number, body: object) => post<{ id: number }>(`/admin/stores/${id}/staff/`, body)
+export const addStoreStaff = (id: number, body: object) => post<{ id: number; owner_setup?: OwnerSetup | null }>(`/admin/stores/${id}/staff/`, body)
 export const storeDocuments = (id: number) => get<StoreDoc[]>(`/admin/stores/${id}/documents/`)
 export const uploadStoreDocument = (id: number, kind: string, file: File, title = '') => {
   const form = new FormData()
@@ -46,3 +46,11 @@ export const importDetail = (id: string, status?: string) => get<ImportJob & { r
 export const correctImportRow = (id: string, row: number, values: Record<string, string>) =>
   patch<{ row: SmartImportRow; counts: ImportJob['counts'] }>(`/products/import/${id}/rows/${row}/`, { values })
 export const retryImport = (id: string) => post<ImportJob>(`/products/import/${id}/retry/`)
+
+export interface PricingInput { selling_price?: string; margin_type?: string; margin?: string; discount_type?: string; discount_value?: string; reason?: string }
+export const pricingPreview = (body: PricingInput & { product?: number; cost?: string; target_margin?: string }) =>
+  post<{ breakdown?: PriceBreakdown; suggested_selling_price?: string }>('/products/pricing/preview/', body)
+export const setPricing = (id: number, body: PricingInput) => post<ProductDetail>(`/products/${id}/pricing/`, body)
+export const ownerCandidates = (q: string) => get<OwnerCandidate[]>('/admin/stores/owner-candidates/', { q })
+export const resendInvite = (storeId: number, user: number) => post<{ owner_setup: OwnerSetup }>(`/admin/stores/${storeId}/invite/`, { user })
+export const acceptInvite = async (token: string, newPassword: string) => { await api.post('/auth/invite/accept/', { token, new_password: newPassword }) }

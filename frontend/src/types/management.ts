@@ -24,7 +24,7 @@ export interface StoreMeta {
   categories: { id: number; name: string }[]; types: { value: string; label: string }[]; statuses: { value: string; label: string }[]
   days: string[]; can_add: boolean; can_change: boolean; can_approve: boolean
 }
-export interface StaffRow { id: number; username: string; name: string; email: string; is_primary: boolean; is_active: boolean; designation: string; can_manage_inventory: boolean; can_manage_orders: boolean }
+export interface StaffRow { id: number; user_id: number; username: string; name: string; email: string; is_primary: boolean; is_active: boolean; designation: string; setup_pending?: boolean; can_manage_inventory: boolean; can_manage_orders: boolean }
 export interface StoreDoc { id: number; kind: string; title: string; url: string; uploaded_at: string; uploaded_by: string | null }
 export interface StoreWrite {
   name: string; store_type: string; category: number | ''; contact_phone: string; alternative_phone: string; email: string; description: string
@@ -34,13 +34,13 @@ export interface StoreWrite {
   owner?: { username: string; email: string; first_name: string; last_name: string; phone_number: string; password: string; designation: string }
   save_draft?: boolean
 }
-export interface CreateOutcome { id: number; store_code: string; status: string; missing: string[]; operational_gaps: string[] }
+export interface CreateOutcome { id: number; store_code: string; status: string; missing: string[]; operational_gaps: string[]; owner_setup?: OwnerSetup }
 
 export interface ApprovalQueue { key: string; title: string; count: number; link: string; note: string | null; items: { id: number; label: string; [k: string]: unknown }[] }
 export interface ApprovalCenter { queues: ApprovalQueue[]; total: number; not_available: string[] }
 
 export type BulkModule = 'products' | 'stores' | 'partners' | 'reviews'
-export interface BulkRequest { action: string; ids?: number[]; select_all?: boolean; filters?: Record<string, string>; reason?: string; confirm?: boolean; expected_count?: number }
+export interface BulkRequest { action: string; ids?: number[]; select_all?: boolean; filters?: Record<string, string>; reason?: string; confirm?: boolean; expected_count?: number; params?: Record<string, string> }
 export interface BulkEntry { id: number; label: string; reasons?: string[]; warnings?: string[] }
 export interface BulkPreview { module: string; action: string; total: number; needs_reason: boolean; eligible_count: number; blocked_count: number; eligible: BulkEntry[]; blocked: BulkEntry[]; warning_count: number }
 export interface BulkResult { module: string; action: string; successful: BulkEntry[]; skipped: BulkEntry[]; failed: BulkEntry[]; counts: { successful: number; skipped: number; failed: number } }
@@ -58,3 +58,6 @@ export interface ImportJob {
   attempts: number; retryable: boolean; counts: { total: number; valid: number; invalid: number; duplicates: number; incomplete?: number }
   summary: { created?: number; updated?: number; skipped?: number; failed?: number; outcome?: string }
 }
+
+export interface OwnerSetup { link: string; email_sent: boolean; expires_in_days: number; email: string }
+export interface OwnerCandidate { id: number; username: string; name: string; email: string; stores: string[] }

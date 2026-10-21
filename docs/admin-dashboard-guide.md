@@ -97,3 +97,8 @@ Build `frontend/dist`, serve it for every path except `/api`, `/media`, `/static
 * Bulk actions appear on Products and Stores for users with the matching rights; every bulk action previews first and needs confirmation.
 * **Design system:** one `Button` (sizes `sm`/`md`/`lg`, variants primary/secondary/outline/ghost/destructive, icon-only needs `aria-label`) and `ButtonLink` for navigation. Links navigate, buttons act, tabs switch sections, menus hold row actions; no native `alert`/`confirm`.
 * Full behaviour: see [admin-approval-and-import-workflows.md](admin-approval-and-import-workflows.md).
+
+## 13. Pricing and owner onboarding (added)
+* Product → edit shows **Price & profit** (for users with the pricing permission): store price, selling price or target margin (suggestion only), discount, live final price, profit, margin and markup. See [product-pricing-workflow.md](product-pricing-workflow.md).
+* Products list → select rows → **Set margin** previews every product and blocks any that would sell below cost.
+* Add store → **Owner** offers setup link, existing user, password or later. See [store-onboarding-guide.md](store-onboarding-guide.md). `/setup-account` is the page owners open from their link.

@@ -168,7 +168,8 @@ class ProductMetaView(APIView):
             "statuses": [{"value": v, "label": l} for v, l in ProductStatus.choices],
             "max_images": MAX_IMAGES_PER_PRODUCT,
             "can": {perm: user_has_catalog_permission(request.user, f"catalog.{perm}_product")
-                    for perm in ("view", "add", "change")},
+                    for perm in ("view", "add", "change")}
+                   | {"pricing": user_has_catalog_permission(request.user, "catalog.manage_product_pricing")},
         })
 
 
@@ -499,3 +500,71 @@ class ImportErrorReportView(APIView):
         if request.query_params.get("type") == "csv":
             return reports.csv_response(batch)
         return reports.xlsx_response(batch)
+
+
+class _PricingBase(APIView):
+    permission_classes = [CatalogManagementPermission]
+    parser_classes = [JSONParser]
+    required_permission = "catalog.manage_product_pricing"
+
+    @staticmethod
+    def _decimal(value, field):
+        from decimal import Decimal, InvalidOperation
+        if value in (None, ""):
+            return None
+        try:
+            return Decimal(str(value))
+        except InvalidOperation:
+            raise to_drf_error(DjangoValidationError({field: "Enter a valid number."})) from None
+
+
+class ProductPricingPreviewView(_PricingBase):
+    """Stateless calculator: nothing is saved. ``cost`` defaults to the product's store price."""
+
+    @extend_schema(request=dict, responses=dict)
+    def post(self, request):
+        from catalog import pricing
+        d = request.data
+        try:
+            cost = self._decimal(d.get("cost"), "cost")
+            if cost is None and d.get("product"):
+                cost = _get_product(int(d["product"])).store_price
+            if cost is None:
+                raise DjangoValidationError({"cost": "Enter the store price."})
+            out = {}
+            selling = self._decimal(d.get("selling_price"), "selling_price")
+            if d.get("target_margin") not in (None, ""):
+                out["suggested_selling_price"] = str(pricing.suggest_selling_price(
+                    cost=cost, target_margin_percent=self._decimal(d["target_margin"], "target_margin")))
+            if selling is None and d.get("margin_type"):
+                selling = pricing.calculate_selling_price(
+                    store_price=cost, profit_margin_type=d["margin_type"],
+                    profit_margin=self._decimal(d.get("margin"), "margin"))
+            if selling is not None:
+                out["breakdown"] = pricing.price_breakdown(
+                    cost=cost, selling_price=selling, discount_type=d.get("discount_type") or "",
+                    discount_value=self._decimal(d.get("discount_value"), "discount_value"))
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(out)
+
+
+class ProductPricingView(_PricingBase):
+    """Set the selling price (or margin) and discount for one product."""
+
+    @extend_schema(request=dict, responses=ProductDetailSerializer)
+    def post(self, request, pk):
+        from catalog.services import set_product_pricing
+        product = _get_product(pk)
+        d = request.data
+        try:
+            set_product_pricing(
+                product=product, actor=request.user,
+                selling_price=self._decimal(d.get("selling_price"), "selling_price"),
+                margin_type=d.get("margin_type") or None, margin=self._decimal(d.get("margin"), "margin"),
+                discount_type=d.get("discount_type") or "", discount_value=self._decimal(d.get("discount_value"), "discount_value"),
+                reason=str(d.get("reason") or "")[:255], request=request,
+            )
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(ProductDetailSerializer(_get_product(pk)).data)

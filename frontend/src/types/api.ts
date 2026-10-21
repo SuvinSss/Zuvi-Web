@@ -85,6 +85,16 @@ export interface ProductDetail extends ProductListItem {
   rejection_reason: string
   images: ProductImageRecord[]
   created_at: string
+  profit_margin_type?: string | null
+  profit_margin?: string | null
+  discount_type?: string | null
+  discount_value?: string | null
+  pricing?: PriceBreakdown | null
+}
+
+export interface PriceBreakdown {
+  cost: string; selling_price: string; discount_amount: string; final_price: string; profit_per_unit: string
+  margin_percent: string | null; markup_percent: string | null; label: string; warnings: string[]; below_cost: boolean
 }
 
 export interface Page<T> {
@@ -102,7 +112,7 @@ export interface Meta {
   units: { value: string; label: string }[]
   statuses: { value: ProductStatus; label: string }[]
   max_images: number
-  can: { view: boolean; add: boolean; change: boolean }
+  can: { view: boolean; add: boolean; change: boolean; pricing?: boolean }
 }
 
 export interface ProductWritePayload {

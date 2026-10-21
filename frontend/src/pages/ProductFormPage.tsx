@@ -1,3 +1,4 @@
+import { PricingPanel } from '@/components/PricingPanel'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
@@ -248,12 +249,15 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
         <div className="space-y-6">
           {editing && p ? (
             <>
+              {scope === 'admin' && meta.data?.can?.pricing && <PricingPanel product={p} />}
               <Card className="space-y-3 p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-forest">Pricing &amp; stock</h2>
+                <h2 className="text-lg font-semibold text-forest">{scope === 'admin' && meta.data?.can?.pricing ? 'Stock' : 'Pricing & stock'}</h2>
                 <dl className="grid grid-cols-2 gap-y-2 text-sm">
-                  <dt className="text-muted">Store price</dt><dd className="text-right tabular-nums">{formatMoney(p.store_price)}</dd>
-                  <dt className="text-muted">Selling price</dt><dd className="text-right tabular-nums">{formatMoney(p.selling_price)}</dd>
-                  <dt className="text-muted">Final price</dt><dd className="text-right font-semibold tabular-nums">{formatMoney(p.final_price)}</dd>
+                  {!(scope === 'admin' && meta.data?.can?.pricing) && <>
+                    <dt className="text-muted">Store price</dt><dd className="text-right tabular-nums">{formatMoney(p.store_price)}</dd>
+                    <dt className="text-muted">Selling price</dt><dd className="text-right tabular-nums">{formatMoney(p.selling_price)}</dd>
+                    <dt className="text-muted">Final price</dt><dd className="text-right font-semibold tabular-nums">{formatMoney(p.final_price)}</dd>
+                  </>}
                   <dt className="text-muted">In stock</dt><dd className="text-right tabular-nums">{p.stock_quantity}</dd>
                 </dl>
                 <p className="text-xs text-muted">{scope === 'store' ? 'Your selling price is set by Zuuvi management after approval. Change stock from the Stock page.' : 'Margin, discount and approval are managed by the admin catalogue workflow.'}</p>
@@ -261,7 +265,7 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
               </Card>
             </>
           ) : (
-            <Card className="p-4 sm:p-6"><p className="text-sm text-muted">After you create the product you can add photos, and management can set the margin and approve it.</p></Card>
+            <Card className="p-4 sm:p-6"><p className="text-sm text-muted">After you create the product you can add photos, and management can set the selling price and approve it.</p></Card>
           )}
         </div>
       </div>

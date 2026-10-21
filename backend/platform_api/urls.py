@@ -11,6 +11,7 @@ urlpatterns = [
     path("auth/token/revoke/", auth.TokenRevokeView.as_view(), name="api_token_revoke"),
     path("auth/me/", auth.MeView.as_view(), name="api_me"),
     path("auth/password/change/", auth.PasswordChangeView.as_view(), name="api_password_change"),
+    path("auth/invite/accept/", auth.AcceptInviteView.as_view(), name="api_invite_accept"),
     path("auth/password/reset/", auth.PasswordResetRequestView.as_view(), name="api_password_reset"),
     path("auth/password/reset/confirm/", auth.PasswordResetConfirmView.as_view(), name="api_password_reset_confirm"),
     # public catalogue
@@ -60,6 +61,8 @@ urlpatterns = [
     path("admin/stores/meta/", admin_stores.AdminStoreMetaView.as_view(), name="api_admin_stores_meta"),
     path("admin/stores/export/", admin_stores.AdminStoresExportView.as_view(), name="api_admin_stores_export"),
     path("admin/stores/<int:pk>/", admin_stores.AdminStoreDetailView.as_view(), name="api_admin_store"),
+    path("admin/stores/owner-candidates/", admin_stores.AdminOwnerCandidatesView.as_view(), name="api_admin_owner_candidates"),
+    path("admin/stores/<int:pk>/invite/", admin_stores.AdminStoreInviteView.as_view(), name="api_admin_store_invite"),
     path("admin/stores/<int:pk>/staff/", admin_stores.AdminStoreStaffView.as_view(), name="api_admin_store_staff"),
     path("admin/stores/<int:pk>/documents/", admin_stores.AdminStoreDocumentsView.as_view(), name="api_admin_store_documents"),
     path("admin/stores/<int:pk>/images/", admin_stores.AdminStoreImagesView.as_view(), name="api_admin_store_images"),

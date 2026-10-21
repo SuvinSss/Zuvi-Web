@@ -102,7 +102,10 @@ export default function ProductsPage() {
   const toggle = (id: number, on: boolean) => setSelection((s) => { const ids = new Set(s.ids); if (on) ids.add(id); else ids.delete(id); return { ids, selectAll: false } })
   const togglePage = (on: boolean) => setSelection((s) => { const ids = new Set(s.ids); rows.forEach((r) => (on ? ids.add(r.id) : ids.delete(r.id))); return { ids, selectAll: false } })
   const bulkFilters = Object.fromEntries(Object.entries({ status: query.status, category: query.category, store: query.store, q: query.q }).filter(([, v]) => v))
-  const bulkActions: BulkActionDef[] = [{ action: 'approve', label: 'Approve' }, { action: 'reject', label: 'Reject', needsReason: true, danger: true }, { action: 'deactivate', label: 'Deactivate' }, { action: 'resubmit', label: 'Send for review' }]
+  const bulkActions: BulkActionDef[] = [{ action: 'approve', label: 'Approve' }, { action: 'reject', label: 'Reject', needsReason: true, danger: true }, { action: 'deactivate', label: 'Deactivate' }, { action: 'resubmit', label: 'Send for review' },
+    ...(meta.data?.can?.pricing ? [{ action: 'set_pricing', label: 'Set margin', fields: [
+      { key: 'margin_type', label: 'Margin type', options: [{ value: 'PERCENTAGE', label: 'Percentage of store price' }, { value: 'FIXED', label: 'Fixed amount (₹)' }] },
+      { key: 'margin', label: 'Margin', hint: 'Added to each product’s store price. Products where this would sell below cost are left out.' }] }] : [])]
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.count / PAGE_SIZE)) : 1
   const filtered = Boolean(query.q || query.status || query.category || query.has_image)
 

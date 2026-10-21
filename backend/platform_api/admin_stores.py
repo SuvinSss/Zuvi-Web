@@ -13,6 +13,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import Role, User
 from catalog.models import Product, ProductStatus
 from core.pagination import StandardPagination
 from core.permissions import IsManagement
@@ -93,7 +94,7 @@ class OwnerIn(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     phone_number = serializers.CharField(max_length=20, required=False, allow_null=True, allow_blank=True)
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, style={"input_type": "password"})
     designation = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
 
@@ -118,12 +119,13 @@ class StoreIn(serializers.Serializer):
     closures = serializers.JSONField(required=False)
     address = AddressIn(required=False)
     owner = OwnerIn(required=False)
+    existing_owner = serializers.IntegerField(required=False, min_value=1)
     save_draft = serializers.BooleanField(required=False, default=False)
 
 
 def _split(validated):
     data = dict(validated)
-    return data, data.pop("address", None), data.pop("owner", None), data.pop("save_draft", False)
+    return data, data.pop("address", None), data.pop("owner", None), data.pop("save_draft", False), data.pop("existing_owner", None)
 
 
 class AdminStoresView(APIView):
@@ -141,13 +143,13 @@ class AdminStoresView(APIView):
         _need(request.user, "stores.add_store")
         ser = StoreIn(data=request.data)
         ser.is_valid(raise_exception=True)
-        data, address, owner, draft = _split(ser.validated_data)
+        data, address, owner, draft, existing = _split(ser.validated_data)
         address = dict(address or {})
         try:
             # (0, 0) means "location not set yet": allowed for drafts, never counted as a real location.
             address.setdefault("latitude", Decimal("0"))
             address.setdefault("longitude", Decimal("0"))
-            store, outcome = svc.create_managed_store(actor=request.user, data=data, address=address, owner=owner, save_draft=draft, request=request._request)
+            store, outcome = svc.create_managed_store(actor=request.user, data=data, address=address, owner=owner, existing_owner=existing, save_draft=draft, request=request._request)
         except DjangoValidationError as exc:
             return _errors(exc)
         return Response({"id": store.pk, "store_code": store.store_code, **outcome}, status=http.HTTP_201_CREATED)
@@ -189,7 +191,7 @@ class AdminStoreDetailView(APIView):
         store = get_object_or_404(Store, pk=pk)
         ser = StoreIn(data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
-        data, address, owner, _draft = _split(ser.validated_data)
+        data, address, owner, _draft, _existing = _split(ser.validated_data)
         if owner:
             raise serializers.ValidationError({"owner": "Add staff from the Owner & Staff tab."})
         try:
@@ -220,8 +222,8 @@ class AdminStoreStaffView(APIView):
 
     def get(self, request, pk):
         store = get_object_or_404(Store, pk=pk)
-        return Response([{"id": m.pk, "username": m.user.get_username(), "name": m.user.get_full_name(), "email": m.user.email,
-                          "is_primary": m.is_primary, "is_active": m.is_active, "designation": m.designation,
+        return Response([{"id": m.pk, "user_id": m.user_id, "username": m.user.get_username(), "name": m.user.get_full_name(), "email": m.user.email,
+                          "is_primary": m.is_primary, "is_active": m.is_active, "designation": m.designation, "setup_pending": not m.user.has_usable_password(),
                           "can_manage_inventory": m.can_manage_inventory, "can_manage_orders": m.can_manage_orders}
                          for m in StoreUser.objects.filter(store=store).select_related("user")])
 
@@ -235,7 +237,37 @@ class AdminStoreStaffView(APIView):
             m, u = svc.add_managed_staff(actor=request.user, store=store, user_data=dict(ser.validated_data), is_primary=primary, request=request._request)
         except DjangoValidationError as exc:
             return _errors(exc)
-        return Response({"id": m.pk, "username": u.get_username()}, status=http.HTTP_201_CREATED)
+        return Response({"id": m.pk, "username": u.get_username(), "owner_setup": getattr(u, "setup_invite", None)}, status=http.HTTP_201_CREATED)
+
+
+class AdminStoreInviteView(APIView):
+    """Issue a fresh one-time setup link for a member who has not chosen a password."""
+    permission_classes = [IsManagement]
+    parser_classes = [JSONParser]
+
+    def post(self, request, pk):
+        _need(request.user, "stores.change_store")
+        store = get_object_or_404(Store, pk=pk)
+        try:
+            setup = svc.resend_owner_invite(actor=request.user, store=store, user_id=int(request.data.get("user") or 0), request=request._request)
+        except DjangoValidationError as exc:
+            return _errors(exc)
+        return Response({"owner_setup": setup})
+
+
+class AdminOwnerCandidatesView(APIView):
+    """Search existing Store User accounts that may be assigned as an owner."""
+    permission_classes = [IsManagement]
+
+    def get(self, request):
+        _need(request.user, "stores.add_store")
+        q = (request.query_params.get("q") or "").strip()[:100]
+        if len(q) < 2:
+            return Response([])
+        users = User.objects.filter(role=Role.STORE_USER, is_active=True).filter(
+            Q(username__icontains=q) | Q(email__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))[:10]
+        return Response([{"id": u.pk, "username": u.get_username(), "name": u.get_full_name(), "email": u.email,
+                          "stores": list(StoreUser.objects.filter(user=u).values_list("store__name", flat=True)[:3])} for u in users])
 
 
 class AdminStoreDocumentsView(APIView):

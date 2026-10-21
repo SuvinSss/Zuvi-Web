@@ -292,3 +292,34 @@ class PasswordResetConfirmView(APIView):
         user.save(update_fields=["password"])
         Token.objects.filter(user=user).delete()
         return Response(status=204)
+
+
+class AcceptInviteSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=500)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=128)
+
+
+class AcceptInviteView(APIView):
+    """Store owners choose their own password from a one-time, time-limited setup link."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+    @extend_schema(request=AcceptInviteSerializer, responses={204: None})
+    def post(self, request):
+        from stores.management import read_setup_token
+        data = AcceptInviteSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        user = read_setup_token(data.validated_data["token"])
+        if user is None:
+            raise serializers.ValidationError({"detail": "This setup link is invalid, expired or already used."})
+        try:
+            validate_password(data.validated_data["new_password"], user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": exc.messages}) from None
+        user.set_password(data.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        Token.objects.filter(user=user).delete()
+        return Response(status=204)

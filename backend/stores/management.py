@@ -18,6 +18,9 @@ from decimal import Decimal
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.conf import settings
+from django.core import signing
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
@@ -41,6 +44,48 @@ STORE_FIELDS = (
 )
 ADDRESS_FIELDS = ("line1", "line2", "landmark", "city", "district", "state", "postal_code", "country", "latitude", "longitude")
 COMMERCIAL_FIELDS = {"commission_percentage"}
+
+
+INVITE_SALT = "zuuvi.store-owner-invite"
+INVITE_MAX_AGE = 3 * 24 * 3600  # setup links expire after three days
+
+
+def make_setup_token(user):
+    """Signed, time-limited token. It embeds a slice of the password hash, so it stops working once a password is set."""
+    return signing.dumps({"u": user.pk, "p": user.password[-16:]}, salt=INVITE_SALT)
+
+
+def read_setup_token(token):
+    """Return the user a valid, unused setup token belongs to, else ``None``."""
+    from accounts.models import User
+    try:
+        data = signing.loads(token, salt=INVITE_SALT, max_age=INVITE_MAX_AGE)
+        user = User.objects.get(pk=data["u"], is_active=True)
+    except (signing.BadSignature, User.DoesNotExist, KeyError, TypeError):
+        return None
+    return user if user.password[-16:] == data.get("p") else None
+
+
+def issue_setup_invite(user, store=None):
+    """Build the one-time setup link and e-mail it when mail is configured.
+
+    ``email_sent`` is True only when the mail backend reported delivery of the message; the link
+    itself is returned to the administrator once and is never written to logs or audit records.
+    """
+    path = f"/setup-account?token={make_setup_token(user)}"
+    base = getattr(settings, "FRONTEND_BASE_URL", "").rstrip("/")
+    link = f"{base}{path}" if base else path
+    sent = False
+    if user.email and getattr(settings, "EMAIL_HOST", ""):
+        try:
+            name = f" for {store.name}" if store else ""
+            sent = send_mail(
+                "Set up your ZuuVi store account",
+                f"An account{name} was created for you. Choose your password here (valid for 3 days, one use):\n{link}",
+                getattr(settings, "DEFAULT_FROM_EMAIL", None), [user.email], fail_silently=False) == 1
+        except Exception:
+            sent = False
+    return {"link": link, "email_sent": sent, "expires_in_days": INVITE_MAX_AGE // 86400, "email": user.email}
 
 
 def unique_slug(name, *, exclude_pk=None):
@@ -172,17 +217,27 @@ def _record(store, old, new, actor, reason, request):
 
 
 @transaction.atomic
-def create_managed_store(*, actor, data, address, owner=None, save_draft=False, request=None):
-    """Create a store from the management wizard. Returns ``(store, outcome)``."""
+def create_managed_store(*, actor, data, address, owner=None, existing_owner=None, save_draft=False, request=None):
+    """Create a store from the management wizard. Returns ``(store, outcome)``.
+
+    ``owner`` creates a new owner account (invited by one-time link unless a password is given);
+    ``existing_owner`` assigns an eligible existing Store User account.
+    """
     data = _clean_fields(data, partial=False)
-    password = None
+    if owner and existing_owner:
+        raise ValidationError({"owner": "Choose either a new owner or an existing user, not both."})
+    if existing_owner is not None:
+        existing_owner = _eligible_owner(existing_owner, actor)
     if owner:
         owner = dict(owner)
         password = owner.get("password")
-        try:
-            validate_password(password)
-        except ValidationError as exc:
-            raise ValidationError({"owner_password": exc.messages}) from exc
+        if password:
+            try:
+                validate_password(password)
+            except ValidationError as exc:
+                raise ValidationError({"owner_password": exc.messages}) from exc
+        else:
+            owner.pop("password", None)
     addr = Address(**{k: address[k] for k in ADDRESS_FIELDS if k in address})
     addr.full_clean()
     addr.save()
@@ -194,8 +249,12 @@ def create_managed_store(*, actor, data, address, owner=None, save_draft=False, 
         store.commission_percentage = Decimal("0.00")  # commercial terms need approval rights
     store.full_clean(exclude=["slug", "store_code"])
     store.save()
+    owner_user = None
     if owner:
-        _create_store_user(store=store, user_data=owner, created_by=actor, is_primary=True)
+        _membership, owner_user = _create_store_user(store=store, user_data=owner, created_by=actor, is_primary=True)
+    elif existing_owner is not None:
+        owner_user = existing_owner
+        StoreUser.objects.create(store=store, user=existing_owner, is_primary=True, is_active=True, created_by=actor)
     store = Store.objects.select_related("address").get(pk=store.pk)
 
     missing = approval_requirements(store)
@@ -219,7 +278,36 @@ def create_managed_store(*, actor, data, address, owner=None, save_draft=False, 
         metadata={"store_id": store.pk, "status": target, "source": CreationSource.ADMIN, "missing": store.missing_requirements,
                   "auto_approved": target == StoreStatus.ACTIVE, "ordering_enabled": store.ordering_enabled},
     )
-    return store, {"status": target, "missing": store.missing_requirements, "operational_gaps": operational_gaps(store)}
+    outcome = {"status": target, "missing": store.missing_requirements, "operational_gaps": operational_gaps(store)}
+    if owner_user is not None and not owner_user.has_usable_password():
+        outcome["owner_setup"] = issue_setup_invite(owner_user, store)
+    return store, outcome
+
+
+def _eligible_owner(user_id, actor):
+    """An existing account may own a store only if it is an active Store User and not the acting administrator."""
+    from accounts.models import Role, User
+    user = User.objects.filter(pk=user_id, is_active=True).first()
+    if user is None:
+        raise ValidationError({"owner": "That account was not found or is inactive."})
+    if user.pk == actor.pk:
+        raise ValidationError({"owner": "You cannot assign your own account as the store owner."})
+    if user.role != Role.STORE_USER:
+        raise ValidationError({"owner": "Only Store User accounts can be assigned. Customer, admin and delivery accounts cannot."})
+    return user
+
+
+def resend_owner_invite(*, actor, store, user_id, request=None):
+    """Issue a fresh setup link for a store member who has not set a password yet."""
+    membership = StoreUser.objects.filter(store=store, user_id=user_id).select_related("user").first()
+    if membership is None:
+        raise ValidationError({"detail": "That user is not on this store."})
+    if membership.user.has_usable_password():
+        raise ValidationError({"detail": "This user already has a password. Use the normal password reset instead."})
+    log_store_audit(actor=actor, action=AdminAuditLog.Action.STORE_UPDATED, request=request,
+                    description=f"Issued a new account-setup link for '{membership.user.get_username()}' on '{store.store_code}'.",
+                    metadata={"store_id": store.pk, "user_id": user_id})
+    return issue_setup_invite(membership.user, store)
 
 
 @transaction.atomic
@@ -302,14 +390,19 @@ def set_verification(*, actor, store, status, request=None):
 
 @transaction.atomic
 def add_managed_staff(*, actor, store, user_data, is_primary=False, request=None):
-    try:
-        validate_password(user_data.get("password"))
-    except ValidationError as exc:
-        raise ValidationError({"password": exc.messages}) from exc
+    if user_data.get("password"):
+        try:
+            validate_password(user_data["password"])
+        except ValidationError as exc:
+            raise ValidationError({"password": exc.messages}) from exc
+    else:
+        user_data.pop("password", None)
     membership, user = create_additional_store_user(store=store, user_data=dict(user_data), created_by=actor, request=request, is_primary=is_primary)
     store = Store.objects.select_related("address").get(pk=store.pk)
     _refresh_gates(store)
     if store.status == StoreStatus.NEEDS_INFO and not store.missing_requirements:
         store.status = StoreStatus.PENDING
     store.save(update_fields=["missing_requirements", "ordering_enabled", "status", "updated_at"])
+    if not user.has_usable_password():
+        user.setup_invite = issue_setup_invite(user, store)  # transient, returned once to the administrator
     return membership, user

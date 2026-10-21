@@ -146,14 +146,17 @@ def _create_store_user(*, store, user_data, created_by, is_primary=False):
     designation = user_data.pop("designation", "")
     can_manage_inventory = user_data.pop("can_manage_inventory", True)
     can_manage_orders = user_data.pop("can_manage_orders", True)
-    password = user_data.pop("password")
+    password = user_data.pop("password", None)
     user = User(
         role=Role.STORE_USER,
         is_staff=False,
         is_superuser=False,
         **user_data,
     )
-    user.set_password(password)
+    if password:
+        user.set_password(password)
+    else:
+        user.set_unusable_password()  # the owner chooses a password through a one-time setup link
     user.full_clean()
     user.save()
 
