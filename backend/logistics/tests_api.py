@@ -293,6 +293,7 @@ class AdminPricingTests(Base):
         r = api.post("/api/v1/admin/delivery-zones/", {"name": "Hill area", "polygon": [[9.9, 76.2], [10, 76.2], [10, 76.3]], "service_area_surcharge": "10"}, format="json")
         self.assertEqual(r.status_code, 201, r.content)
         self.assertEqual(api.patch(f"/api/v1/admin/delivery-zones/{r.json()['id']}/", {"is_active": False}, format="json").json()["is_active"], False)
+        self.assertEqual(api.post("/api/v1/admin/delivery-zones/", {"name": "hill AREA"}, format="json").status_code, 400)  # duplicate name is a 400, not a crash
 
     def test_role_permissions(self):
         from rest_framework.test import APIClient

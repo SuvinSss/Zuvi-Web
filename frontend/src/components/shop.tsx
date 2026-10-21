@@ -65,7 +65,9 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   )
 }
 
-export function StoreCard({ store }: { store: PublicStore }) {
+export interface StoreDeliveryInfo { serviceable: boolean; reasons: string[]; distance_km: string | null; distance_source?: string; fee: string | null; eta_minutes: number | null }
+
+export function StoreCard({ store, delivery }: { store: PublicStore; delivery?: StoreDeliveryInfo }) {
   return (
     <Link to={`/stores/${store.id}`} className="flex gap-3 rounded-card border border-line bg-white p-3 shadow-card hover:border-emerald/50">
       <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-control bg-pale text-emerald">
@@ -76,6 +78,9 @@ export function StoreCard({ store }: { store: PublicStore }) {
         <p className="text-xs text-muted">{store.city}</p>
         {store.description && <p className="mt-1 line-clamp-2 text-sm text-muted">{store.description}</p>}
         <div className="mt-1"><Stars value={store.rating.average} count={store.rating.count} size="size-3.5" /></div>
+        {delivery && (delivery.serviceable
+          ? <p className="mt-1 text-xs font-medium text-deep">Delivers to you{delivery.distance_km ? ` · ${Number(delivery.distance_km).toFixed(1)} km${delivery.distance_source === 'estimated' ? ' (approx.)' : ''}` : ''}{delivery.fee ? ` · ₹${Number(delivery.fee).toFixed(0)} delivery` : ''}{delivery.eta_minutes ? ` · ~${delivery.eta_minutes} min` : ''}</p>
+          : <p className="mt-1 text-xs font-medium text-warn">{delivery.reasons[0] ?? 'Does not deliver to your location'}</p>)}
       </div>
     </Link>
   )

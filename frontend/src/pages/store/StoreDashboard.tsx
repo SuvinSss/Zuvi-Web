@@ -4,17 +4,21 @@ import { Link } from 'react-router-dom'
 import { QueryBoundary, Section, Stat } from '@/components/kit'
 import { Alert, PageHeader } from '@/components/ui'
 import { label, STORE_ORDER_STATUS } from '@/lib/labels'
+import { storeFinance } from '@/services/delivery'
 import { storeMe } from '@/services/ops'
 
 export default function StoreDashboard() {
   const q = useQuery({ queryKey: ['store-me'], queryFn: storeMe })
   const d = q.data
+  const finance = useQuery({ queryKey: ['store-finance'], queryFn: storeFinance, staleTime: 60_000 })
+  const problems = finance.data?.location_problems ?? []
   return (
     <>
       <PageHeader title={d ? d.store.name : 'Store dashboard'} subtitle={d ? `Store code ${d.store.code}` : undefined} />
       <QueryBoundary query={q} skeleton="detail">
         {d && (
           <div className="space-y-6">
+            {problems.length > 0 && <Alert tone="warn" title="Delivery setup needs attention">{problems.map((p) => <p key={p}>{p}</p>)}<p className="mt-1">Customers cannot get delivery from you until this is fixed. Contact Zuuvi support to update your map pin or delivery area.</p></Alert>}
             {d.store.status !== 'ACTIVE' && <Alert tone="warn" title={`Your store is ${d.store.status.toLowerCase()}`}>Customers cannot order from your store until it is active. Contact Zuuvi support if you have questions.</Alert>}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Stat label="Waiting for you" value={d.orders_by_status.PENDING ?? 0} to={<Link className="mt-1 inline-flex min-h-11 items-center inline-flex min-h-11 items-center text-sm font-semibold text-forest underline" to="/store/orders?status=PENDING">Review orders</Link>} />

@@ -35,6 +35,14 @@ export default function AssignmentPage() {
             <Card className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><Status value={d.status} label={label(PARTNER_DELIVERY_STATUS, d.status)} />{d.offer_expires_at && d.status === 'OFFERED' && <span className="text-sm text-warn">Offer expires {new Date(d.offer_expires_at).toLocaleTimeString('en-IN', { timeStyle: 'short' })}</span>}</div></Card>
 
             {LIVE.includes(d.status) && <LocationSharing deliveryId={d.id} />}
+            {d.trip && (
+              <Card className="grid grid-cols-3 gap-2 p-4 text-center">
+                <div><p className="text-xs text-muted">Distance</p><p className="font-semibold tabular-nums">{Number(d.trip.distance_km).toFixed(1)} km</p>{d.trip.distance_source === 'estimated' && <p className="text-[0.7rem] text-muted">approx.</p>}</div>
+                <div><p className="text-xs text-muted">You earn</p><p className="font-semibold tabular-nums text-forest">₹{Number(d.trip.estimated_payout).toFixed(0)}</p></div>
+                <div><p className="text-xs text-muted">Time</p><p className="font-semibold tabular-nums">{d.trip.eta_minutes ? `~${d.trip.eta_minutes} min` : '—'}</p></div>
+                <p className="col-span-3 text-xs text-muted">Pay is fixed when the customer orders and recorded when you complete the delivery.</p>
+              </Card>
+            )}
 
             <Section title="Pickup">
               <Card className="space-y-2 p-4"><p className="font-semibold">{d.pickup.name}</p>

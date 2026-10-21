@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { useDebounced } from '@/hooks/useDebounced'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { FilePicker, Modal, QueryBoundary, useToast } from '@/components/kit'
+import { MapView } from '@/components/location/MapView'
 import { useBeforeUnload } from '@/components/management'
 import { Alert, Button, ButtonLink, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
 import { errorMessage, fieldErrors } from '@/lib/api'
@@ -172,8 +173,14 @@ function Wizard({ editId, initial, metaQuery }: { editId: number | null; initial
       <Field label="District" error={err('district')}>{(p) => <Input {...p} value={form.address.district} onChange={(e) => patchAddr({ district: e.target.value })} />}</Field>
       <Field label="State" required error={err('state')}>{(p) => <Input {...p} value={form.address.state} onChange={(e) => patchAddr({ state: e.target.value })} />}</Field>
       <Field label="Postal code" required error={err('postal_code')}>{(p) => <Input {...p} inputMode="numeric" value={form.address.postal_code} onChange={(e) => patchAddr({ postal_code: e.target.value })} />}</Field>
-      <Field label="Latitude" required error={err('latitude')} hint="Decimal degrees, e.g. 9.931233. Entered by hand; nothing is looked up for you.">{(p) => <Input {...p} inputMode="decimal" value={form.address.latitude} onChange={(e) => patchAddr({ latitude: e.target.value })} />}</Field>
+      <Field label="Latitude" required error={err('latitude')} hint="Decimal degrees, e.g. 9.931233.">{(p) => <Input {...p} inputMode="decimal" value={form.address.latitude} onChange={(e) => patchAddr({ latitude: e.target.value })} />}</Field>
       <Field label="Longitude" required error={err('longitude')} hint="Decimal degrees, e.g. 76.267303.">{(p) => <Input {...p} inputMode="decimal" value={form.address.longitude} onChange={(e) => patchAddr({ longitude: e.target.value })} />}</Field>
+      <div className="sm:col-span-2">
+        <p className="mb-1 text-sm font-medium">Or tap the map / drag the pin to the shop's entrance</p>
+        <MapView value={form.address.latitude && form.address.longitude ? { lat: Number(form.address.latitude), lon: Number(form.address.longitude) } : null}
+          onPinChange={(lat, lon) => patchAddr({ latitude: lat.toFixed(6), longitude: lon.toFixed(6) })} label="Store location pin" height={260} />
+        <p className="mt-1 text-xs text-muted">Delivery distances and fees are measured from this pin.</p>
+      </div>
       <fieldset className="sm:col-span-2"><legend className="mb-1 text-sm font-medium">How customers receive orders</legend>
         <div className="flex flex-wrap gap-6">
           <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-forest" checked={form.offers_delivery} onChange={(e) => patch({ offers_delivery: e.target.checked })} />Delivery</label>

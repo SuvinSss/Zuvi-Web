@@ -1,0 +1,24 @@
+import { api } from '@/lib/api'
+import type { CheckoutQuote, Earning, Operations, Place, PricingBreakdown, PricingSettings, PricingVersion, PricingVersions, ServiceableStore, StoreFinance, Zone } from '@/types/delivery'
+
+const get = async <T>(url: string, params?: object) => (await api.get<T>(url, { params })).data
+const post = async <T>(url: string, body?: unknown) => (await api.post<T>(url, body)).data
+
+export const searchPlaces = (q: string) => get<{ results: Place[]; available: boolean; detail?: string }>('/geo/search/', { q })
+export const reversePlace = (lat: string, lon: string) => get<{ result: Place | null; available: boolean; detail?: string }>('/geo/reverse/', { lat, lon })
+export const serviceableStores = (lat: string, lon: string) => get<{ stores: ServiceableStore[]; serviceable_count: number }>('/delivery/stores/', { lat, lon })
+export const checkoutQuote = (body: { fulfillment_type: string; delivery_address_id: number | null }) => post<CheckoutQuote>('/checkout/quote/', body)
+
+export const pricingVersions = (zone?: number | null) => get<PricingVersions>('/admin/delivery-pricing/', zone ? { zone } : undefined)
+export const createPricingVersion = (body: { settings: PricingSettings; reason: string; effective_from?: string | null; zone?: number | null }) => post<PricingVersion>('/admin/delivery-pricing/', body)
+export interface SimulateInput { distance_km?: string; store?: number; lat?: string; lon?: string; items_subtotal?: string; is_peak?: boolean; heavy?: boolean; zone?: number | null; overrides?: PricingSettings; batch?: { route_km: string; stops: { key: string; distance_km: string }[] } }
+export const simulate = (body: SimulateInput) => post<{ result: PricingBreakdown; batch: { route_km: string; shared_route_cost: string; allocations: { key: string; share: string; estimated_cost: string }[]; batched_total: string; isolated_total: string } | null; based_on: string; overridden: string[] }>('/admin/delivery-pricing/simulate/', body)
+export const zones = () => get<Zone[]>('/admin/delivery-zones/')
+export const createZone = (body: Partial<Zone>) => post<Zone>('/admin/delivery-zones/', body)
+export const updateZone = async (id: number, body: Partial<Zone>) => (await api.patch<Zone>(`/admin/delivery-zones/${id}/`, body)).data
+export const deliveryOperations = (days = 30) => get<Operations>('/admin/delivery-operations/', { days })
+export const adminEarnings = (status?: string) => get<Earning[]>('/admin/partner-earnings/', status ? { status } : undefined)
+export const markEarningsPaid = (ids: number[], payout_reference: string) => post<{ updated: number }>('/admin/partner-earnings/', { ids, payout_reference })
+
+export const myEarnings = () => get<{ summary: Record<string, string>; results: Earning[] }>('/delivery/earnings/')
+export const storeFinance = () => get<StoreFinance>('/store/finance/')

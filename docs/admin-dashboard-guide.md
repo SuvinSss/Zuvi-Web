@@ -107,3 +107,9 @@ Build `frontend/dist`, serve it for every path except `/api`, `/media`, `/static
 * Products → *Add product* opens the five-step wizard (see [product-pricing-workflow.md](product-pricing-workflow.md)). Editing still uses the product page, which now has status buttons (approve, request information, reject, deactivate, reactivate, send back for review) and offer dates in Price & profit.
 * Products list and Approval Center offer *Request information*; the Approval Center lists products waiting for store information.
 * Cron: `python manage.py refresh_offer_prices` every few minutes.
+
+## 15. Delivery pricing, operations and location (added)
+- **Delivery operations → Delivery pricing**: versioned settings, simulator (same server engine as checkout), history. See [delivery-operations-settings.md](delivery-operations-settings.md) and [delivery-pricing-algorithm.md](delivery-pricing-algorithm.md).
+- **Delivery operations → Costs, zones & payouts**: money split (fees, offers by funder, rider pay, cost, subsidy, contribution), rider availability, failed attempts, stores with bad pins, zone drawing on a map, marking rider earnings paid.
+- **Stores → Add/Edit**: the address step has a map pin.
+- Store owners have a **Money** page; riders have an **Earnings** page; customers pick their address on a map. See [location-and-address-system.md](location-and-address-system.md) and [delivery-pricing-api.md](delivery-pricing-api.md).

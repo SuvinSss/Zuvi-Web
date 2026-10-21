@@ -50,7 +50,8 @@ export default function OrderPage() {
                         <li key={i} className="flex justify-between gap-3 py-2 text-sm"><span className="min-w-0 break-words">{it.product_name} <span className="text-muted">× {Number(it.quantity)} {it.unit}</span></span><span className="tabular-nums">{formatMoney(it.line_total)}</span></li>
                       ))}
                     </ul>
-                    <p className="mt-2 text-right text-sm font-semibold">Store total {formatMoney(so.store_total)}</p>
+                    {so.delivery && <p className="mt-2 text-right text-xs text-muted">Delivery {Number(so.delivery.customer_total) === 0 ? 'free' : formatMoney(so.delivery.customer_total)} · {Number(so.delivery.distance_km).toFixed(1)} km{so.delivery.distance_source === 'estimated' ? ' (estimated)' : ''}{Number(so.delivery.delivery_discount) > 0 ? ` · ${so.delivery.discount_reason}` : ''}</p>}
+                    <p className="mt-1 text-right text-sm font-semibold">Store total {formatMoney(so.store_total)}</p>
                     {so.status === 'COMPLETED' && <ReviewPanel storeOrderId={so.id} storeName={so.store.name} />}
                   </Card>
                 </Section>

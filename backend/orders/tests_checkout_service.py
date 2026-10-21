@@ -433,6 +433,9 @@ class CheckoutServiceTransactionTests(CheckoutTestMixin, TestCase):
 )
 class CheckoutServiceConcurrencyTests(CheckoutTestMixin, TransactionTestCase):
     def setUp(self):
+        # TransactionTestCase flushes tables, including the migration-seeded delivery pricing.
+        from logistics.testing import ensure_default_pricing
+        ensure_default_pricing()
         self.store = self.create_store(name="Concurrent Store")
         self.product = self.create_public_product(
             store=self.store,

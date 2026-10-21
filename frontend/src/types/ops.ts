@@ -29,6 +29,7 @@ export interface DeliveryRecord {
   dropoff: { latitude: number | null; longitude: number | null; city: string; postal_code: string; line1?: string; line2?: string; landmark?: string }
   needs_attention: boolean; rejection_count: number; offer_expires_at: string | null
   assigned_at: string | null; picked_up_at: string | null; delivered_at: string | null; created_at: string
+  trip?: { distance_km: string; distance_source: string; estimated_payout: string; payout_breakdown: Record<string, string>; eta_minutes: number | null } | null
 }
 export interface PartnerRecord {
   id: number; username: string; full_name: string; status: string; is_approved: boolean; vehicle_type: string; vehicle_number: string

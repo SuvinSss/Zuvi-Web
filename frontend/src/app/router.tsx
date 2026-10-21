@@ -16,6 +16,10 @@ const ForgotPasswordPage = L(() => import('@/pages/auth/ForgotPasswordPage'))
 const ResetPasswordPage = L(() => import('@/pages/auth/ResetPasswordPage'))
 const SetupAccountPage = L(() => import('@/pages/auth/SetupAccountPage'))
 const ProductWizard = L(() => import('@/pages/admin/products/ProductWizard'))
+const DeliveryPricingPage = L(() => import('@/pages/admin/delivery/DeliveryPricingPage'))
+const DeliveryOperationsPage = L(() => import('@/pages/admin/delivery/DeliveryOperationsPage'))
+const EarningsPage = L(() => import('@/pages/delivery/EarningsPage'))
+const StoreFinancePage = L(() => import('@/pages/store/StoreFinancePage'))
 const NotFoundPage = L(() => import('@/pages/NotFoundPage'))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
 
@@ -135,6 +139,7 @@ export const routes: RouteObject[] = [
         { path: 'products/:id', element: page(<ProductFormPage scope="store" />) },
         { path: 'stock', element: page(<StoreProducts mode="stock" />) },
         { path: 'deliveries', element: R(StoreDeliveries) },
+        { path: 'money', element: page(<StoreFinancePage />) },
         { path: 'reviews', element: R(StoreReviews) },
         { path: 'notifications', element: page(<NotificationsPage area="/store" />) },
         { path: '*', element: R(NotFoundPage) },
@@ -155,6 +160,7 @@ export const routes: RouteObject[] = [
             { index: true, element: R(DeliveryHome) },
             { path: 'assignments', element: R(Assignments) },
             { path: 'assignments/:id', element: R(AssignmentPage) },
+            { path: 'earnings', element: page(<EarningsPage />) },
           ],
         },
         { path: '*', element: R(NotFoundPage) },
@@ -199,6 +205,8 @@ export const routes: RouteObject[] = [
         { path: 'stores/:id', element: R(StoreDetailPage) },
         { path: 'stores/:id/edit', element: R(StoreWizard) },
         { path: 'approvals', element: R(ApprovalCenter) },
+        { path: 'delivery-pricing', element: page(<DeliveryPricingPage />) },
+        { path: 'delivery-operations', element: page(<DeliveryOperationsPage />) },
         { path: 'approvals/:module', element: R(ApprovalQueue) },
         { path: 'imports', element: R(ImportJobs) },
         { path: 'partners', element: R(AdminPartners) },

@@ -69,8 +69,15 @@ export interface Address {
   longitude: string
   delivery_instructions: string
   is_default: boolean
+  custom_label?: string
+  place_id?: string
+  location_source?: '' | 'GPS' | 'SEARCH' | 'PIN' | 'MANUAL'
+  location_accuracy_m?: number | null
+  location_confirmed?: boolean
+  short_label?: string
+  summary?: string
 }
-export type AddressInput = Omit<Address, 'id' | 'is_default'> & { is_default?: boolean }
+export type AddressInput = Omit<Address, 'id' | 'is_default' | 'short_label' | 'summary' | 'location_confirmed'> & { is_default?: boolean; location_confirmed?: boolean }
 
 export interface CartLine {
   id: number
@@ -105,6 +112,7 @@ export interface CheckoutInput {
   delivery_address_id?: number | null
   pickup_locations?: Record<string, number>
   customer_notes?: string
+  quote_token?: string | null
 }
 
 export interface OrderSummary {
@@ -130,7 +138,7 @@ export interface OrderDetail extends OrderSummary {
   can_cancel: boolean
   delivery_address: { recipient_name: string; phone_number: string; line1: string; line2: string; landmark: string; city: string; state: string; postal_code: string } | null
   timeline: TimelineEntry[]
-  store_orders: { id: number; store_order_number: string; store: { id: number; name: string }; status: string; store_total: string; items: OrderItem[]; timeline: TimelineEntry[] }[]
+  store_orders: { id: number; store_order_number: string; store: { id: number; name: string }; status: string; store_total: string; delivery_charge?: string; delivery?: import('./delivery').CustomerDelivery | null; items: OrderItem[]; timeline: TimelineEntry[] }[]
 }
 
 export interface TrackingDelivery {

@@ -298,6 +298,8 @@ class ZonesView(APIView):
             data["polygon"] = validate_polygon(data.get("polygon"))
         except DjangoValidationError as exc:
             raise _drf(exc) from exc
+        if PricingZone.objects.filter(name__iexact=data["name"].strip()).exists():
+            raise serializers.ValidationError({"name": "A zone with this name already exists."})
         z = PricingZone.objects.create(**data)
         from core.audit import audit
         audit(request.user, "delivery_zone.created", z, request=request._request, summary=f"Zone {z.name}")
@@ -318,6 +320,8 @@ class ZoneDetailView(APIView):
                 data["polygon"] = validate_polygon(data["polygon"])
             except DjangoValidationError as exc:
                 raise _drf(exc) from exc
+        if "name" in data and PricingZone.objects.filter(name__iexact=data["name"].strip()).exclude(pk=z.pk).exists():
+            raise serializers.ValidationError({"name": "A zone with this name already exists."})
         before = zone_payload(z)
         for k, v in data.items():
             setattr(z, k, v)

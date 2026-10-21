@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { DeliveryLocationButton, DeliveryLocationProvider } from '@/features/location/DeliveryLocation'
 import { homePath } from '@/lib/roles'
 import { getCart, unreadCount } from '@/services/platform'
 
@@ -52,11 +53,13 @@ export function PublicLayout() {
   ]
 
   return (
+    <DeliveryLocationProvider>
     <div className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-white focus:px-4 focus:py-2 focus:shadow-pop">Skip to content</a>
       <header className="sticky top-0 z-30 border-b border-line bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
           <Link to="/" aria-label="Zuvi home"><Logo variant="light" className="w-24 sm:w-28" /></Link>
+          <DeliveryLocationButton className="hidden max-w-60 sm:flex" />
           <SearchBox className="hidden flex-1 md:block" />
           <nav aria-label="Main" className="ml-auto hidden items-center gap-1 lg:flex">
             <NavLink to="/shop" className={active}>Shop</NavLink>
@@ -96,7 +99,7 @@ export function PublicLayout() {
             )}
           </div>
         </div>
-        <div className="px-4 pb-2 md:hidden"><SearchBox /></div>
+        <div className="space-y-1 px-4 pb-2 md:hidden"><DeliveryLocationButton className="w-full sm:hidden" /><SearchBox /></div>
       </header>
 
       <main id="main" tabIndex={-1} className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 lg:pb-10"><Outlet /></main>
@@ -133,5 +136,6 @@ export function PublicLayout() {
         ))}
       </nav>
     </div>
+    </DeliveryLocationProvider>
   )
 }
