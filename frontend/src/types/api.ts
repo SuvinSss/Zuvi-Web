@@ -1,12 +1,21 @@
 export type ProductStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'INACTIVE'
 
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'STORE_USER' | 'CUSTOMER' | 'DELIVERY_AGENT' | 'SUPPORT_AGENT' | 'SUPPORT_SUPERVISOR'
+
 export interface SessionUser {
   id: number
   username: string
   email: string
   name: string
-  role: string
+  first_name?: string
+  last_name?: string
+  phone_number?: string
+  role: Role
+  is_management: boolean
   permissions: { view: boolean; add: boolean; change: boolean }
+  customer?: { id: number; code: string }
+  store?: { id: number; name: string; code: string; can_manage_orders: boolean; can_manage_inventory: boolean }
+  delivery_partner?: { id: number; status: string; is_online: boolean }
 }
 
 export interface Session {

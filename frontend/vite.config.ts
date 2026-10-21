@@ -18,7 +18,6 @@ export default defineConfig(({ mode }) => {
         '/api': { target: backend, changeOrigin: false },
         '/media': { target: backend, changeOrigin: false },
         // The classic Django portal (orders, inventory, stores...) stays reachable from the dev app.
-        '/management': { target: backend, changeOrigin: false },
         '/static': { target: backend, changeOrigin: false },
       },
     },

@@ -10,13 +10,13 @@ import { Alert, Button, Card, ErrorState, Field, Input, PageHeader, Select, Spin
 import { useAuth } from '@/features/auth/AuthProvider'
 import { errorMessage, fieldErrors } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
-import { createProduct, getMeta, getProduct, updateProduct } from '@/services/products'
+import { createProduct, getMeta, getProduct, updateProduct, type ProductScope } from '@/services/products'
 import type { ProductDetail, ProductWritePayload } from '@/types/api'
 
 const decimal = (places: number, label: string) =>
   z.string().trim().regex(new RegExp(`^\\d{1,9}(\\.\\d{1,${places}})?$`), `${label} must be a number of 0 or more with at most ${places} decimals.`)
 
-export function makeSchema(editing: boolean) {
+export function makeSchema(editing: boolean, needsStore = true) {
   return z
     .object({
       store: z.string(),
@@ -37,7 +37,7 @@ export function makeSchema(editing: boolean) {
       save_as_draft: z.boolean(),
     })
     .superRefine((value, ctx) => {
-      if (!editing && !value.store) ctx.addIssue({ code: 'custom', path: ['store'], message: 'Choose the store this product belongs to.' })
+      if (!editing && needsStore && !value.store) ctx.addIssue({ code: 'custom', path: ['store'], message: 'Choose the store this product belongs to.' })
       if (value.manufacturing_date && value.expiry_date && value.expiry_date < value.manufacturing_date) {
         ctx.addIssue({ code: 'custom', path: ['expiry_date'], message: 'Expiry must be on or after the manufacturing date.' })
       }
@@ -60,9 +60,9 @@ function toFormValues(product: ProductDetail): FormValues {
   }
 }
 
-function toPayload(values: FormValues, editing: boolean, canFeature: boolean): ProductWritePayload {
+function toPayload(values: FormValues, editing: boolean, canFeature: boolean, scope: ProductScope): ProductWritePayload {
   return {
-    ...(editing ? {} : { store: Number(values.store), save_as_draft: values.save_as_draft }),
+    ...(editing ? {} : { ...(scope === 'admin' ? { store: Number(values.store) } : {}), save_as_draft: values.save_as_draft }),
     name: values.name.trim(), sku: values.sku.trim(), category: Number(values.category), brand: values.brand ? Number(values.brand) : null,
     tags: values.tags.map(Number), description: values.description, unit: values.unit, unit_value: values.unit_value,
     low_stock_threshold: values.low_stock_threshold, store_price: values.store_price,
@@ -71,7 +71,8 @@ function toPayload(values: FormValues, editing: boolean, canFeature: boolean): P
   }
 }
 
-export default function ProductFormPage() {
+export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductScope }) {
+  const base = scope === 'store' ? '/store/products' : '/admin/products'
   const params = useParams()
   const id = params.id ? Number(params.id) : null
   const editing = id !== null
@@ -80,10 +81,10 @@ export default function ProductFormPage() {
   const queryClient = useQueryClient()
   const [serverError, setServerError] = useState('')
 
-  const meta = useQuery({ queryKey: ['meta'], queryFn: getMeta, staleTime: 5 * 60_000 })
-  const product = useQuery({ queryKey: ['product', id], queryFn: () => getProduct(id as number), enabled: editing })
-  const schema = useMemo(() => makeSchema(editing), [editing])
-  const canChange = Boolean(user?.permissions.change)
+  const meta = useQuery({ queryKey: ['meta', scope], queryFn: () => getMeta(scope), staleTime: 5 * 60_000 })
+  const product = useQuery({ queryKey: ['product', scope, id], queryFn: () => getProduct(id as number, scope), enabled: editing })
+  const schema = useMemo(() => makeSchema(editing, scope === 'admin'), [editing, scope])
+  const canChange = scope === 'store' ? Boolean(meta.data?.can.change) : Boolean(user?.permissions.change)
 
   const { register, control, handleSubmit, reset, setError, formState: { errors, isDirty, isSubmitting, isSubmitSuccessful } } = useForm<FormValues>({
     resolver: zodResolver(schema), defaultValues: EMPTY,
@@ -106,8 +107,8 @@ export default function ProductFormPage() {
 
   const save = useMutation({
     mutationFn: (values: FormValues) => {
-      const payload = toPayload(values, editing, canChange)
-      return editing ? updateProduct(id, payload) : createProduct(payload as ProductWritePayload)
+      const payload = toPayload(values, editing, canChange && scope === 'admin', scope)
+      return editing ? updateProduct(id, payload, scope) : createProduct(payload as ProductWritePayload, scope)
     },
   })
 
@@ -118,10 +119,10 @@ export default function ProductFormPage() {
     try {
       const saved = await save.mutateAsync(values)
       await queryClient.invalidateQueries({ queryKey: ['products'] })
-      queryClient.setQueryData(['product', saved.id], saved)
+      queryClient.setQueryData(['product', scope, saved.id], saved)
       reset(toFormValues(saved))
       savedRef.current = true
-      navigate(editing ? '/products' : `/products/${saved.id}`, { replace: !editing })
+      navigate(editing ? base : `${base}/${saved.id}`, { replace: !editing })
     } catch (error) {
       savedRef.current = false
       const fields = fieldErrors(error)
@@ -145,7 +146,7 @@ export default function ProductFormPage() {
 
   return (
     <>
-      <Link to="/products" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest hover:underline"><ArrowLeft className="size-4" aria-hidden="true" /> Products</Link>
+      <Link to={base} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest hover:underline"><ArrowLeft className="size-4" aria-hidden="true" /> Products</Link>
       <PageHeader
         title={editing ? (p?.name ?? 'Edit product') : 'New product'}
         subtitle={editing ? `${p?.product_code} · ${p?.store.name}` : 'Add the basics now; photos come right after you save.'}
@@ -171,7 +172,7 @@ export default function ProductFormPage() {
           <Card className="space-y-4 p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-forest">Details</h2>
             <fieldset disabled={readOnly} className="grid gap-4 sm:grid-cols-2">
-              {!editing && (
+              {!editing && scope === 'admin' && (
                 <Field label="Store" required error={errors.store?.message} className="sm:col-span-2">
                   {(props) => (
                     <Select {...props} {...register('store')}>
@@ -230,7 +231,7 @@ export default function ProductFormPage() {
                 </div>
               )}
               <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-forest" {...register('is_active')} /> Active (can be sold when approved)</label>
-              {canChange && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-forest" {...register('is_featured')} /> Featured</label>}
+              {canChange && scope === 'admin' && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-forest" {...register('is_featured')} /> Featured</label>}
               {!editing && <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" className="size-4 accent-forest" {...register('save_as_draft')} /> Save as draft (otherwise it is submitted for review)</label>}
             </fieldset>
           </Card>
@@ -238,7 +239,7 @@ export default function ProductFormPage() {
           {!readOnly && (
             <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-card sm:border">
               <Button type="submit" loading={isSubmitting || save.isPending}>{editing ? 'Save changes' : 'Create product'}</Button>
-              <Link to="/products"><Button variant="ghost">Cancel</Button></Link>
+              <Link to={base}><Button variant="ghost">Cancel</Button></Link>
               {dirty && <span className="text-sm text-muted">Unsaved changes</span>}
             </div>
           )}
@@ -255,8 +256,8 @@ export default function ProductFormPage() {
                   <dt className="text-muted">Final price</dt><dd className="text-right font-semibold tabular-nums">{formatMoney(p.final_price)}</dd>
                   <dt className="text-muted">In stock</dt><dd className="text-right tabular-nums">{p.stock_quantity}</dd>
                 </dl>
-                <p className="text-xs text-muted">Margin, discount, approval and stock changes are recorded in the classic portal.</p>
-                <a href={`/management/products/${p.id}/`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest hover:underline">Open in classic portal <ExternalLink className="size-4" aria-hidden="true" /></a>
+                <p className="text-xs text-muted">{scope === 'store' ? 'Your selling price is set by Zuuvi management after approval. Change stock from the Stock page.' : 'Margin, discount and approval are managed by the admin catalogue workflow.'}</p>
+                {scope === 'store' && <Link to="/store/stock" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-forest hover:underline">Go to stock <ExternalLink className="size-4" aria-hidden="true" /></Link>}
               </Card>
             </>
           ) : (
@@ -265,7 +266,7 @@ export default function ProductFormPage() {
         </div>
       </div>
 
-      {editing && p && <div className="mt-6"><ImageManager product={p} canChange={canChange} maxImages={m.max_images} /></div>}
+      {editing && p && <div className="mt-6"><ImageManager product={p} canChange={canChange} maxImages={m.max_images} scope={scope} /></div>}
     </>
   )
 }

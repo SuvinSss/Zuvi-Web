@@ -33,7 +33,7 @@ function ProductRow({ product }: { product: ProductListItem }) {
   return (
     <li>
       <Link
-        to={`/products/${product.id}`}
+        to={`/admin/products/${product.id}`}
         className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-x-4 gap-y-1 p-4 transition-colors hover:bg-pale focus-visible:bg-pale md:grid-cols-[3.5rem_minmax(0,2fr)_minmax(0,1fr)_7rem_6rem]"
       >
         <ProductImage image={product.image} name={product.name} className="row-span-2 size-14 md:row-span-1" />
@@ -78,7 +78,7 @@ export default function ProductsPage() {
     has_image: params.get('has_image') ?? '', ordering: params.get('ordering') ?? '-created_at', page, page_size: PAGE_SIZE,
   }
   const list = useQuery({ queryKey: ['products', query], queryFn: ({ signal }) => listProducts(query, signal), placeholderData: keepPreviousData })
-  const meta = useQuery({ queryKey: ['meta'], queryFn: getMeta, staleTime: 5 * 60_000 })
+  const meta = useQuery({ queryKey: ['meta'], queryFn: () => getMeta(), staleTime: 5 * 60_000 })
 
   const setFilter = (key: string, value: string) =>
     setParams((current) => {
@@ -100,8 +100,8 @@ export default function ProductsPage() {
         subtitle="Search, filter and edit the catalogue. Photos are optimized automatically."
         actions={user?.permissions.add && (
           <>
-            <Link to="/products/import"><Button variant="secondary" icon={FileSpreadsheet}>Import</Button></Link>
-            <Link to="/products/new"><Button icon={Plus}>New product</Button></Link>
+            <Link to="/admin/products/import"><Button variant="secondary" icon={FileSpreadsheet}>Import</Button></Link>
+            <Link to="/admin/products/new"><Button icon={Plus}>New product</Button></Link>
           </>
         )}
       />
@@ -140,7 +140,7 @@ export default function ProductsPage() {
           <EmptyState
             icon={PackageOpen}
             title={filtered ? 'No products match these filters' : 'No products yet'}
-            action={filtered ? <Button variant="secondary" onClick={() => { setSearch(''); setParams({}) }}>Clear filters</Button> : user?.permissions.add ? <Link to="/products/new"><Button icon={Plus}>Add your first product</Button></Link> : undefined}
+            action={filtered ? <Button variant="secondary" onClick={() => { setSearch(''); setParams({}) }}>Clear filters</Button> : user?.permissions.add ? <Link to="/admin/products/new"><Button icon={Plus}>Add your first product</Button></Link> : undefined}
           >
             {filtered ? 'Try a different search or clear the filters.' : 'Create a product, or import many at once from an Excel file.'}
           </EmptyState>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom'
+import { ToastProvider } from '@/components/kit'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 
 export function renderRoutes(routes: RouteObject[], initialEntries: string[] = ['/']) {
@@ -10,7 +11,9 @@ export function renderRoutes(routes: RouteObject[], initialEntries: string[] = [
   const view = render(
     <QueryClientProvider client={client}>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )
@@ -25,5 +28,5 @@ export function renderWithClient(ui: ReactElement) {
 export const adminSession = {
   authenticated: true,
   csrf_token: 'tok',
-  user: { id: 1, username: 'admin', email: 'a@x.test', name: 'Admin', role: 'Super Admin', permissions: { view: true, add: true, change: true } },
+  user: { id: 1, username: 'admin', email: 'a@x.test', name: 'Admin', role: 'SUPER_ADMIN' as const, is_management: true, permissions: { view: true, add: true, change: true } },
 }

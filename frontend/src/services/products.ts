@@ -1,6 +1,9 @@
 import { api } from '@/lib/api'
 import type { Meta, Page, ProductDetail, ProductImageRecord, ProductListItem, ProductWritePayload } from '@/types/api'
 
+export type ProductScope = 'admin' | 'store'
+const root = (scope: ProductScope) => (scope === 'store' ? '/store/products' : '/products')
+
 export interface ProductQuery {
   q?: string
   status?: string
@@ -18,32 +21,36 @@ export async function listProducts(query: ProductQuery, signal?: AbortSignal): P
   return data
 }
 
-export async function getProduct(id: number): Promise<ProductDetail> {
-  const { data } = await api.get<ProductDetail>(`/products/${id}/`)
+export async function getProduct(id: number, scope: ProductScope = 'admin'): Promise<ProductDetail> {
+  const { data } = await api.get<ProductDetail>(`${root(scope)}/${id}/`)
   return data
 }
 
-export async function createProduct(payload: ProductWritePayload): Promise<ProductDetail> {
-  const { data } = await api.post<ProductDetail>('/products/', payload)
+export async function createProduct(payload: ProductWritePayload, scope: ProductScope = 'admin'): Promise<ProductDetail> {
+  const { data } = await api.post<ProductDetail>(`${root(scope)}/`, payload)
   return data
 }
 
-export async function updateProduct(id: number, payload: Partial<ProductWritePayload>): Promise<ProductDetail> {
-  const { data } = await api.patch<ProductDetail>(`/products/${id}/`, payload)
+export async function updateProduct(id: number, payload: Partial<ProductWritePayload>, scope: ProductScope = 'admin'): Promise<ProductDetail> {
+  const { data } = await api.patch<ProductDetail>(`${root(scope)}/${id}/`, payload)
   return data
 }
 
-export async function getMeta(): Promise<Meta> {
+export async function getMeta(scope: ProductScope = 'admin'): Promise<Meta> {
+  if (scope === 'store') {
+    const { data } = await api.get<Omit<Meta, 'stores' | 'statuses' | 'can'> & { can: { manage_inventory: boolean } }>('/store/meta/')
+    return { ...data, stores: [], statuses: [], can: { view: true, add: data.can.manage_inventory, change: data.can.manage_inventory } }
+  }
   const { data } = await api.get<Meta>('/products/meta/')
   return data
 }
 
-export async function uploadImage(productId: number, file: File, altText: string, isPrimary = false): Promise<ProductImageRecord> {
+export async function uploadImage(productId: number, file: File, altText: string, isPrimary = false, scope: ProductScope = 'admin'): Promise<ProductImageRecord> {
   const form = new FormData()
   form.append('image', file)
   if (altText) form.append('alt_text', altText)
   if (isPrimary) form.append('is_primary', 'true')
-  const { data } = await api.post<ProductImageRecord>(`/products/${productId}/images/`, form)
+  const { data } = await api.post<ProductImageRecord>(`${root(scope)}/${productId}/images/`, form)
   return data
 }
 

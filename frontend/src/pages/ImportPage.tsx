@@ -292,7 +292,7 @@ export default function ImportPage() {
             </>
           )}
           <div className="flex flex-wrap gap-2">
-            <Link to="/products"><Button>View products</Button></Link>
+            <Link to="/admin/products"><Button>View products</Button></Link>
             <Button variant="secondary" onClick={reset}>Import another file</Button>
           </div>
         </Card>

@@ -10,7 +10,7 @@ interface AuthValue {
   status: Status
   user: SessionUser | null
   expired: boolean
-  signIn: (username: string, password: string) => Promise<void>
+  signIn: (username: string, password: string) => Promise<SessionUser>
   signOut: () => Promise<void>
   retry: () => void
 }
@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setExpired(false)
       clearUserData(queryClient)
       queryClient.setQueryData(SESSION_KEY, session)
+      return session.user as SessionUser
     },
     [queryClient],
   )

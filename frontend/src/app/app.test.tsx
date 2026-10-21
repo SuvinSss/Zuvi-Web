@@ -21,31 +21,31 @@ beforeEach(() => {
 describe('session & routing', () => {
   it('sends anonymous visitors to the login page', async () => {
     vi.mocked(auth.fetchSession).mockResolvedValue({ authenticated: false, user: null })
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
   it('restores the session on load (page refresh) and shows products', async () => {
     vi.mocked(auth.fetchSession).mockResolvedValue(adminSession)
     vi.mocked(products.listProducts).mockResolvedValue(emptyPage)
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument()
     expect(auth.fetchSession).toHaveBeenCalledTimes(1)
   })
 
   it('shows a retry state when the session check fails', async () => {
     vi.mocked(auth.fetchSession).mockRejectedValue(new Error('down'))
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findByText(/could not check your session/i, {}, { timeout: 4000 })).toBeInTheDocument()
   })
 
   it('blocks add-product for users without the add permission', async () => {
     vi.mocked(auth.fetchSession).mockResolvedValue({ ...adminSession, user: { ...adminSession.user, permissions: { view: true, add: false, change: false } } })
-    renderRoutes(routes, ['/products/new'])
+    renderRoutes(routes, ['/admin/products/new'])
     expect(await screen.findByText(/don’t have access/i)).toBeInTheDocument()
   })
 
-  it('signs in and lands on products', async () => {
+  it('signs an administrator in and lands on the admin overview', async () => {
     vi.mocked(auth.fetchSession).mockResolvedValue({ authenticated: false, user: null })
     vi.mocked(auth.login).mockResolvedValue(adminSession)
     vi.mocked(products.listProducts).mockResolvedValue(emptyPage)
@@ -54,7 +54,7 @@ describe('session & routing', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'secret')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await waitFor(() => expect(auth.login).toHaveBeenCalledWith('admin', 'secret'))
-    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument()
   })
 
   it('validates the login form before calling the server', async () => {
@@ -70,13 +70,13 @@ describe('products list states', () => {
 
   it('shows an empty state', async () => {
     vi.mocked(products.listProducts).mockResolvedValue(emptyPage)
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findByText('No products yet')).toBeInTheDocument()
   })
 
   it('shows an error state with retry', async () => {
     vi.mocked(products.listProducts).mockRejectedValue(new Error('500'))
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findByText('The product list could not be loaded.')).toBeInTheDocument()
   })
 
@@ -90,7 +90,7 @@ describe('products list states', () => {
         image: { source: 'fallback', alt_text: '', thumbnail_url: null, display_url: null, fallback: { category: 'Grains', category_slug: 'grains', brand: '' } },
       }],
     } as never)
-    renderRoutes(routes, ['/products'])
+    renderRoutes(routes, ['/admin/products'])
     expect(await screen.findAllByText('Basmati rice')).not.toHaveLength(0)
     expect(document.querySelector('img[src=""]')).toBeNull()
   })

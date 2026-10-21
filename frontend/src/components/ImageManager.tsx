@@ -3,7 +3,7 @@ import { ImagePlus, Lightbulb, Star, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errorMessage } from '@/lib/api'
 import { formatBytes } from '@/lib/format'
-import { deleteImage, getImageSuggestions, setPrimaryImage, uploadImage } from '@/services/products'
+import { deleteImage, getImageSuggestions, setPrimaryImage, uploadImage, type ProductScope } from '@/services/products'
 import type { ProductDetail } from '@/types/api'
 import { ProductImage } from './ProductImage'
 import { Alert, Button, Card, Field, Input } from './ui'
@@ -18,7 +18,7 @@ export function checkImageFile(file: File): string | null {
   return null
 }
 
-export function ImageManager({ product, canChange, maxImages }: { product: ProductDetail; canChange: boolean; maxImages: number }) {
+export function ImageManager({ product, canChange, maxImages, scope = 'admin' }: { product: ProductDetail; canChange: boolean; maxImages: number; scope?: ProductScope }) {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -30,11 +30,11 @@ export function ImageManager({ product, canChange, maxImages }: { product: Produ
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
 
   const refresh = () => Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['product', product.id] }),
+    queryClient.invalidateQueries({ queryKey: ['product', scope, product.id] }),
     queryClient.invalidateQueries({ queryKey: ['products'] }),
   ])
   const upload = useMutation({
-    mutationFn: () => uploadImage(product.id, file as File, alt, product.images.length === 0),
+    mutationFn: () => uploadImage(product.id, file as File, alt, product.images.length === 0, scope),
     onSuccess: async () => { setFile(null); setAlt(''); if (inputRef.current) inputRef.current.value = ''; await refresh() },
   })
   const remove = useMutation({ mutationFn: (id: number) => deleteImage(product.id, id), onSuccess: async () => { setConfirmId(null); await refresh() } })
@@ -55,7 +55,7 @@ export function ImageManager({ product, canChange, maxImages }: { product: Produ
       </div>
 
       {mutationError && <div className="mb-4"><Alert tone="error">{errorMessage(mutationError)}</Alert></div>}
-      {product.status === 'APPROVED' && canChange && (
+      {product.status === 'APPROVED' && canChange && scope === 'admin' && (
         <div className="mb-4"><Alert tone="warn">This product is approved. Adding or removing photos sends it back for re-approval.</Alert></div>
       )}
 
@@ -77,7 +77,7 @@ export function ImageManager({ product, canChange, maxImages }: { product: Produ
                 )}
               </div>
               <p className="truncate text-xs text-muted" title={image.alt_text}>{image.width && image.height ? `${image.width}×${image.height} · ` : ''}{formatBytes(image.file_size)}</p>
-              {canChange && (confirmId === image.id ? (
+              {canChange && scope === 'admin' && (confirmId === image.id ? (
                 <div className="flex gap-1.5">
                   <Button variant="danger" className="min-h-9 flex-1 px-2 text-xs" loading={remove.isPending} onClick={() => remove.mutate(image.id)}>Confirm remove</Button>
                   <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={() => setConfirmId(null)}>Cancel</Button>
@@ -130,7 +130,8 @@ export function ImageManager({ product, canChange, maxImages }: { product: Produ
       )}
       {full && canChange && <p className="text-sm text-muted">Maximum number of photos reached. Remove one to add another.</p>}
 
-      <div className="mt-4 border-t border-line pt-4">
+      {scope === 'store' && <p className="mb-2 text-xs text-muted">To remove a photo or change the primary one, ask Zuuvi support.</p>}
+      {scope === 'admin' && <div className="mt-4 border-t border-line pt-4">
         <Button variant="ghost" icon={Lightbulb} aria-expanded={showSuggestions} onClick={() => setShowSuggestions((value) => !value)}>Suggest photos</Button>
         {showSuggestions && (
           <div className="mt-2">
@@ -140,7 +141,7 @@ export function ImageManager({ product, canChange, maxImages }: { product: Produ
               : <Alert tone="info">{suggestions.data.reason ?? 'No suggestions available.'}</Alert>}
           </div>
         )}
-      </div>
+      </div>}
     </Card>
   )
 }
