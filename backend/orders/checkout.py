@@ -268,6 +268,7 @@ def place_customer_order(
     customer_notes="",
     actor=None,
     request=None,
+    quote_token=None,
 ):
     """
     Place one multi-store Order from the authenticated Customer's cart.
@@ -325,7 +326,24 @@ def place_customer_order(
     items_subtotal = sum(
         (line["line_total"] for line in lines), Decimal("0.00")
     ).quantize(Decimal("0.01"))
-    delivery_charge = Decimal("0.00")
+    # Delivery fees are always calculated here, from the server's own data (never from the client).
+    delivery_by_store, quote = {}, None
+    if fulfillment_type == FulfillmentType.DELIVERY:
+        from logistics.checkout import check_quote, fingerprint, store_quotes
+        groups = {}
+        for line in lines:
+            store, subtotal = groups.get(line["store"].pk, (line["store"], Decimal("0.00")))
+            groups[store.pk] = (store, subtotal + line["line_total"])
+        result = store_quotes(list(groups.values()), delivery_address)
+        if not result["all_ok"]:
+            raise ValidationError({"delivery": [f"{s['store_name']}: {s['error']}" for s in result["stores"] if not s["ok"]]})
+        delivery_by_store = {s["store_id"]: s for s in result["stores"]}
+        if quote_token:
+            fp = fingerprint([(line["product"].pk, line["quantity"], line["unit_price"]) for line in lines], delivery_address, fulfillment_type)
+            quote = check_quote(customer=customer, token=quote_token, fp=fp, result=result, items_subtotal=items_subtotal)
+        delivery_charge = result["delivery_total"]
+    else:
+        delivery_charge = Decimal("0.00")
     discount_total = Decimal("0.00")
     grand_total = (items_subtotal + delivery_charge - discount_total).quantize(
         Decimal("0.01")
@@ -347,6 +365,9 @@ def place_customer_order(
         # Another concurrent request with the same token won. Do not mutate
         # stock or cart again — the winner already completed checkout.
         return order
+    if quote is not None:
+        quote.order = order
+        quote.save(update_fields=["order"])
 
     ip_address = _client_ip(request)
     OrderStatusHistory.objects.create(
@@ -374,6 +395,8 @@ def place_customer_order(
         if fulfillment_type == FulfillmentType.FACILITY_PICKUP:
             pickup = pickup_by_store[store_id]
 
+        delivery_entry = delivery_by_store.get(store_id)
+        store_delivery = Decimal(delivery_entry["quote"]["customer_total"]) if delivery_entry else Decimal("0.00")
         store_order = StoreOrder(
             order=order,
             store=store,
@@ -382,9 +405,14 @@ def place_customer_order(
             store_name=store.name,
             store_code=store.store_code,
             items_subtotal=store_subtotal,
-            delivery_charge=Decimal("0.00"),
-            store_total=store_subtotal,
+            delivery_charge=store_delivery,
+            store_total=(store_subtotal + store_delivery).quantize(Decimal("0.01")),
         )
+        if delivery_entry:
+            from logistics.checkout import snapshot_for_store_order
+            store_order.delivery_pricing = snapshot_for_store_order(delivery_entry)
+            store_order.delivery_pricing_version_id = delivery_entry["quote"]["pricing_version_id"]
+            store_order.delivery_distance_km = Decimal(delivery_entry["quote"]["distance_km"])
         store_order.full_clean()
         store_order.save()
 

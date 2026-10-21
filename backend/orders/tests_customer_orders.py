@@ -86,8 +86,9 @@ class CustomerOrderPortalTests(CheckoutTestMixin, TestCase):
                 "district": "",
                 "state": "Karnataka",
                 "postal_code": "570001",
-                "latitude": "12.295800",
-                "longitude": "76.639400",
+                # Within delivery range of the test store (delivery is priced and range-checked at checkout).
+                "latitude": "12.935800",
+                "longitude": "77.624400",
                 "delivery_instructions": "",
                 "is_default": True,
             },

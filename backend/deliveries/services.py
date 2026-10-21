@@ -499,6 +499,8 @@ def complete_delivery(delivery_id, partner: DeliveryPartner, *, photos, latitude
     DeliveryAttempt.objects.filter(delivery=delivery, number=delivery.attempt_number).update(outcome=DeliveryAttempt.Outcome.DELIVERED, ended_at=now)
     DeliveryAssignment.objects.filter(delivery=delivery, partner=partner, status=AssignmentStatus.ACCEPTED).update(status=AssignmentStatus.COMPLETED)
     _set_store_order_status(delivery.store_order, StoreOrderStatus.COMPLETED, actor=partner.user, reason="Delivered with photo evidence")
+    from logistics.payouts import record_delivery_earning
+    record_delivery_earning(delivery)
     notify(_customer_user(delivery), Kind.DELIVERED, "Your order was delivered", "", _data(delivery))
     notify_many(_store_users(delivery.store_order), Kind.DELIVERED, "Order delivered", delivery.store_order.store_order_number, _data(delivery))
     return delivery
@@ -543,6 +545,8 @@ def fail_delivery(delivery_id, partner: DeliveryPartner, *, reason, note="", lat
         outcome=DeliveryAttempt.Outcome.FAILED, failure_reason=reason, failure_note=(note or "")[:2000],
         failure_latitude=lat, failure_longitude=lon, ended_at=now)
     DeliveryAssignment.objects.filter(delivery=delivery, partner=partner, status=AssignmentStatus.ACCEPTED).update(status=AssignmentStatus.COMPLETED)
+    from logistics.payouts import record_failed_attempt_earning
+    record_failed_attempt_earning(delivery, reason)
     notify(_customer_user(delivery), Kind.DELIVERY_FAILED, "We could not deliver your order",
            dict(DeliveryAttempt.FailureReason.choices).get(reason, ""), _data(delivery))
     notify_many(_admin_users(), Kind.DELIVERY_FAILED, "Delivery attempt failed", delivery.store_order.store_order_number, _data(delivery), email=False)

@@ -402,6 +402,13 @@ class StoreOrder(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0"))],
     )
+    # Frozen delivery pricing: every input and amount used for this store's delivery fee.
+    # Later settings, fuel-price or route changes never rewrite it.
+    delivery_pricing = models.JSONField(default=dict, blank=True)
+    delivery_pricing_version = models.ForeignKey(
+        "logistics.DeliveryPricingVersion", null=True, blank=True, on_delete=models.PROTECT, related_name="store_orders",
+    )
+    delivery_distance_km = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

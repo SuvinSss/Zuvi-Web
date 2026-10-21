@@ -397,9 +397,20 @@ def _apply_location_fields(address, data):
     address.city = data["city"]
     address.district = data.get("district") or ""
     address.state = data["state"]
-    address.postal_code = data["postal_code"]
+    address.postal_code = data.get("postal_code") or ""
     address.latitude = data["latitude"]
     address.longitude = data["longitude"]
+
+
+def _apply_location_meta(customer_address, data):
+    """Map metadata from the location picker. Confirmation time is set by the server, never trusted."""
+    from django.utils import timezone
+    customer_address.custom_label = (data.get("custom_label") or "")[:32]
+    customer_address.place_id = (data.get("place_id") or "")[:64]
+    customer_address.location_source = data.get("location_source") or customer_address.location_source or ""
+    customer_address.location_accuracy_m = data.get("location_accuracy_m")
+    if data.get("location_confirmed"):
+        customer_address.location_confirmed_at = timezone.now()
 
 
 def _resolve_is_default_for_customer(*, customer, want_default, exclude_pk=None):
@@ -443,6 +454,7 @@ def create_customer_delivery_address(*, customer, data):
         is_default=is_default,
         is_active=True,
     )
+    _apply_location_meta(customer_address, data)
     customer_address.full_clean()
     customer_address.save()
     return customer_address
@@ -476,6 +488,7 @@ def update_customer_delivery_address(*, customer_address, data):
     customer_address.phone_number = data["phone_number"]
     customer_address.delivery_instructions = data.get("delivery_instructions") or ""
     customer_address.is_default = is_default
+    _apply_location_meta(customer_address, data)
     customer_address.full_clean()
     customer_address.save()
 

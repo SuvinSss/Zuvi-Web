@@ -11,7 +11,7 @@ class Address(models.Model):
     city = models.CharField(max_length=100)
     district = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100)
-    postal_code = models.CharField(max_length=20)
+    postal_code = models.CharField(max_length=20, blank=True)  # not every address has a known PIN
     country = models.CharField(max_length=100, default="India")
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)

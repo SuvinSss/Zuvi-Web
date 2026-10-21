@@ -48,11 +48,22 @@ class AddressSerializer(serializers.Serializer):
     city = serializers.CharField(max_length=100)
     district = serializers.CharField(max_length=100, required=False, allow_blank=True)
     state = serializers.CharField(max_length=100)
-    postal_code = serializers.CharField(max_length=20)
+    postal_code = serializers.RegexField(r"^(\d{6})?$", max_length=6, required=False, allow_blank=True,
+                                         error_messages={"invalid": "PIN code must be 6 digits."})
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=Decimal("-90"), max_value=Decimal("90"))
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=Decimal("-180"), max_value=Decimal("180"))
     delivery_instructions = serializers.CharField(required=False, allow_blank=True, max_length=500)
     is_default = serializers.BooleanField(required=False, default=False)
+    custom_label = serializers.CharField(required=False, allow_blank=True, max_length=32)
+    place_id = serializers.CharField(required=False, allow_blank=True, max_length=64)
+    location_source = serializers.ChoiceField(choices=["GPS", "SEARCH", "PIN", "MANUAL"], required=False, allow_blank=True)
+    location_accuracy_m = serializers.IntegerField(required=False, allow_null=True, min_value=0, max_value=100000)
+    location_confirmed = serializers.BooleanField(required=False, default=False, write_only=True)
+
+    def validate(self, attrs):
+        if not attrs["latitude"] and not attrs["longitude"]:
+            raise serializers.ValidationError({"latitude": "Choose the location on the map."})
+        return attrs
 
 
 def address_payload(ca: CustomerAddress) -> dict:
@@ -60,7 +71,11 @@ def address_payload(ca: CustomerAddress) -> dict:
     return {"id": ca.pk, "label": ca.label, "recipient_name": ca.recipient_name, "phone_number": ca.phone_number,
             "line1": a.line1, "line2": a.line2, "landmark": a.landmark, "city": a.city, "district": a.district,
             "state": a.state, "postal_code": a.postal_code, "latitude": str(a.latitude), "longitude": str(a.longitude),
-            "delivery_instructions": ca.delivery_instructions, "is_default": ca.is_default}
+            "delivery_instructions": ca.delivery_instructions, "is_default": ca.is_default,
+            "custom_label": ca.custom_label, "place_id": ca.place_id, "location_source": ca.location_source,
+            "location_accuracy_m": ca.location_accuracy_m, "location_confirmed": ca.location_confirmed_at is not None,
+            "short_label": ca.custom_label or ca.get_label_display(),
+            "summary": ", ".join(x for x in (a.line2 or a.line1, a.city, a.state) if x)}
 
 
 def _own_addresses(request):
@@ -233,6 +248,8 @@ class CheckoutSerializer(serializers.Serializer):
     pickup_locations = serializers.DictField(child=serializers.IntegerField(), required=False,
                                              help_text="store id -> pickup location id (facility pickup only)")
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    quote_token = serializers.UUIDField(required=False, allow_null=True,
+                                        help_text="From POST /checkout/quote/. If the total changed since, the order is refused with 409.")
 
 
 class CheckoutView(APIView):
@@ -253,10 +270,18 @@ class CheckoutView(APIView):
 
         existed = OrderModel.objects.filter(customer=customer, checkout_token=key).exists()
         pickup = {f"pickup_location_{sid}": loc for sid, loc in (v.get("pickup_locations") or {}).items()}
+        from logistics.checkout import PriceChanged
+        changed = None
         with DrfFromDjango():
-            order = place_customer_order(customer=customer, checkout_token=key, fulfillment_type=v["fulfillment_type"],
-                                         payment_method=v["payment_method"], delivery_address_id=v.get("delivery_address_id"),
-                                         pickup_post_data=pickup, customer_notes=v.get("customer_notes", ""), actor=request.user, request=request._request)
+            try:
+                order = place_customer_order(customer=customer, checkout_token=key, fulfillment_type=v["fulfillment_type"],
+                                             payment_method=v["payment_method"], delivery_address_id=v.get("delivery_address_id"),
+                                             pickup_post_data=pickup, customer_notes=v.get("customer_notes", ""), actor=request.user,
+                                             request=request._request, quote_token=v.get("quote_token"))
+            except PriceChanged as exc:
+                changed = exc
+        if changed is not None:
+            return Response({**changed.message_dict, "price_changed": True}, status=409)
         return Response(order_detail(order), status=200 if existed else 201)
 
 
@@ -266,6 +291,13 @@ def order_summary(order) -> dict:
     return {"id": order.pk, "order_number": order.order_number, "status": order.status, "fulfillment_type": order.fulfillment_type,
             "payment_method": order.payment_method, "payment_status": order.payment_status, "grand_total": str(order.grand_total),
             "item_count": str(getattr(order, "item_count", None) or ""), "placed_at": order.placed_at}
+
+
+def _delivery_for_customer(snapshot):
+    if not snapshot:
+        return None
+    from logistics.services import customer_view
+    return customer_view(snapshot)
 
 
 def order_detail(order) -> dict:
@@ -282,7 +314,8 @@ def order_detail(order) -> dict:
         "timeline": [{"status": h.new_status, "at": h.created_at} for h in order.status_history.all()],
         "store_orders": [{
             "id": so.pk, "store_order_number": so.store_order_number, "store": {"id": so.store_id, "name": so.store_name}, "status": so.status,
-            "store_total": str(so.store_total),
+            "store_total": str(so.store_total), "delivery_charge": str(so.delivery_charge),
+            "delivery": _delivery_for_customer(so.delivery_pricing),
             "items": [{"product_name": i.product_name, "sku": i.sku, "unit": i.unit, "quantity": str(i.quantity), "unit_price": str(i.unit_price),
                        "line_total": str(i.line_total), "product_id": i.product_id} for i in so.items.all()],
             "timeline": [{"status": h.new_status, "at": h.created_at} for h in so.status_history.all()],

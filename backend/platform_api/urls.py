@@ -1,5 +1,7 @@
 from django.urls import path
 
+from logistics import api as logistics_api
+
 from . import admin, admin_stores, approvals, analytics, auth, customer, public, store
 
 urlpatterns = [
@@ -29,6 +31,19 @@ urlpatterns = [
     path("cart/items/<int:pk>/", customer.CartItemView.as_view(), name="api_cart_item"),
     path("checkout/preview/", customer.CheckoutPreviewView.as_view(), name="api_checkout_preview"),
     path("checkout/", customer.CheckoutView.as_view(), name="api_checkout"),
+    path("checkout/quote/", logistics_api.CheckoutQuoteView.as_view(), name="api_checkout_quote"),
+    # location and delivery pricing
+    path("geo/search/", logistics_api.GeoSearchView.as_view(), name="api_geo_search"),
+    path("geo/reverse/", logistics_api.GeoReverseView.as_view(), name="api_geo_reverse"),
+    path("delivery/stores/", logistics_api.ServiceableStoresView.as_view(), name="api_serviceable_stores"),
+    path("delivery/earnings/", logistics_api.PartnerEarningsView.as_view(), name="api_partner_earnings"),
+    path("store/finance/", logistics_api.StoreFinanceView.as_view(), name="api_store_finance"),
+    path("admin/delivery-pricing/", logistics_api.PricingVersionsView.as_view(), name="api_delivery_pricing"),
+    path("admin/delivery-pricing/simulate/", logistics_api.PricingSimulatorView.as_view(), name="api_delivery_simulate"),
+    path("admin/delivery-zones/", logistics_api.ZonesView.as_view(), name="api_delivery_zones"),
+    path("admin/delivery-zones/<int:pk>/", logistics_api.ZoneDetailView.as_view(), name="api_delivery_zone"),
+    path("admin/delivery-operations/", logistics_api.DeliveryOperationsView.as_view(), name="api_delivery_operations"),
+    path("admin/partner-earnings/", logistics_api.AdminEarningsView.as_view(), name="api_admin_earnings"),
     path("orders/", customer.OrderListView.as_view(), name="api_orders"),
     path("orders/<int:pk>/", customer.OrderDetailView.as_view(), name="api_order"),
     path("orders/<int:pk>/cancel/", customer.OrderCancelView.as_view(), name="api_order_cancel"),

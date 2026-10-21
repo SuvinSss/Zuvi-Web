@@ -263,7 +263,10 @@ class CheckoutServiceTests(CheckoutTestMixin, TestCase):
             Decimal("0.01")
         )
         self.assertEqual(order.items_subtotal, expected)
-        self.assertEqual(order.grand_total, expected)
+        # Delivery is priced by the server (logistics engine) and added on top; never taken from the client.
+        self.assertGreater(order.delivery_charge, Decimal("0"))
+        self.assertEqual(order.delivery_charge, Decimal(order.store_orders.get().delivery_pricing["customer_total"]))
+        self.assertEqual(order.grand_total, expected + order.delivery_charge)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_quantity, Decimal("8.000"))
         from cart.models import CartItem

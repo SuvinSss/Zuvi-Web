@@ -155,6 +155,7 @@ INSTALLED_APPS = [
     'reviews',
     'feedback',
     'support',
+    'logistics',
 ]
 
 MIDDLEWARE = [
@@ -390,6 +391,8 @@ REST_FRAMEWORK = {
         'bulk': env('API_THROTTLE_BULK', default='60/hour'),
         'location': env('API_THROTTLE_LOCATION', default='120/min'),
         'register': env('API_THROTTLE_REGISTER', default='10/hour'),
+        'geo': env('API_THROTTLE_GEO', default='30/min'),
+        'quote': env('API_THROTTLE_QUOTE', default='60/min'),
     },
 }
 SPECTACULAR_SETTINGS = {
@@ -429,3 +432,13 @@ EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='ZuuVi <noreply@zuuvi.in>')
 CUSTOMER_EMAIL_ENABLED = bool(EMAIL_HOST)
 PASSWORD_RESET_TIMEOUT = 3600
+
+# Location providers (see docs/location-and-address-system.md). "none" = manual entry + estimated distances.
+LOCATION_GEOCODER = env('LOCATION_GEOCODER', default='none')
+LOCATION_GEOCODER_URL = env('LOCATION_GEOCODER_URL', default='')
+LOCATION_GEOCODER_USER_AGENT = env('LOCATION_GEOCODER_USER_AGENT', default='Zuuvi/1.0 (ops@zuuvi.in)')
+LOCATION_ROUTER = env('LOCATION_ROUTER', default='none')
+LOCATION_ROUTER_URL = env('LOCATION_ROUTER_URL', default='')
+LOCATION_PROVIDER_TIMEOUT = env.float('LOCATION_PROVIDER_TIMEOUT', default=5.0)
+BUSINESS_TIME_ZONE = env('BUSINESS_TIME_ZONE', default='Asia/Kolkata')
+CHECKOUT_QUOTE_TTL_SECONDS = env.int('CHECKOUT_QUOTE_TTL_SECONDS', default=600)

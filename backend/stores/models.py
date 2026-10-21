@@ -139,6 +139,10 @@ class Store(models.Model):
     service_radius_km = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal("0"))],
     )
+    # Serviceability: a radius around the store, or a drawn zone (logistics.PricingZone polygon).
+    service_mode = models.CharField(max_length=8, choices=[("RADIUS", "Radius around the store"), ("ZONE", "Drawn service zone")], default="RADIUS")
+    service_zone = models.ForeignKey("logistics.PricingZone", null=True, blank=True, on_delete=models.SET_NULL, related_name="stores")
+    prep_time_minutes = models.PositiveSmallIntegerField(default=15, help_text="Typical time to have an order ready for pickup.")
     opening_hours = models.JSONField(default=dict, blank=True)
     closures = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(

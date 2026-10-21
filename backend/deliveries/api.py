@@ -108,12 +108,22 @@ class DeliverySerializer(serializers.ModelSerializer):
     offer_expires_at = serializers.SerializerMethodField()
     pickup = serializers.SerializerMethodField()
     dropoff = serializers.SerializerMethodField()
+    trip = serializers.SerializerMethodField()
 
     class Meta:
         model = Delivery
         fields = ["id", "status", "attempt_number", "order_number", "store_order_number", "store_name",
                   "partner", "customer", "pickup", "dropoff", "needs_attention", "rejection_count",
-                  "offer_expires_at", "assigned_at", "picked_up_at", "delivered_at", "created_at"]
+                  "offer_expires_at", "assigned_at", "picked_up_at", "delivered_at", "created_at", "trip"]
+
+    def get_trip(self, obj):
+        """Distance and the rider's pay for this job (from the order's frozen pricing). Never the customer's fee internals."""
+        snap = obj.store_order.delivery_pricing or {}
+        if not snap:
+            return None
+        return {"distance_km": snap.get("distance_km"), "distance_source": snap.get("distance_source"),
+                "estimated_payout": snap.get("partner_payout"), "payout_breakdown": snap.get("rider_breakdown"),
+                "eta_minutes": snap.get("eta_minutes")}
 
     def get_partner(self, obj):
         if not obj.partner_id:
