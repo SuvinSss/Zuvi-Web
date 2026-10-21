@@ -37,9 +37,9 @@ export default function AdminPartners() {
             { key: 'j', header: 'Applied', cell: (p) => formatDate(p.created_at) },
             { key: 'a', header: 'Actions', cell: (p) => (
               <span className="flex flex-wrap gap-2">
-                {['PENDING', 'SUSPENDED'].includes(p.status) && <Button className="min-h-9" variant="secondary" loading={decide.isPending && decide.variables?.id === p.id} onClick={() => decide.mutate({ id: p.id, action: 'approve' })}>{p.status === 'PENDING' ? 'Approve' : 'Reinstate'}</Button>}
-                {p.status === 'PENDING' && <Button className="min-h-9" variant="danger" onClick={() => setPending({ p, action: 'reject' })}>Reject</Button>}
-                {p.status === 'APPROVED' && <Button className="min-h-9" variant="danger" onClick={() => setPending({ p, action: 'suspend' })}>Suspend</Button>}
+                {['PENDING', 'SUSPENDED'].includes(p.status) && <Button size="sm" variant="outline" loading={decide.isPending && decide.variables?.id === p.id} onClick={() => decide.mutate({ id: p.id, action: 'approve' })}>{p.status === 'PENDING' ? 'Approve' : 'Reinstate'}</Button>}
+                {p.status === 'PENDING' && <Button size="sm" variant="destructive" onClick={() => setPending({ p, action: 'reject' })}>Reject</Button>}
+                {p.status === 'APPROVED' && <Button size="sm" variant="destructive" onClick={() => setPending({ p, action: 'suspend' })}>Suspend</Button>}
               </span>) },
           ]} />
         <Pagination page={page} count={q.data?.count ?? 0} onPage={(n) => set({ page: n })} />

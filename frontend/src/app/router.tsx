@@ -60,7 +60,12 @@ const AdminCustomersList = lazy(() => import('@/pages/admin/AdminCustomers').the
 const AdminCustomerPage = lazy(() => import('@/pages/admin/AdminCustomers').then((m) => ({ default: m.AdminCustomerPage })))
 const AdminOverview = L(() => import('@/pages/admin/AdminOverview'))
 const AdminUsers = L(() => import('@/pages/admin/AdminUsers'))
-const AdminStores = L(() => import('@/pages/admin/AdminStores'))
+const StoresList = L(() => import('@/pages/admin/stores/StoresList'))
+const StoreWizard = L(() => import('@/pages/admin/stores/StoreWizard'))
+const StoreDetailPage = L(() => import('@/pages/admin/stores/StoreDetailPage'))
+const ApprovalCenter = lazy(() => import('@/pages/admin/ApprovalCenter'))
+const ApprovalQueue = lazy(() => import('@/pages/admin/ApprovalCenter').then((m) => ({ default: m.ApprovalQueue })))
+const ImportJobs = L(() => import('@/pages/admin/ImportJobs'))
 const AdminPartners = L(() => import('@/pages/admin/AdminPartners'))
 const AdminReviews = L(() => import('@/pages/admin/AdminReviews'))
 const AdminAudit = L(() => import('@/pages/admin/AdminAudit'))
@@ -186,7 +191,13 @@ export const routes: RouteObject[] = [
         { path: 'deliveries', element: R(AdminDeliveriesList) },
         { path: 'deliveries/:id', element: R(AdminDeliveryPage) },
         { path: 'users', element: R(AdminUsers) },
-        { path: 'stores', element: R(AdminStores) },
+        { path: 'stores', element: R(StoresList) },
+        { path: 'stores/new', element: R(StoreWizard) },
+        { path: 'stores/:id', element: R(StoreDetailPage) },
+        { path: 'stores/:id/edit', element: R(StoreWizard) },
+        { path: 'approvals', element: R(ApprovalCenter) },
+        { path: 'approvals/:module', element: R(ApprovalQueue) },
+        { path: 'imports', element: R(ImportJobs) },
         { path: 'partners', element: R(AdminPartners) },
         { path: 'products', element: R(ProductsPage) },
         { path: 'products/new', element: page(<RequirePermission permission="add"><ProductFormPage scope="admin" /></RequirePermission>) },

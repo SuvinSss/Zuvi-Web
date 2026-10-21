@@ -25,7 +25,7 @@ export default function ShopPage() {
   return (
     <>
       <PageHeader title={values.q ? `Results for “${values.q}”` : 'Shop'} subtitle={products.data ? `${products.data.count} product${products.data.count === 1 ? '' : 's'}` : undefined}
-        actions={<Button variant="secondary" icon={SlidersHorizontal} aria-expanded={showFilters} aria-controls="filters" onClick={() => setShowFilters((s) => !s)}>Filters{active ? ` (${active})` : ''}</Button>} />
+        actions={<Button variant="outline" icon={SlidersHorizontal} aria-expanded={showFilters} aria-controls="filters" onClick={() => setShowFilters((s) => !s)}>Filters{active ? ` (${active})` : ''}</Button>} />
 
       <div id="filters" hidden={!showFilters} className="mb-5 grid gap-3 rounded-card border border-line bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
         <Field label="Category">{(p) => (
@@ -46,7 +46,7 @@ export default function ShopPage() {
       </div>
 
       <QueryBoundary query={products} skeleton="cards" isEmpty={products.data?.count === 0}
-        empty={{ icon: Package, title: 'Nothing matches your search', text: 'Try a different word, or clear the filters.', action: <Button variant="secondary" onClick={() => set({ q: '', category: '', store: '', min_price: '', max_price: '' })}>Clear filters</Button> }}>
+        empty={{ icon: Package, title: 'Nothing matches your search', text: 'Try a different word, or clear the filters.', action: <Button variant="outline" onClick={() => set({ q: '', category: '', store: '', min_price: '', max_price: '' })}>Clear filters</Button> }}>
         <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 ${products.isFetching ? 'opacity-70' : ''}`}>{products.data?.results.map((p) => <ProductCard key={p.id} product={p} />)}</div>
         <Pagination page={page} count={products.data?.count ?? 0} pageSize={PAGE_SIZE} onPage={(n) => set({ page: n })} />
       </QueryBoundary>

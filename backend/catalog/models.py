@@ -330,6 +330,13 @@ class Product(models.Model):
         blank=True,
         related_name="updated_products",
     )
+    generated_fields = models.JSONField(
+        default=list, blank=True, editable=False,
+        help_text="Fields an import filled in automatically; shown to reviewers before approval.",
+    )
+    import_batch = models.ForeignKey(
+        "ProductImportBatch", null=True, blank=True, on_delete=models.SET_NULL, related_name="products", editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -671,6 +678,13 @@ class ProductImportBatch(models.Model):
     duplicate_rows = models.PositiveIntegerField(default=0)
     summary = models.JSONField(default=dict, blank=True)
     errors = models.JSONField(default=list, blank=True)
+    # Intelligent-import decisions (all user choices; nothing here is guessed on the server).
+    mapping = models.JSONField(default=dict, blank=True, help_text="Source header -> column key chosen by the user.")
+    defaults = models.JSONField(default=dict, blank=True, help_text="Values for required columns the file lacks, e.g. store_code.")
+    overrides = models.JSONField(default=dict, blank=True, help_text="Row number -> {column: corrected value}.")
+    generate_sku = models.BooleanField(default=True)
+    row_notes = models.JSONField(default=list, blank=True, help_text="Per-row generated and normalised values.")
+    attempts = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     committed_at = models.DateTimeField(null=True, blank=True)
 

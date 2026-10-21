@@ -5,9 +5,13 @@ from . import views
 urlpatterns = [
     path("products/", views.ProductListCreateView.as_view(), name="api_product_list"),
     path("products/meta/", views.ProductMetaView.as_view(), name="api_product_meta"),
+    path("products/import/", views.ImportListView.as_view(), name="api_import_list"),
+    path("products/import/columns/", views.ImportColumnsView.as_view(), name="api_import_columns"),
     path("products/import/template/", views.ImportTemplateView.as_view(), name="api_import_template"),
     path("products/import/preview/", views.ImportPreviewView.as_view(), name="api_import_preview"),
     path("products/import/<uuid:batch_id>/", views.ImportDetailView.as_view(), name="api_import_detail"),
+    path("products/import/<uuid:batch_id>/rows/<int:row>/", views.ImportRowView.as_view(), name="api_import_row"),
+    path("products/import/<uuid:batch_id>/retry/", views.ImportRetryView.as_view(), name="api_import_retry"),
     path("products/import/<uuid:batch_id>/commit/", views.ImportCommitView.as_view(), name="api_import_commit"),
     path("products/import/<uuid:batch_id>/errors/", views.ImportErrorReportView.as_view(), name="api_import_errors"),
     path("products/<int:pk>/", views.ProductDetailView.as_view(), name="api_product_detail"),

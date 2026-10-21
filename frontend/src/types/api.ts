@@ -55,6 +55,7 @@ export interface ProductListItem {
   unit_value: string
   store_price: string
   selling_price: string | null
+  generated_fields?: string[]
   final_price: string | null
   stock_quantity: string
   image: CardImage
@@ -127,13 +128,16 @@ export type ImportMode = 'create' | 'skip' | 'update'
 
 export interface ImportRow {
   row: number
-  status: 'valid' | 'invalid' | 'skip'
+  status: 'valid' | 'incomplete' | 'invalid' | 'skip'
   action: 'create' | 'update' | 'skip' | null
   store_code: string
   sku: string
   name: string
   duplicate: boolean
   image: 'none' | 'zip' | 'url'
+  values?: Record<string, string>
+  generated?: string[]
+  normalized?: Record<string, [string, string]>
   errors: { column: string; message: string }[]
 }
 
@@ -162,7 +166,9 @@ export interface ImportBatch {
   allow_image_urls: boolean
   source_name: string
   already_imported: boolean
-  counts: { total: number; valid: number; invalid: number; duplicates: number; create?: number; update?: number; skip?: number }
+  counts: { total: number; valid: number; invalid: number; duplicates: number; incomplete?: number; hard_invalid?: number; create?: number; update?: number; skip?: number }
+  retryable?: boolean
+  attempts?: number
   summary: Partial<ImportSummary>
   errors: ImportError[]
   rows?: ImportRow[]

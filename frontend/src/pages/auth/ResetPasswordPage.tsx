@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AuthShell } from '@/components/AuthShell'
-import { Alert, Button, Field, Input } from '@/components/ui'
+import { Alert, Button, Field, Input, ButtonLink } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { confirmPasswordReset } from '@/services/auth'
 
@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [state, setState] = useState<'idle' | 'sending' | 'done'>('idle')
   const [error, setError] = useState('')
-  if (!uid || !token) return <AuthShell title="Reset link problem"><Alert tone="error">This reset link is incomplete. Request a new one.</Alert><Link to="/forgot-password"><Button className="mt-4 w-full">Request a new link</Button></Link></AuthShell>
+  if (!uid || !token) return <AuthShell title="Reset link problem"><Alert tone="error">This reset link is incomplete. Request a new one.</Alert><ButtonLink to="/forgot-password" className="mt-4 w-full">Request a new link</ButtonLink></AuthShell>
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
@@ -24,7 +24,7 @@ export default function ResetPasswordPage() {
       {state === 'done' ? (
         <>
           <Alert tone="success" title="Password updated">You can now sign in with your new password.</Alert>
-          <Link to="/login"><Button className="mt-4 w-full">Sign in</Button></Link>
+          <ButtonLink to="/login" className="mt-4 w-full">Sign in</ButtonLink>
         </>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-4">

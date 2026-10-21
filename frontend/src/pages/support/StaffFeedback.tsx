@@ -57,7 +57,7 @@ function FeedbackDialog({ item, onClose }: { item: FeedbackItem; onClose: () => 
         <Field label="Reply">{(p) => <Textarea {...p} rows={3} maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} />}</Field>
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-5" checked={internal} onChange={(e) => setInternal(e.target.checked)} />Internal note (hidden from the sender)</label>
         {reply.isError && <Alert>{errorMessage(reply.error)}</Alert>}
-        <div className="flex flex-wrap justify-between gap-2"><Button variant="secondary" loading={escalate.isPending} disabled={item.status === 'ESCALATED'} onClick={() => escalate.mutate()}>Escalate to support</Button><Button loading={reply.isPending} disabled={!body.trim()} onClick={() => reply.mutate()}>{internal ? 'Add note' : 'Send reply'}</Button></div>
+        <div className="flex flex-wrap justify-between gap-2"><Button variant="outline" loading={escalate.isPending} disabled={item.status === 'ESCALATED'} onClick={() => escalate.mutate()}>Escalate to support</Button><Button loading={reply.isPending} disabled={!body.trim()} onClick={() => reply.mutate()}>{internal ? 'Add note' : 'Send reply'}</Button></div>
       </div>
     </Modal>
   )

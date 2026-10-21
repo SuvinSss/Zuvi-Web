@@ -90,3 +90,10 @@ Build `frontend/dist`, serve it for every path except `/api`, `/media`, `/static
 * Bulk actions exist in the Django fallback admin, not in the React tables.
 * Orders CSV export is capped at 20,000 rows.
 * Not tested on real phones, Safari or Firefox; no screen-reader walkthrough. Large-data performance was not load-tested.
+
+## 12. Stores, imports and approvals (added)
+* **Stores** group: All stores, Add store (wizard with draft save and unsaved-change protection), Pending approvals. Store detail has tabs for overview, profile, address, hours, delivery, staff, documents, verification, products, orders and history.
+* **Administration** group: Approval center (one place for every queue, with badge), Import products (column mapping, row fixing, retry), Bulk import jobs, Audit log.
+* Bulk actions appear on Products and Stores for users with the matching rights; every bulk action previews first and needs confirmation.
+* **Design system:** one `Button` (sizes `sm`/`md`/`lg`, variants primary/secondary/outline/ghost/destructive, icon-only needs `aria-label`) and `ButtonLink` for navigation. Links navigate, buttons act, tabs switch sections, menus hold row actions; no native `alert`/`confirm`.
+* Full behaviour: see [admin-approval-and-import-workflows.md](admin-approval-and-import-workflows.md).

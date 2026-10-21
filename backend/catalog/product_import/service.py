@@ -63,16 +63,18 @@ def _discard_staged(batch):
     batch.workbook_path = batch.images_zip_path = ""
 
 
-def _analyse_batch(batch, workbook_bytes, zip_bytes):
-    raw_rows, ignored = parse_workbook(workbook_bytes, batch.source_name)
+def _analyse_batch(batch, workbook_bytes, zip_bytes, mode=None):
+    raw_rows, ignored = parse_workbook(workbook_bytes, batch.source_name, mapping=batch.mapping, defaults=batch.defaults)
     return analyse(
-        raw_rows, ignored, mode=batch.mode, allow_image_urls=batch.allow_image_urls,
-        zip_images=ZipImages(zip_bytes),
+        raw_rows, ignored, mode=mode or batch.mode, allow_image_urls=batch.allow_image_urls,
+        zip_images=ZipImages(zip_bytes), defaults=batch.defaults, overrides=batch.overrides,
+        generate_sku=batch.generate_sku,
     )
 
 
 def create_preview(*, user, workbook, images_zip=None, mode, all_or_nothing=True,
-                   initial_status=ProductStatus.DRAFT, allow_image_urls=False):
+                   initial_status=ProductStatus.DRAFT, allow_image_urls=False, mapping=None, defaults=None,
+                   generate_sku=True):
     """Stage the files, analyse them and return ``(batch, analysis)``. Writes no products."""
     if mode not in ProductImportBatch.Mode.values:
         raise ValidationError("Unknown import mode.")
@@ -84,6 +86,7 @@ def create_preview(*, user, workbook, images_zip=None, mode, all_or_nothing=True
     batch = ProductImportBatch(
         created_by=user, mode=mode, all_or_nothing=all_or_nothing, initial_status=initial_status,
         allow_image_urls=allow_image_urls, source_name=(workbook.name or "")[:255], source_hash=digest,
+        mapping=mapping or {}, defaults=defaults or {}, generate_sku=generate_sku,
     )
     analysis = _analyse_batch(batch, workbook_bytes, zip_bytes)  # raises ValidationError for bad files
     batch.workbook_path = _stage(batch.pk, "workbook", workbook_bytes)
@@ -99,6 +102,10 @@ def _record_counts(batch, analysis):
     batch.total_rows, batch.valid_rows = counts["total"], counts["valid"]
     batch.invalid_rows, batch.duplicate_rows = counts["invalid"], counts["duplicates"]
     batch.errors = analysis.error_list()
+    batch.row_notes = [
+        {"row": r.number, "generated": r.generated, "normalized": r.normalized}
+        for r in analysis.rows if r.generated or r.normalized
+    ][:1000]
 
 
 def already_imported(batch):
@@ -108,20 +115,21 @@ def already_imported(batch):
     )
 
 
-def reanalyse(batch):
+def reanalyse(batch, mode=None):
     if not batch.workbook_path:
         raise ImportBlocked("The staged files for this import are no longer available. Upload the file again.", "expired")
     zip_bytes = _read(batch.images_zip_path) if batch.images_zip_path else b""
-    return _analyse_batch(batch, _read(batch.workbook_path), zip_bytes)
+    return _analyse_batch(batch, _read(batch.workbook_path), zip_bytes, mode)
 
 
-def commit(batch_id, *, user, request=None):
+def commit(batch_id, *, user, request=None, retry=False):
     """Apply a previewed import. Returns the committed batch.
 
-    Raises ``ImportBlocked`` when nothing was (or could be) imported.
+    ``retry=True`` re-runs a partly failed import: rows already imported are skipped (never duplicated), so
+    only rows that were corrected or failed are applied. Raises ``ImportBlocked`` when nothing could be imported.
     """
     try:
-        return _commit(batch_id, user=user, request=request)
+        return _commit(batch_id, user=user, request=request, retry=retry)
     except _RolledBack as exc:
         mark_failed(batch_id, exc.failure)
         raise ImportBlocked(
@@ -135,14 +143,19 @@ class _RolledBack(Exception):
         self.failure = failure
 
 
-def _commit(batch_id, *, user, request):
+def _commit(batch_id, *, user, request, retry=False):
     with transaction.atomic():
         batch = ProductImportBatch.objects.select_for_update().get(pk=batch_id)
-        if batch.status == ProductImportBatch.Status.COMMITTED:
+        if batch.status == ProductImportBatch.Status.COMMITTED and not retry:
             return batch  # idempotent: a double submit must not import twice
-        if already_imported(batch):
+        if retry:
+            if batch.status == ProductImportBatch.Status.PREVIEWED:
+                raise ImportBlocked("This import has not been committed yet.", "not_committed")
+            if not batch.workbook_path or not (batch.summary or {}).get("failed"):
+                raise ImportBlocked("There is nothing left to retry for this import.", "nothing_to_retry")
+        elif already_imported(batch):
             raise ImportBlocked("This file has already been imported. Change the data before importing it again.", "already_imported")
-        analysis = reanalyse(batch)
+        analysis = reanalyse(batch, mode=ProductImportBatch.Mode.SKIP if retry else None)
         counts = analysis.counts
         if counts["total"] == 0:
             raise ImportBlocked("The file contains no product rows.", "empty")
@@ -173,16 +186,23 @@ def _commit(batch_id, *, user, request):
         invalid = counts["invalid"]
         summary["failed"] = invalid + len(failures)
         summary["outcome"] = "complete" if not summary["failed"] else "partial"
+        if retry:  # accumulate over attempts; rows imported earlier are not counted twice
+            previous = batch.summary or {}
+            for key in ("created", "updated", "images_processed", "fallback_images"):
+                summary[key] += previous.get(key, 0)
+            summary["skipped"] = previous.get("skipped", 0)
         _record_counts(batch, analysis)
         batch.errors = analysis.error_list() + failures
         batch.summary = summary
+        batch.attempts += 1
         did_something = summary["created"] + summary["updated"] + summary["skipped"]
         batch.status = (
             ProductImportBatch.Status.FAILED if summary["failed"] and not did_something
             else ProductImportBatch.Status.COMMITTED
         )
         batch.committed_at = timezone.now()
-        _discard_staged(batch)  # do not keep uploaded spreadsheets around
+        if not summary["failed"]:
+            _discard_staged(batch)  # keep the staged files only while rows are still retryable
         batch.save()
         return batch
 
@@ -223,6 +243,10 @@ def _apply_row(row, batch, user, zip_images, summary, request, stores):
             store=store, product_data=product_data, created_by=user, tag_ids=row.tag_ids,
             initial_status=batch.initial_status, request=request,
         )
+        if row.generated:
+            Product.objects.filter(pk=product.pk).update(generated_fields=sorted(row.generated), import_batch_id=batch.pk)
+        else:
+            Product.objects.filter(pk=product.pk).update(import_batch_id=batch.pk)
         summary["created"] += 1
     else:
         product = Product.objects.get(pk=row.existing_id)

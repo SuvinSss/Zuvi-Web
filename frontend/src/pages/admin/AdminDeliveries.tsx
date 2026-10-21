@@ -65,7 +65,7 @@ export function AdminDeliveryPage() {
               <Card className="space-y-2 p-4"><h2 className="font-semibold text-forest">Actions</h2>
                 {['PENDING_ASSIGNMENT', 'OFFERED', 'ACCEPTED', 'AT_STORE'].includes(d.status) && <Button className="w-full" onClick={() => setAssigning(true)}>{d.partner ? 'Reassign partner' : 'Assign a partner'}</Button>}
                 {d.status === 'FAILED' && <Button className="w-full" loading={retry.isPending} onClick={() => retry.mutate()}>Retry delivery</Button>}
-                {!['DELIVERED', 'CANCELLED'].includes(d.status) && <Button variant="danger" className="w-full" onClick={() => setCancelling(true)}>Cancel delivery</Button>}
+                {!['DELIVERED', 'CANCELLED'].includes(d.status) && <Button variant="destructive" className="w-full" onClick={() => setCancelling(true)}>Cancel delivery</Button>}
               </Card>
             </aside>
           </div>
@@ -83,7 +83,7 @@ function AssignDialog({ id, onClose, onDone }: { id: number; onClose: () => void
   const toast = useToast()
   const assign = useMutation({ mutationFn: () => adminAssign(id, Number(partner), 'Assigned by admin'), onSuccess: onDone, onError: (e) => toast('error', errorMessage(e)) })
   return (
-    <Modal open onClose={onClose} title="Assign a delivery partner" footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button disabled={!partner} loading={assign.isPending} onClick={() => assign.mutate()}>Assign</Button></>}>
+    <Modal open onClose={onClose} title="Assign a delivery partner" footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!partner} loading={assign.isPending} onClick={() => assign.mutate()}>Assign</Button></>}>
       <QueryBoundary query={partners}>
         <Field label="Approved partner" hint="Online partners are listed as such; offline partners can still be assigned.">{(p) => <Select {...p} value={partner} onChange={(e) => setPartner(e.target.value)}><option value="">Choose…</option>{partners.data?.results.map((x) => <option key={x.id} value={x.id}>{x.full_name || x.username} — {x.is_online ? 'online' : 'offline'}</option>)}</Select>}</Field>
       </QueryBoundary>

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import admin, analytics, auth, customer, public, store
+from . import admin, admin_stores, approvals, analytics, auth, customer, public, store
 
 urlpatterns = [
     # auth (every role)
@@ -49,11 +49,21 @@ urlpatterns = [
     path("admin/customers/<int:pk>/", analytics.AdminCustomerDetailView.as_view(), name="api_admin_customer"),
     path("admin/categories/", analytics.AdminCategoriesView.as_view(), name="api_admin_categories"),
     path("admin/orders/export/", analytics.OrdersExportView.as_view(), name="api_admin_orders_export"),
+    path("admin/approvals/", approvals.ApprovalCenterView.as_view(), name="api_admin_approvals"),
+    path("admin/bulk/<str:module>/preview/", approvals.BulkPreviewView.as_view(), name="api_admin_bulk_preview"),
+    path("admin/bulk/<str:module>/apply/", approvals.BulkApplyView.as_view(), name="api_admin_bulk_apply"),
     path("admin/overview/", admin.AdminOverviewView.as_view(), name="api_admin_overview"),
     path("admin/users/", admin.AdminUsersView.as_view(), name="api_admin_users"),
     path("admin/users/<int:pk>/suspend/", admin.SuspendUserView.as_view(), name="api_admin_user_suspend"),
     path("admin/users/<int:pk>/reactivate/", admin.ReactivateUserView.as_view(), name="api_admin_user_reactivate"),
-    path("admin/stores/", admin.AdminStoresView.as_view(), name="api_admin_stores"),
+    path("admin/stores/", admin_stores.AdminStoresView.as_view(), name="api_admin_stores"),
+    path("admin/stores/meta/", admin_stores.AdminStoreMetaView.as_view(), name="api_admin_stores_meta"),
+    path("admin/stores/export/", admin_stores.AdminStoresExportView.as_view(), name="api_admin_stores_export"),
+    path("admin/stores/<int:pk>/", admin_stores.AdminStoreDetailView.as_view(), name="api_admin_store"),
+    path("admin/stores/<int:pk>/staff/", admin_stores.AdminStoreStaffView.as_view(), name="api_admin_store_staff"),
+    path("admin/stores/<int:pk>/documents/", admin_stores.AdminStoreDocumentsView.as_view(), name="api_admin_store_documents"),
+    path("admin/stores/<int:pk>/images/", admin_stores.AdminStoreImagesView.as_view(), name="api_admin_store_images"),
+    path("admin/stores/<int:pk>/verify/", admin_stores.AdminStoreVerifyView.as_view(), name="api_admin_store_verify"),
     path("admin/stores/<int:pk>/status/", admin.AdminStoreStatusView.as_view(), name="api_admin_store_status"),
     path("admin/orders/", admin.AdminOrdersView.as_view(), name="api_admin_orders"),
     path("admin/orders/<int:pk>/", admin.AdminOrderDetailView.as_view(), name="api_admin_order"),

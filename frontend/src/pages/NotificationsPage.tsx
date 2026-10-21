@@ -29,7 +29,7 @@ export default function NotificationsPage({ area = '/account' }: { area?: string
   const readAll = useMutation({ mutationFn: markAllNotificationsRead, onSuccess: () => { refresh(); toast('success', 'All notifications marked as read.') }, onError: (e) => toast('error', errorMessage(e)) })
   return (
     <>
-      <PageHeader title="Notifications" actions={<Button variant="secondary" icon={CheckCheck} loading={readAll.isPending} onClick={() => readAll.mutate()}>Mark all as read</Button>} />
+      <PageHeader title="Notifications" actions={<Button variant="outline" icon={CheckCheck} loading={readAll.isPending} onClick={() => readAll.mutate()}>Mark all as read</Button>} />
       <div className="mb-4"><Segmented label="Show" value={values.unread} onChange={(v) => set({ unread: v })} options={[{ value: '', label: 'All' }, { value: '1', label: 'Unread' }]} /></div>
       <QueryBoundary query={list} isEmpty={list.data?.count === 0} empty={{ icon: Bell, title: values.unread ? 'Nothing unread' : 'No notifications yet', text: 'Updates about your orders and requests appear here.' }}>
         <ul className="space-y-2">

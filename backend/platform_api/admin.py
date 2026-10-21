@@ -21,6 +21,8 @@ from orders.models import Order, OrderStatus
 from reviews.models import RatingAggregate, TargetType
 from stores.decorators import user_has_store_permission
 from stores.models import Store, StoreStatus
+from django.core.exceptions import ValidationError as DjangoValidationError
+from stores.management import approve_managed_store
 from stores.services import record_status_change
 from support.models import Complaint, Ticket
 
@@ -105,26 +107,6 @@ class StoreStatusSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
 
-class AdminStoresView(generics.ListAPIView):
-    permission_classes = [IsManagement]
-    serializer_class = serializers.Serializer
-    pagination_class = StandardPagination
-
-    def list(self, request, *args, **kwargs):
-        qs = Store.objects.select_related("address", "category").order_by("name")
-        if request.query_params.get("status"):
-            qs = qs.filter(status=request.query_params["status"])
-        if request.query_params.get("q"):
-            qs = qs.filter(Q(name__icontains=request.query_params["q"]) | Q(store_code__icontains=request.query_params["q"]))
-        page = self.paginate_queryset(qs)
-        ratings = {a.target_id: a for a in RatingAggregate.objects.filter(target_type=TargetType.STORE, target_id__in=[s.pk for s in page])}
-        return self.get_paginated_response([
-            {"id": s.pk, "store_code": s.store_code, "name": s.name, "status": s.status, "is_active": s.is_active, "city": s.address.city,
-             "category": s.category.name if s.category_id else None,
-             "rating": {"average": float(ratings[s.pk].average), "count": ratings[s.pk].count} if s.pk in ratings else {"average": 0.0, "count": 0}}
-            for s in page])
-
-
 class AdminStoreStatusView(APIView):
     permission_classes = [IsManagement]
 
@@ -138,8 +120,15 @@ class AdminStoreStatusView(APIView):
         perm = permission_for_transition(store.status, data.validated_data["status"])
         if perm:
             _require(request.user, user_has_store_permission, perm)
-        record_status_change(store=store, new_status=data.validated_data["status"], changed_by=request.user,
-                             reason=data.validated_data.get("reason", ""), request=request._request)  # raises 400 on invalid transitions
+        target = data.validated_data["status"]
+        try:
+            if target == StoreStatus.ACTIVE and store.status in (StoreStatus.PENDING, StoreStatus.DRAFT):
+                approve_managed_store(actor=request.user, store=store, reason=data.validated_data.get("reason", ""), request=request._request)
+            else:
+                record_status_change(store=store, new_status=target, changed_by=request.user,
+                                     reason=data.validated_data.get("reason", ""), request=request._request)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict if hasattr(exc, "error_dict") else {"detail": exc.messages}) from exc
         store.refresh_from_db()
         return Response({"id": store.pk, "status": store.status})
 

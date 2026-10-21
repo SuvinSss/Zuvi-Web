@@ -31,13 +31,13 @@ export default function StoreReviews() {
               <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Stars value={r.rating} /><span className="text-sm font-medium">{r.reviewer}</span></div><span className="text-xs text-muted">{formatDate(r.created_at)}</span></div>
               {r.title && <p className="mt-1 font-semibold">{r.title}</p>}
               {r.comment && <p className="mt-1 whitespace-pre-line break-words text-sm">{r.comment}</p>}
-              {r.reply ? <p className="mt-2 rounded-control bg-pale p-3 text-sm"><strong>Your reply:</strong> {r.reply.body}</p> : <Button className="mt-3" variant="secondary" onClick={() => setTarget(r)}>Reply</Button>}
+              {r.reply ? <p className="mt-2 rounded-control bg-pale p-3 text-sm"><strong>Your reply:</strong> {r.reply.body}</p> : <Button className="mt-3" variant="outline" onClick={() => setTarget(r)}>Reply</Button>}
             </Card></li>
           ))}
         </ul>
         <Pagination page={page} count={q.data?.count ?? 0} onPage={(n) => set({ page: n })} />
       </QueryBoundary>
-      <Modal open={!!target} onClose={() => setTarget(null)} title="Reply to review" footer={<><Button variant="secondary" onClick={() => setTarget(null)}>Cancel</Button><Button loading={reply.isPending} disabled={!body.trim()} onClick={() => reply.mutate()}>Publish reply</Button></>}>
+      <Modal open={!!target} onClose={() => setTarget(null)} title="Reply to review" footer={<><Button variant="outline" onClick={() => setTarget(null)}>Cancel</Button><Button loading={reply.isPending} disabled={!body.trim()} onClick={() => reply.mutate()}>Publish reply</Button></>}>
         <Field label="Your public reply">{(p) => <Textarea {...p} rows={4} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)} />}</Field>
       </Modal>
     </>

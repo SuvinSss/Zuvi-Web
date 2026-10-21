@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ShoppingBag } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DataTable, Pagination, QueryBoundary, Segmented, Status } from '@/components/kit'
-import { Button, PageHeader } from '@/components/ui'
+import { PageHeader, ButtonLink } from '@/components/ui'
 import { useUrlState } from '@/hooks/useUrlState'
 import { formatDate, formatMoney } from '@/lib/format'
 import { label, ORDER_STATUS } from '@/lib/labels'
@@ -19,7 +19,7 @@ export default function OrdersPage() {
       <PageHeader title="My orders" />
       <div className="mb-4"><Segmented label="Filter by status" value={values.status} onChange={(v) => set({ status: v })} options={FILTERS.map(([value, l]) => ({ value, label: l }))} /></div>
       <QueryBoundary query={orders} isEmpty={orders.data?.count === 0}
-        empty={{ icon: ShoppingBag, title: values.status ? 'No orders with this status' : 'No orders yet', text: values.status ? 'Try another filter.' : 'When you place an order it will appear here.', action: values.status ? undefined : <Link to="/shop"><Button>Start shopping</Button></Link> }}>
+        empty={{ icon: ShoppingBag, title: values.status ? 'No orders with this status' : 'No orders yet', text: values.status ? 'Try another filter.' : 'When you place an order it will appear here.', action: values.status ? undefined : <ButtonLink to="/shop">Start shopping</ButtonLink> }}>
         <DataTable caption="Orders" rows={orders.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/account/orders/${o.id}`)}
           columns={[
             { key: 'n', header: 'Order', primary: true, cell: (o) => <Link to={`/account/orders/${o.id}`} className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },

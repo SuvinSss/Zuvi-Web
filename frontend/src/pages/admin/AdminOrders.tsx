@@ -13,7 +13,7 @@ import type { OrderDetail } from '@/types/platform'
 
 export function AdminOrdersList() {
   const navigate = useNavigate()
-  const { values, page, set } = useUrlState(['status', 'payment_status', 'q', 'from', 'to'] as const)
+  const { values, page, set } = useUrlState(['status', 'payment_status', 'q', 'from', 'to', 'store'] as const)
   const q = useQuery({ queryKey: ['admin-orders', values, page], queryFn: () => adminOrders({ ...values, page }), placeholderData: (p) => p })
   const toast = useToast()
   const exportCsv = useMutation({ mutationFn: () => downloadOrdersCsv(values), onSuccess: () => toast('success', 'Orders exported.'), onError: (e) => toast('error', errorMessage(e)) })
@@ -21,7 +21,7 @@ export function AdminOrdersList() {
   return (
     <>
       <PageHeader title="Orders" subtitle={q.data ? `${q.data.count} order${q.data.count === 1 ? '' : 's'}${filtered ? ' match the filters' : ''}` : undefined}
-        actions={<Button variant="secondary" icon={Download} loading={exportCsv.isPending} onClick={() => exportCsv.mutate()}>Export CSV</Button>} />
+        actions={<Button variant="outline" icon={Download} loading={exportCsv.isPending} onClick={() => exportCsv.mutate()}>Export CSV</Button>} />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{Object.entries(ORDER_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
         <label className="text-sm">Payment<Select className="mt-1" value={values.payment_status} onChange={(e) => set({ payment_status: e.target.value })}><option value="">Any</option>{Object.entries(PAYMENT_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
@@ -29,7 +29,7 @@ export function AdminOrdersList() {
         <label className="text-sm">To<Input className="mt-1" type="date" value={values.to} onChange={(e) => set({ to: e.target.value })} /></label>
         <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Order, customer or phone" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
-      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: filtered ? 'No orders match these filters' : 'No orders yet', text: filtered ? 'Try clearing a filter.' : undefined, action: filtered ? <Button variant="secondary" onClick={() => set({ status: '', payment_status: '', q: '', from: '', to: '' })}>Reset filters</Button> : undefined }}>
+      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: ClipboardList, title: filtered ? 'No orders match these filters' : 'No orders yet', text: filtered ? 'Try clearing a filter.' : undefined, action: filtered ? <Button variant="outline" onClick={() => set({ status: '', payment_status: '', q: '', from: '', to: '' })}>Reset filters</Button> : undefined }}>
         <DataTable caption="Orders" rows={q.data?.results ?? []} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/admin/orders/${o.id}`)}
           columns={[
             { key: 'n', header: 'Order', primary: true, cell: (o) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/admin/orders/${o.id}`} onClick={(e) => e.stopPropagation()}>{o.order_number}</Link> },
@@ -91,7 +91,7 @@ export function AdminOrderPage() {
                   {status && <Field label="Reason">{(p) => <Input {...p} value={reason} onChange={(e) => setReason(e.target.value)} />}</Field>}
                   {status && <Button className="w-full" loading={change.isPending} onClick={() => change.mutate()}>Update status</Button>}
                   {status === 'COMPLETED' && <p className="text-xs text-muted">Orders with an unfinished delivery cannot be completed without delivery proof.</p>}
-                  <Button variant="danger" className="w-full" onClick={() => setCancelling(true)}>Cancel order</Button></Card>
+                  <Button variant="destructive" className="w-full" onClick={() => setCancelling(true)}>Cancel order</Button></Card>
               )}
             </aside>
           </div>

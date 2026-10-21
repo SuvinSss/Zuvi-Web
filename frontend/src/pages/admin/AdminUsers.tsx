@@ -40,7 +40,7 @@ export default function AdminUsers() {
             { key: 's', header: 'State', cell: (u) => <Status value={u.is_active ? 'ACTIVE' : 'SUSPENDED'} label={u.is_active ? 'Active' : 'Suspended'} /> },
             { key: 'j', header: 'Joined', cell: (u) => formatDate(u.date_joined) },
             { key: 'l', header: 'Last sign-in', cell: (u) => formatDate(u.last_login) },
-            { key: 'a', header: '', cell: (u) => u.id !== me?.id && <Button variant={u.is_active ? 'danger' : 'secondary'} className="min-h-9" onClick={() => setTarget(u)}>{u.is_active ? 'Suspend' : 'Reactivate'}</Button> },
+            { key: 'a', header: '', cell: (u) => u.id !== me?.id && <Button size="sm" variant={u.is_active ? 'destructive' : 'outline'} onClick={() => setTarget(u)}>{u.is_active ? 'Suspend' : 'Reactivate'}</Button> },
           ]} />
         <Pagination page={page} count={q.data?.count ?? 0} onPage={(n) => set({ page: n })} />
       </QueryBoundary>

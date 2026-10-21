@@ -3,7 +3,7 @@ import { MapPin } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QueryBoundary } from '@/components/kit'
-import { Alert, Button, Card, Field, PageHeader, Textarea } from '@/components/ui'
+import { Alert, Button, Card, Field, PageHeader, Textarea, ButtonLink } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { getCheckoutPreview, placeOrder } from '@/services/platform'
@@ -50,7 +50,7 @@ export default function CheckoutPage() {
   return (
     <>
       <PageHeader title="Checkout" subtitle="Review your order and choose how you want to receive it." />
-      <QueryBoundary query={preview} skeleton="detail" isEmpty={data?.store_groups.length === 0} empty={{ icon: MapPin, title: 'Your cart is empty', text: 'Add items before checking out.', action: <Link to="/shop"><Button>Browse products</Button></Link> }}>
+      <QueryBoundary query={preview} skeleton="detail" isEmpty={data?.store_groups.length === 0} empty={{ icon: MapPin, title: 'Your cart is empty', text: 'Add items before checking out.', action: <ButtonLink to="/shop">Browse products</ButtonLink> }}>
         {data && (
           <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
             <div className="space-y-5">

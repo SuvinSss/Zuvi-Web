@@ -76,6 +76,8 @@ def _validate_sellable_product(product, quantity):
             name,
             "This product's store is not active.",
         )
+    if not store.ordering_enabled or not store.accepts_orders:
+        raise _item_review_error(name, "This product's store is not taking orders right now.")
 
     category = product.category
     if category is None or not category.is_active:

@@ -1,11 +1,26 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
 from catalog.models import Product
 from catalog.services import guard_product_image_cascade
 from config.storage_errors import ImageAdminErrorMixin
 
-from .models import Store, StoreCategory, StoreStatusHistory, StoreUser
+from .management import approve_managed_store, set_verification
+from .models import Store, StoreCategory, StoreDocument, StoreStatusHistory, StoreUser, StoreStatus, VerificationStatus
+from .decorators import user_has_store_permission
+
+
+class StoreDocumentInline(admin.TabularInline):
+    """Uploaded business documents. Read-only: uploading never verifies a store."""
+
+    model = StoreDocument
+    extra = 0
+    can_delete = False
+    fields = ("kind", "title", "file", "uploaded_by", "created_at")
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(StoreCategory)
@@ -66,6 +81,8 @@ class StoreAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
         "store_code",
         "store_type",
         "status",
+        "verification_status",
+        "ordering_enabled",
         "is_active",
         "category",
         "email",
@@ -73,7 +90,7 @@ class StoreAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
         "commission_percentage",
         "created_at",
     )
-    list_filter = ("status", "is_active", "store_type", "category", "created_at")
+    list_filter = ("status", "verification_status", "ordering_enabled", "creation_source", "is_active", "store_type", "category", "created_at")
     search_fields = (
         "name",
         "store_code",
@@ -87,8 +104,43 @@ class StoreAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
     )
     autocomplete_fields = ("category", "address", "created_by")
     # Status changes must go through management portal (validate + history + audit).
-    readonly_fields = ("store_code", "status", "created_at", "updated_at")
-    inlines = (StoreUserInline, StoreStatusHistoryInline)
+    readonly_fields = (
+        "store_code", "status", "verification_status", "verified_by", "verified_at",
+        "approved_by", "approved_at", "creation_source", "missing_requirements",
+        "ordering_enabled", "created_at", "updated_at",
+    )
+    inlines = (StoreUserInline, StoreDocumentInline, StoreStatusHistoryInline)
+    actions = ("approve_stores", "verify_stores")
+
+    @admin.action(description="Approve selected stores (checks requirements)")
+    def approve_stores(self, request, queryset):
+        if not user_has_store_permission(request.user, "stores.approve_store"):
+            self.message_user(request, "You do not have permission to approve stores.", messages.ERROR)
+            return
+        done, blocked = 0, []
+        for store in queryset.filter(status__in=[StoreStatus.PENDING, StoreStatus.DRAFT]):
+            try:
+                approve_managed_store(actor=request.user, store=store, request=request)
+                done += 1
+            except ValidationError as exc:
+                blocked.append(f"{store.store_code}: {'; '.join(exc.messages)}")
+        if done:
+            self.message_user(request, f"Approved {done} store(s).", messages.SUCCESS)
+        for line in blocked[:10]:
+            self.message_user(request, f"Not approved — {line}", messages.WARNING)
+        if not done and not blocked:
+            self.message_user(request, "Only Pending or Draft stores can be approved.", messages.INFO)
+
+    @admin.action(description="Mark selected stores as verified")
+    def verify_stores(self, request, queryset):
+        if not user_has_store_permission(request.user, "stores.approve_store"):
+            self.message_user(request, "You do not have permission to verify stores.", messages.ERROR)
+            return
+        count = 0
+        for store in queryset.exclude(verification_status=VerificationStatus.VERIFIED):
+            set_verification(actor=request.user, store=store, status=VerificationStatus.VERIFIED, request=request)
+            count += 1
+        self.message_user(request, f"Verified {count} store(s).", messages.SUCCESS)
     ordering = ("-created_at",)
 
     def save_formset(self, request, form, formset, change):

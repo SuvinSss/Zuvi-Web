@@ -16,7 +16,7 @@ import openpyxl
 from django.core.exceptions import ValidationError
 from openpyxl import load_workbook
 
-from .columns import KEYS, REQUIRED, TEXT_KEYS
+from .columns import KEYS, REQUIRED, TEXT_KEYS, resolve_headers
 from .limits import limit
 
 assert openpyxl.DEFUSEDXML, "defusedxml must be installed so openpyxl parses XML safely"
@@ -29,10 +29,6 @@ class RawRow:
     number: int  # spreadsheet row number (header is row 1)
     values: dict = field(default_factory=dict)
     errors: list = field(default_factory=list)  # [(column, message)]
-
-
-def _normalise_header(value) -> str:
-    return str(value or "").strip().lower().replace("*", "").strip().replace(" ", "_")
 
 
 def _cell_value(cell, key, errors):
@@ -74,31 +70,59 @@ def _check_container(data: bytes) -> None:
         raise ValidationError("This is not a valid .xlsx workbook.") from None
 
 
-def _finish(header, body):
-    unknown = [h for h in header.values() if h and h not in KEYS]
-    missing = [key for key in REQUIRED if key not in header.values()]
+class MappingNeeded(ValidationError):
+    """Required columns could not be identified. ``info`` feeds the manual mapping screen."""
+
+    def __init__(self, message, info):
+        super().__init__(message)
+        self.info = info
+
+
+def _prepare(raw_headers, mapping, defaults):
+    """Resolve headers; raise MappingNeeded when a required column cannot be identified."""
+    resolved, proposal = resolve_headers(raw_headers, mapping)
+    present = set(resolved.values()) | {k for k, v in (defaults or {}).items() if v}
+    missing = [key for key in REQUIRED if key not in present]
+    info = {"headers": [str(h) for h in raw_headers if str(h or "").strip()], "proposal": proposal, "missing_required": missing}
     if missing:
-        raise ValidationError(
-            "Missing required column(s): " + ", ".join(missing) + ". Download the template for the exact headers."
+        raise MappingNeeded(
+            "Missing required column(s): " + ", ".join(missing) + ". Download the template for the exact headers.", info
         )
-    return body, unknown
+    return resolved, info
 
 
-def parse_workbook(data: bytes, filename: str):
-    """Return ``(rows, ignored_columns)``; raises ValidationError for unusable files."""
+def _finish(body, info):
+    ignored = [p["source"] for p in info["proposal"] if not p["key"]]
+    return body, ignored
+
+
+def inspect_headers(data: bytes, filename: str, mapping=None, defaults=None):
+    """Header analysis only (no rows). Never raises for unmapped columns; used by the mapping screen."""
+    try:
+        return parse_workbook(data, filename, mapping=mapping, defaults=defaults, headers_only=True)
+    except MappingNeeded as exc:
+        return exc.info
+
+
+def parse_workbook(data: bytes, filename: str, mapping=None, defaults=None, headers_only=False):
+    """Return ``(rows, ignored_columns)``; raises ValidationError for unusable files.
+
+    ``mapping`` maps source headers to canonical keys (user decisions); ``defaults`` supplies a value for a
+    required column the file does not have (e.g. ``store_code`` chosen on screen).
+    """
     if len(data) > limit("MAX_FILE_BYTES"):
         raise ValidationError(f"The file must be {limit('MAX_FILE_BYTES') // (1024 * 1024)} MB or smaller.")
     if not data:
         raise ValidationError("The file is empty.")
     name = (filename or "").lower()
     if name.endswith(".csv"):
-        return _parse_csv(data)
+        return _parse_csv(data, mapping, defaults, headers_only)
     if name.endswith(".xlsx"):
-        return _parse_xlsx(data)
+        return _parse_xlsx(data, mapping, defaults, headers_only)
     raise ValidationError("Upload an .xlsx or .csv file.")
 
 
-def _parse_xlsx(data):
+def _parse_xlsx(data, mapping=None, defaults=None, headers_only=False):
     _check_container(data)
     try:
         wb = load_workbook(io.BytesIO(data), read_only=True, data_only=False)
@@ -111,7 +135,9 @@ def _parse_xlsx(data):
             header_cells = next(iterator)
         except StopIteration:
             raise ValidationError("The workbook has no header row.") from None
-        header = {i: _normalise_header(c.value) for i, c in enumerate(header_cells)}
+        header, info = _prepare([c.value for c in header_cells], mapping, defaults)
+        if headers_only:
+            return info
         body = []
         for number, cells in enumerate(iterator, start=2):
             if len(body) >= limit("MAX_ROWS"):
@@ -120,7 +146,7 @@ def _parse_xlsx(data):
             empty = True
             for index, cell in enumerate(cells):
                 key = header.get(index)
-                if key not in KEYS:
+                if key is None:
                     continue
                 value = _cell_value(cell, key, row.errors)
                 if value is not None or getattr(cell, "data_type", "") == "f":
@@ -128,12 +154,12 @@ def _parse_xlsx(data):
                 row.values[key] = value
             if not empty:
                 body.append(row)
-        return _finish(header, body)
+        return _finish(body, info)
     finally:
         wb.close()
 
 
-def _parse_csv(data):
+def _parse_csv(data, mapping=None, defaults=None, headers_only=False):
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -143,7 +169,9 @@ def _parse_csv(data):
         header_row = next(reader)
     except StopIteration:
         raise ValidationError("The file has no header row.") from None
-    header = {i: _normalise_header(v) for i, v in enumerate(header_row)}
+    header, info = _prepare(header_row, mapping, defaults)
+    if headers_only:
+        return info
     body = []
     for number, cells in enumerate(reader, start=2):
         if not any((c or "").strip() for c in cells):
@@ -153,7 +181,7 @@ def _parse_csv(data):
         row = RawRow(number)
         for index, value in enumerate(cells):
             key = header.get(index)
-            if key in KEYS:
+            if key is not None:
                 row.values[key] = _clean_text(value, key, row.errors)
         body.append(row)
-    return _finish(header, body)
+    return _finish(body, info)

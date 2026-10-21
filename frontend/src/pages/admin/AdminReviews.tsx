@@ -40,8 +40,8 @@ export default function AdminReviews() {
               {r.comment && <p className="mt-1 whitespace-pre-line break-words text-sm">{r.comment}</p>}
               <p className="mt-1 text-xs text-muted">{formatDate(r.created_at)}{r.moderation_reason ? ` · Moderation: ${r.moderation_reason}` : ''}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {r.status === 'PUBLISHED' && <><Button variant="secondary" onClick={() => setPending({ r, action: 'hide' })}>Hide</Button><Button variant="danger" onClick={() => setPending({ r, action: 'reject' })}>Reject</Button></>}
-                {['HIDDEN', 'REJECTED'].includes(r.status) && <Button variant="secondary" loading={mod.isPending && mod.variables?.id === r.id} onClick={() => mod.mutate({ id: r.id, action: 'restore' })}>Restore</Button>}
+                {r.status === 'PUBLISHED' && <><Button variant="outline" onClick={() => setPending({ r, action: 'hide' })}>Hide</Button><Button variant="destructive" onClick={() => setPending({ r, action: 'reject' })}>Reject</Button></>}
+                {['HIDDEN', 'REJECTED'].includes(r.status) && <Button variant="outline" loading={mod.isPending && mod.variables?.id === r.id} onClick={() => mod.mutate({ id: r.id, action: 'restore' })}>Restore</Button>}
               </div>
             </Card></li>
           ))}

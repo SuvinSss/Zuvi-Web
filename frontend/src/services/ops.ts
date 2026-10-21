@@ -54,7 +54,7 @@ export const adminUsers = (q: { role?: string; active?: string; q?: string; page
 export const setUserActive = (id: number, active: boolean, reason: string) => post<AdminUser>(`/admin/users/${id}/${active ? 'reactivate' : 'suspend'}/`, { reason })
 export const adminStores = (q: { status?: string; q?: string; page?: number }) => get<Page<AdminStore>>('/admin/stores/', q)
 export const setStoreStatus = (id: number, status: string, reason = '') => post<{ id: number; status: string }>(`/admin/stores/${id}/status/`, { status, reason })
-export const adminOrders = (q: { status?: string; payment_status?: string; fulfillment_type?: string; q?: string; from?: string; to?: string; page?: number }) => get<Page<AdminOrderRow>>('/admin/orders/', q)
+export const adminOrders = (q: { store?: string; status?: string; payment_status?: string; fulfillment_type?: string; q?: string; from?: string; to?: string; page?: number }) => get<Page<AdminOrderRow>>('/admin/orders/', q)
 export const adminOrder = (id: number) => get<Record<string, unknown> & { id: number }>(`/admin/orders/${id}/`)
 export const adminOrderStatus = (id: number, status: string, reason = '') => post(`/admin/orders/${id}/status/`, { status, reason })
 export const adminOrderCancel = (id: number, reason: string) => post(`/admin/orders/${id}/cancel/`, { reason })

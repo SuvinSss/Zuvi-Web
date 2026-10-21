@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Inbox, LifeBuoy, Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DataTable, Pagination, QueryBoundary, Segmented, Status } from '@/components/kit'
-import { Button, Input, PageHeader, Select } from '@/components/ui'
+import { Input, PageHeader, Select, ButtonLink } from '@/components/ui'
 import { useUrlState } from '@/hooks/useUrlState'
 import { formatDate } from '@/lib/format'
 import { AGAINST, COMPLAINT_CATEGORY, COMPLAINT_STATUS, label, TICKET_CATEGORY, TICKET_STATUS } from '@/lib/labels'
@@ -19,7 +19,7 @@ export function TicketsList({ base, staff }: { base: string; staff: boolean }) {
   })
   return (
     <>
-      <PageHeader title={staff ? 'Tickets' : 'My support requests'} actions={!staff && <div className="flex gap-2"><Link to={`${base}/new-ticket`}><Button icon={Plus}>New request</Button></Link><Link to={`${base}/new-complaint`}><Button variant="secondary">File a complaint</Button></Link></div>} />
+      <PageHeader title={staff ? 'Tickets' : 'My support requests'} actions={!staff && <div className="flex gap-2"><ButtonLink to={`${base}/new-ticket`} icon={Plus}>New request</ButtonLink><ButtonLink to={`${base}/new-complaint`} variant="outline">File a complaint</ButtonLink></div>} />
       {!staff && <p className="mb-3 text-sm"><Link className="font-semibold text-forest underline" to={`${base}/complaints`}>View my complaints</Link></p>}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         {staff && <Segmented label="Queue" value={values.scope} onChange={(v) => set({ scope: v })} options={[{ value: '', label: 'All' }, { value: 'mine', label: 'Mine' }, { value: 'unassigned', label: 'Unassigned' }, { value: 'escalated', label: 'Escalated' }]} />}
@@ -53,7 +53,7 @@ export function ComplaintsList({ base, staff }: { base: string; staff: boolean }
   })
   return (
     <>
-      <PageHeader title={staff ? 'Complaints' : 'My complaints'} actions={!staff && <Link to={`${base}/new-complaint`}><Button icon={Plus}>File a complaint</Button></Link>} />
+      <PageHeader title={staff ? 'Complaints' : 'My complaints'} actions={!staff && <ButtonLink to={`${base}/new-complaint`} icon={Plus}>File a complaint</ButtonLink>} />
       {!staff && <p className="mb-3 text-sm"><Link className="font-semibold text-forest underline" to={base}>Back to support requests</Link></p>}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         {staff && <Segmented label="Queue" value={values.scope} onChange={(v) => set({ scope: v })} options={[{ value: '', label: 'All' }, { value: 'mine', label: 'Mine' }, { value: 'unassigned', label: 'Unassigned' }]} />}

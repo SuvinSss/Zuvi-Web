@@ -64,7 +64,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         model = Product
         fields = ("id", "product_code", "name", "sku", "slug", "store", "category", "brand", "status", "is_active",
                   "unit", "unit_value", "store_price", "selling_price", "final_price", "stock_quantity",
-                  "image", "updated_at")
+                  "image", "generated_fields", "updated_at")
 
     def get_store(self, obj):
         return {"id": obj.store_id, "name": obj.store.name, "store_code": obj.store.store_code}

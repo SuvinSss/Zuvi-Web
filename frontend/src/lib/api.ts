@@ -78,6 +78,13 @@ export function fieldErrors(error: unknown): Record<string, string> {
   for (const [field, value] of Object.entries(data ?? {})) {
     if (Array.isArray(value)) out[field] = String(value[0])
     else if (typeof value === 'string' && field !== 'detail') out[field] = value
+    else if (value && typeof value === 'object') {
+      // Nested serializers (e.g. address, owner) come back as { address: { city: [...] } }.
+      for (const [inner, innerValue] of Object.entries(value as Record<string, unknown>)) {
+        if (Array.isArray(innerValue)) out[`${field}.${inner}`] = String(innerValue[0])
+        else if (typeof innerValue === 'string') out[`${field}.${inner}`] = innerValue
+      }
+    }
   }
   return out
 }

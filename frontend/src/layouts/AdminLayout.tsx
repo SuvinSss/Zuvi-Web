@@ -13,8 +13,10 @@ import { DashboardLayout, type NavGroup } from './DashboardLayout'
 /** Real pending counts (from the API) are attached to the navigation entries they belong to. */
 const BADGES: Record<string, keyof Awaited<ReturnType<typeof adminCounts>>> = {
   '/admin/orders': 'orders_awaiting_confirmation', '/admin/deliveries': 'deliveries_needing_attention', '/admin/partners': 'partners_pending',
-  '/admin/stores': 'stores_pending', '/admin/products': 'products_pending', '/admin/support/tickets': 'tickets_open', '/admin/support/complaints': 'complaints_open',
+  '/admin/approvals/stores': 'stores_pending', '/admin/products': 'products_pending', '/admin/support/tickets': 'tickets_open', '/admin/support/complaints': 'complaints_open',
 }
+
+const approvalTotal = (c?: Awaited<ReturnType<typeof adminCounts>>) => (c ? c.products_pending + c.stores_pending + c.stores_needs_info + c.partners_pending : 0)
 
 function GlobalSearch() {
   const id = useId()
@@ -105,7 +107,7 @@ function TopBar() {
 export function AdminLayout() {
   const counts = useQuery({ queryKey: ['admin-counts'], queryFn: adminCounts, refetchInterval: 60_000, staleTime: 30_000 })
   const groups: NavGroup[] = useMemo(() => ADMIN_NAV.map((g) => ({
-    ...g, items: g.items.map((i) => { const key = BADGES[i.to]; const n = key ? counts.data?.[key] : undefined; return n ? { ...i, badge: n } : i }),
+    ...g, items: g.items.map((i) => { const key = BADGES[i.to]; const n = i.to === '/admin/approvals' ? approvalTotal(counts.data) : key ? counts.data?.[key] : undefined; return n ? { ...i, badge: n } : i }),
   })), [counts.data])
   return <DashboardLayout base="/admin" areaLabel="Administration" groups={groups} topBar={<TopBar />} foldable />
 }

@@ -29,7 +29,7 @@ export default function DeliveryHome() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><p className="text-lg font-semibold">{me.data.is_online ? 'You are online' : 'You are offline'}</p>
                 <p className="text-sm text-muted">{me.data.is_online ? 'Nearby orders can be offered to you.' : 'Go online to receive delivery offers. We will ask for your location.'}</p></div>
-              <Button variant={me.data.is_online ? 'secondary' : 'primary'} className="min-h-12 min-w-36" loading={toggle.isPending} onClick={() => toggle.mutate(!me.data!.is_online)}>{me.data.is_online ? 'Go offline' : 'Go online'}</Button>
+              <Button size="lg" variant={me.data.is_online ? 'secondary' : 'primary'} className="min-w-36" loading={toggle.isPending} onClick={() => toggle.mutate(!me.data!.is_online)}>{me.data.is_online ? 'Go offline' : 'Go online'}</Button>
             </div>
             <p className="mt-2 text-xs text-muted">Account: {label(PARTNER_STATUS, me.data.status)} · {label({}, me.data.vehicle_type)}</p>
           </Card>

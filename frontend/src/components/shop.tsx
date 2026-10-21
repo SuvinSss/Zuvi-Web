@@ -29,7 +29,7 @@ export function AddToCart({ product, compact = false }: { product: Pick<PublicPr
     onSuccess: (cart) => { client.setQueryData(['cart'], cart); toast('success', `${product.name} added to your cart.`) },
     onError: (error) => toast('error', errorMessage(error, 'Could not add this to your cart.')),
   })
-  if (!product.in_stock) return <Button variant="secondary" disabled className={compact ? 'w-full' : ''}>Out of stock</Button>
+  if (!product.in_stock) return <Button variant="outline" disabled className={compact ? 'w-full' : ''}>Out of stock</Button>
   if (user && user.role !== 'CUSTOMER') return null
   const onAdd = () => {
     if (!user) { navigate('/login', { state: { from: location.pathname + location.search } }); return }

@@ -72,9 +72,9 @@ export function TicketDetailPage({ base, staff, supervisor }: { base: string; st
                   <h2 className="font-semibold text-forest">Actions</h2>
                   <Field label="Status">{(p) => <Select {...p} value={t.status} onChange={(e) => status.mutate(e.target.value)} disabled={status.isPending}>{TICKET_STATUSES.map((s) => <option key={s} value={s}>{label(TICKET_STATUS, s)}</option>)}</Select>}</Field>
                   <Field label="Priority">{(p) => <Select {...p} value={t.priority} onChange={(e) => priority.mutate(e.target.value)} disabled={priority.isPending}>{PRIORITIES.map((s) => <option key={s} value={s}>{label({}, s)}</option>)}</Select>}</Field>
-                  <Button variant="secondary" className="w-full" onClick={() => assign.mutate(undefined)} loading={assign.isPending}>Assign to me</Button>
+                  <Button variant="outline" className="w-full" onClick={() => assign.mutate(undefined)} loading={assign.isPending}>Assign to me</Button>
                   {supervisor && agents.data && <Field label="Assign to agent">{(p) => <Select {...p} value="" onChange={(e) => e.target.value && assign.mutate(Number(e.target.value))}><option value="">Choose an agent…</option>{agents.data.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open_tickets} open)</option>)}</Select>}</Field>}
-                  {!t.escalated && <Button variant="danger" className="w-full" onClick={() => setEscalating(true)}>Escalate</Button>}
+                  {!t.escalated && <Button variant="destructive" className="w-full" onClick={() => setEscalating(true)}>Escalate</Button>}
                 </Card>
               )}
             </aside>
@@ -126,17 +126,17 @@ export function ComplaintDetailPage({ base, staff, supervisor }: { base: string;
               {staff && open && (
                 <Card className="space-y-2 p-4">
                   <h2 className="font-semibold text-forest">Actions</h2>
-                  <Button variant="secondary" className="w-full" loading={act.isPending && act.variables?.action === 'assign'} onClick={() => act.mutate({ action: 'assign', body: {} })}>Assign to me</Button>
+                  <Button variant="outline" className="w-full" loading={act.isPending && act.variables?.action === 'assign'} onClick={() => act.mutate({ action: 'assign', body: {} })}>Assign to me</Button>
                   {supervisor && agents.data && <Field label="Assign to agent">{(p) => <Select {...p} value="" onChange={(e) => e.target.value && act.mutate({ action: 'assign', body: { assignee: Number(e.target.value) } })}><option value="">Choose an agent…</option>{agents.data.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.open_complaints} open)</option>)}</Select>}</Field>}
-                  {supervisor && <Button variant="secondary" className="w-full" onClick={() => act.mutate({ action: 'take-over' })}>Take over</Button>}
-                  <Button variant="secondary" className="w-full" onClick={D('request-info', 'Request information', 'What do you need from the customer?', 'message', 'Send request')}>Request information</Button>
-                  <Button variant="secondary" className="w-full" onClick={D('escalate', 'Escalate complaint', 'Reason for escalation', 'reason', 'Escalate')}>Escalate</Button>
+                  {supervisor && <Button variant="outline" className="w-full" onClick={() => act.mutate({ action: 'take-over' })}>Take over</Button>}
+                  <Button variant="outline" className="w-full" onClick={D('request-info', 'Request information', 'What do you need from the customer?', 'message', 'Send request')}>Request information</Button>
+                  <Button variant="outline" className="w-full" onClick={D('escalate', 'Escalate complaint', 'Reason for escalation', 'reason', 'Escalate')}>Escalate</Button>
                   <Button className="w-full" onClick={D('resolve', 'Resolve complaint', 'Describe the resolution', 'resolution', 'Resolve')}>Resolve</Button>
-                  <Button variant="danger" className="w-full" onClick={D('reject', 'Do not uphold', 'Reason', 'reason', 'Reject', true)}>Reject</Button>
-                  {['RESOLVED', 'REJECTED'].includes(c.status) && <Button variant="secondary" className="w-full" onClick={() => act.mutate({ action: 'close' })}>Close</Button>}
+                  <Button variant="destructive" className="w-full" onClick={D('reject', 'Do not uphold', 'Reason', 'reason', 'Reject', true)}>Reject</Button>
+                  {['RESOLVED', 'REJECTED'].includes(c.status) && <Button variant="outline" className="w-full" onClick={() => act.mutate({ action: 'close' })}>Close</Button>}
                 </Card>
               )}
-              {staff && ['RESOLVED', 'REJECTED', 'CLOSED'].includes(c.status) && <Button variant="secondary" className="w-full" onClick={D('reopen', 'Reopen complaint', 'Reason for reopening', 'reason', 'Reopen')}>Reopen</Button>}
+              {staff && ['RESOLVED', 'REJECTED', 'CLOSED'].includes(c.status) && <Button variant="outline" className="w-full" onClick={D('reopen', 'Reopen complaint', 'Reason for reopening', 'reason', 'Reopen')}>Reopen</Button>}
             </aside>
           </div>
           {dialog && <ReasonDialog open title={dialog.title} field={dialog.field} confirm={dialog.confirm} danger={dialog.danger} busy={act.isPending} onClose={() => setDialog(null)} onSubmit={(text) => act.mutate({ action: dialog.action, body: { [dialog.key]: text } })} />}

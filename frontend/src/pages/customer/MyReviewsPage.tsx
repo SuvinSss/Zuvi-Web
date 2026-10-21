@@ -34,13 +34,13 @@ export default function MyReviewsPage() {
               {r.comment && <p className="mt-1 whitespace-pre-line break-words text-sm">{r.comment}</p>}
               {r.moderation_reason && <p className="mt-1 text-sm text-warn">Moderator note: {r.moderation_reason}</p>}
               {r.reply && <p className="mt-2 rounded-control bg-pale p-3 text-sm"><strong>Store reply:</strong> {r.reply.body}</p>}
-              {['PUBLISHED'].includes(r.status) && <div className="mt-3 flex gap-2"><Button variant="secondary" onClick={() => { setEdit(r); setForm({ rating: r.rating, title: r.title, comment: r.comment }) }}>Edit</Button><Button variant="ghost" onClick={() => setWithdraw(r)}>Withdraw</Button></div>}
+              {['PUBLISHED'].includes(r.status) && <div className="mt-3 flex gap-2"><Button variant="outline" onClick={() => { setEdit(r); setForm({ rating: r.rating, title: r.title, comment: r.comment }) }}>Edit</Button><Button variant="ghost" onClick={() => setWithdraw(r)}>Withdraw</Button></div>}
             </Card></li>
           ))}
         </ul>
         <Pagination page={page} count={q.data?.count ?? 0} onPage={(n) => set({ page: n })} />
       </QueryBoundary>
-      <Modal open={!!edit} onClose={() => setEdit(null)} title="Edit review" footer={<><Button variant="secondary" onClick={() => setEdit(null)}>Cancel</Button><Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button></>}>
+      <Modal open={!!edit} onClose={() => setEdit(null)} title="Edit review" footer={<><Button variant="outline" onClick={() => setEdit(null)}>Cancel</Button><Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button></>}>
         <div className="space-y-3"><RatingInput value={form.rating} onChange={(rating) => setForm({ ...form, rating })} />
           <Field label="Title">{(p) => <Input {...p} maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />}</Field>
           <Field label="Review">{(p) => <Textarea {...p} rows={4} maxLength={2000} value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />}</Field></div>

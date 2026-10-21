@@ -25,7 +25,7 @@ export default function AdminOverview() {
       <PageHeader
         title={`Welcome back${user?.first_name ? `, ${user.first_name}` : ''}`}
         subtitle={new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        actions={<Button variant="secondary" icon={RefreshCw} loading={q.isFetching} onClick={() => void q.refetch()}>Refresh</Button>}
+        actions={<Button variant="outline" icon={RefreshCw} loading={q.isFetching} onClick={() => void q.refetch()}>Refresh</Button>}
       />
       <div className="mb-6"><PeriodPicker period={period} /></div>
       <QueryBoundary query={invalid ? { isPending: false, isError: false, refetch: () => undefined, error: null } : q} skeleton="cards">

@@ -21,7 +21,7 @@ export default function AdminReports() {
     <>
       <PageHeader title="Analytics and reports" subtitle="Everything here is calculated from real orders, deliveries and customers."
         actions={<>
-          <Button variant="secondary" icon={RefreshCw} loading={q.isFetching} onClick={() => void q.refetch()}>Refresh</Button>
+          <Button variant="outline" icon={RefreshCw} loading={q.isFetching} onClick={() => void q.refetch()}>Refresh</Button>
           <Button icon={Download} loading={exportCsv.isPending} disabled={invalid} onClick={() => exportCsv.mutate()}>Export orders (CSV)</Button>
         </>} />
       <div className="mb-6"><PeriodPicker period={period} /></div>

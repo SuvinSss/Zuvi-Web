@@ -18,10 +18,23 @@ class StoreType(models.TextChoices):
 
 
 class StoreStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Draft"
+    NEEDS_INFO = "NEEDS_INFO", "Needs information"
     PENDING = "PENDING", "Pending"
     ACTIVE = "ACTIVE", "Active"
     SUSPENDED = "SUSPENDED", "Suspended"
     REJECTED = "REJECTED", "Rejected"
+
+
+class VerificationStatus(models.TextChoices):
+    UNVERIFIED = "UNVERIFIED", "Unverified"
+    VERIFIED = "VERIFIED", "Verified"
+    REJECTED = "REJECTED", "Verification rejected"
+
+
+class CreationSource(models.TextChoices):
+    LEGACY = "LEGACY", "Created before the store wizard"
+    ADMIN = "ADMIN", "Created by management"
 
 
 class StoreCategory(models.Model):
@@ -90,6 +103,44 @@ class Store(models.Model):
         validators=[validate_store_image],
     )
     is_active = models.BooleanField(default=True)
+    slug = models.SlugField(max_length=220, unique=True, null=True, blank=True)
+    banner = models.ImageField(
+        upload_to=store_image_upload_to,
+        blank=True,
+        null=True,
+        validators=[validate_store_image],
+    )
+    business_name = models.CharField(max_length=200, blank=True)
+    gstin = models.CharField(max_length=15, blank=True)
+    # Verification, approval and operational activation are tracked separately.
+    verification_status = models.CharField(
+        max_length=16, choices=VerificationStatus.choices, default=VerificationStatus.UNVERIFIED,
+    )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_stores",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_stores",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    creation_source = models.CharField(
+        max_length=16, choices=CreationSource.choices, default=CreationSource.LEGACY,
+    )
+    missing_requirements = models.JSONField(default=list, blank=True)
+    # Operations. ``ordering_enabled`` is the final gate checked at checkout.
+    ordering_enabled = models.BooleanField(default=True)
+    accepts_orders = models.BooleanField(default=True)
+    offers_delivery = models.BooleanField(default=True)
+    offers_pickup = models.BooleanField(default=False)
+    min_order_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal("0"))],
+    )
+    service_radius_km = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal("0"))],
+    )
+    opening_hours = models.JSONField(default=dict, blank=True)
+    closures = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -242,3 +293,26 @@ class StoreStatusHistory(models.Model):
     def __str__(self):
         old = self.old_status or "—"
         return f"{self.store.store_code}: {old} → {self.new_status}"
+
+
+class StoreDocument(models.Model):
+    """A business document uploaded for a store. Uploading never verifies the store."""
+
+    class Kind(models.TextChoices):
+        GST = "GST", "GST certificate"
+        FSSAI = "FSSAI", "FSSAI licence"
+        TRADE = "TRADE", "Trade licence"
+        ID = "ID", "Owner identity proof"
+        OTHER = "OTHER", "Other"
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="documents")
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    title = models.CharField(max_length=120, blank=True)
+    file = models.FileField(upload_to="stores/documents/%Y/%m/")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="store_documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

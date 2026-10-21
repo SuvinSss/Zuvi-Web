@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ConfirmDialog, KeyValue, Modal, QueryBoundary, RatingInput, Section, Status, Timeline, useToast } from '@/components/kit'
 import { EvidencePanel } from '@/components/evidence'
 import { OrderTrackingPanel } from '@/components/tracking'
-import { Button, Card, Field, PageHeader, Textarea, Input } from '@/components/ui'
+import { Button, Card, Field, PageHeader, Textarea, Input, ButtonLink } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { label, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, STORE_ORDER_STATUS } from '@/lib/labels'
@@ -31,8 +31,8 @@ export default function OrderPage() {
         <>
           <PageHeader title={`Order ${o.order_number}`} subtitle={new Date(o.placed_at).toLocaleString('en-IN')}
             actions={<div className="flex flex-wrap gap-2">
-              <Link to={`/account/support/new-ticket?order=${o.id}`}><Button variant="secondary" icon={LifeBuoy}>Get help</Button></Link>
-              {o.can_cancel && <Button variant="danger" onClick={() => setCancelling(true)}>Cancel order</Button>}
+              <ButtonLink to={`/account/support/new-ticket?order=${o.id}`} variant="outline" icon={LifeBuoy}>Get help</ButtonLink>
+              {o.can_cancel && <Button variant="destructive" onClick={() => setCancelling(true)}>Cancel order</Button>}
             </div>} />
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <div className="space-y-6">
@@ -101,8 +101,8 @@ function ReviewPanel({ storeOrderId, storeName }: { storeOrderId: number; storeN
   if (existing) return <p className="mt-3 text-sm text-muted">You reviewed {storeName}: {existing.rating}/5. <Link className="font-semibold text-forest underline" to="/account/reviews">Manage reviews</Link></p>
   return (
     <div className="mt-3">
-      <Button variant="secondary" icon={Star} onClick={() => setOpen(true)}>Review {storeName}</Button>
-      <Modal open={open} onClose={() => setOpen(false)} title={`Review ${storeName}`} footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={() => (rating ? save.mutate() : toast('error', 'Choose a star rating first.'))} loading={save.isPending}>Submit review</Button></>}>
+      <Button variant="outline" icon={Star} onClick={() => setOpen(true)}>Review {storeName}</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title={`Review ${storeName}`} footer={<><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={() => (rating ? save.mutate() : toast('error', 'Choose a star rating first.'))} loading={save.isPending}>Submit review</Button></>}>
         <div className="space-y-3">
           <RatingInput value={rating} onChange={setRating} />
           <Field label="Title (optional)">{(p) => <Input {...p} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />}</Field>

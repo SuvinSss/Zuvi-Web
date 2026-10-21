@@ -6,7 +6,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import { ImageManager } from '@/components/ImageManager'
-import { Alert, Button, Card, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusBadge, Textarea } from '@/components/ui'
+import { Alert, Button, Card, ErrorState, Field, Input, PageHeader, Select, Spinner, StatusBadge, Textarea, ButtonLink } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { errorMessage, fieldErrors } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
@@ -157,8 +157,8 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
         <div className="mb-4">
           <Alert tone="warn" title="You have unsaved changes">
             <div className="mt-2 flex gap-2">
-              <Button variant="danger" className="min-h-9" onClick={() => blocker.proceed()}>Leave without saving</Button>
-              <Button variant="secondary" className="min-h-9" onClick={() => blocker.reset()}>Keep editing</Button>
+              <Button size="sm" variant="destructive" onClick={() => blocker.proceed()}>Leave without saving</Button>
+              <Button size="sm" variant="outline" onClick={() => blocker.reset()}>Keep editing</Button>
             </div>
           </Alert>
         </div>
@@ -239,7 +239,7 @@ export default function ProductFormPage({ scope = 'admin' }: { scope?: ProductSc
           {!readOnly && (
             <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-card sm:border">
               <Button type="submit" loading={isSubmitting || save.isPending}>{editing ? 'Save changes' : 'Create product'}</Button>
-              <Link to={base}><Button variant="ghost">Cancel</Button></Link>
+              <ButtonLink to={base} variant="ghost">Cancel</ButtonLink>
               {dirty && <span className="text-sm text-muted">Unsaved changes</span>}
             </div>
           )}

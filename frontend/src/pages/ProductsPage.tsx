@@ -1,9 +1,10 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, FileSpreadsheet, PackageOpen, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { BulkBar, BulkDialog, SelectCheckbox, emptySelection, type BulkActionDef, type Selection } from '@/components/management'
 import { ProductImage } from '@/components/ProductImage'
-import { Button, Card, EmptyState, ErrorState, Input, PageHeader, Select, Skeleton, StatusBadge } from '@/components/ui'
+import { Button, Card, EmptyState, ErrorState, Input, PageHeader, Select, Skeleton, StatusBadge, ButtonLink } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useDebounced } from '@/hooks/useDebounced'
 import { formatMoney } from '@/lib/format'
@@ -29,12 +30,13 @@ function RowSkeleton() {
   )
 }
 
-function ProductRow({ product }: { product: ProductListItem }) {
+function ProductRow({ product, selectable, selected, onSelect }: { product: ProductListItem; selectable: boolean; selected: boolean; onSelect: (on: boolean) => void }) {
   return (
-    <li>
+    <li className="flex items-stretch">
+      {selectable && <div className="grid place-items-center pl-2"><SelectCheckbox label={`Select ${product.name}`} checked={selected} onChange={onSelect} /></div>}
       <Link
         to={`/admin/products/${product.id}`}
-        className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-x-4 gap-y-1 p-4 transition-colors hover:bg-pale focus-visible:bg-pale md:grid-cols-[3.5rem_minmax(0,2fr)_minmax(0,1fr)_7rem_6rem]"
+        className="grid flex-1 grid-cols-[3.5rem_1fr_auto] items-center gap-x-4 gap-y-1 p-4 transition-colors hover:bg-pale focus-visible:bg-pale md:grid-cols-[3.5rem_minmax(0,2fr)_minmax(0,1fr)_7rem_6rem]"
       >
         <ProductImage image={product.image} name={product.name} className="row-span-2 size-14 md:row-span-1" />
         <div className="min-w-0">
@@ -48,6 +50,7 @@ function ProductRow({ product }: { product: ProductListItem }) {
         <p className="hidden text-right text-sm font-medium tabular-nums md:block">{formatMoney(product.store_price)}</p>
         <div className="flex flex-col items-end gap-1 md:items-start">
           <StatusBadge status={product.status} />
+          {product.generated_fields && product.generated_fields.length > 0 && <span className="rounded bg-warn-bg px-1.5 text-xs text-warn" title="Filled in automatically by an import">auto-filled</span>}
           <span className="text-xs tabular-nums text-muted md:hidden">{formatMoney(product.store_price)}</span>
         </div>
       </Link>
@@ -75,7 +78,7 @@ export default function ProductsPage() {
   const page = Math.max(1, Number(params.get('page')) || 1)
   const query = {
     q: params.get('q') ?? '', status: params.get('status') ?? '', category: params.get('category') ?? '',
-    has_image: params.get('has_image') ?? '', ordering: params.get('ordering') ?? '-created_at', page, page_size: PAGE_SIZE,
+    has_image: params.get('has_image') ?? '', store: params.get('store') ?? '', ordering: params.get('ordering') ?? '-created_at', page, page_size: PAGE_SIZE,
   }
   const list = useQuery({ queryKey: ['products', query], queryFn: ({ signal }) => listProducts(query, signal), placeholderData: keepPreviousData })
   const meta = useQuery({ queryKey: ['meta'], queryFn: () => getMeta(), staleTime: 5 * 60_000 })
@@ -90,6 +93,16 @@ export default function ProductsPage() {
     })
   const goToPage = (n: number) => setParams((current) => { const next = new URLSearchParams(current); next.set('page', String(n)); return next })
 
+  const qc = useQueryClient()
+  const canBulk = Boolean(user?.permissions.change)
+  const [selection, setSelection] = useState<Selection>(emptySelection)
+  const [bulk, setBulk] = useState<BulkActionDef | null>(null)
+  const rows = list.data?.results ?? []
+  const allOnPage = rows.length > 0 && rows.every((r) => selection.ids.has(r.id))
+  const toggle = (id: number, on: boolean) => setSelection((s) => { const ids = new Set(s.ids); if (on) ids.add(id); else ids.delete(id); return { ids, selectAll: false } })
+  const togglePage = (on: boolean) => setSelection((s) => { const ids = new Set(s.ids); rows.forEach((r) => (on ? ids.add(r.id) : ids.delete(r.id))); return { ids, selectAll: false } })
+  const bulkFilters = Object.fromEntries(Object.entries({ status: query.status, category: query.category, store: query.store, q: query.q }).filter(([, v]) => v))
+  const bulkActions: BulkActionDef[] = [{ action: 'approve', label: 'Approve' }, { action: 'reject', label: 'Reject', needsReason: true, danger: true }, { action: 'deactivate', label: 'Deactivate' }, { action: 'resubmit', label: 'Send for review' }]
   const totalPages = list.data ? Math.max(1, Math.ceil(list.data.count / PAGE_SIZE)) : 1
   const filtered = Boolean(query.q || query.status || query.category || query.has_image)
 
@@ -100,8 +113,8 @@ export default function ProductsPage() {
         subtitle="Search, filter and edit the catalogue. Photos are optimized automatically."
         actions={user?.permissions.add && (
           <>
-            <Link to="/admin/products/import"><Button variant="secondary" icon={FileSpreadsheet}>Import</Button></Link>
-            <Link to="/admin/products/new"><Button icon={Plus}>New product</Button></Link>
+            <ButtonLink to="/admin/products/import" variant="outline" icon={FileSpreadsheet}>Import</ButtonLink>
+            <ButtonLink to="/admin/products/new" icon={Plus}>New product</ButtonLink>
           </>
         )}
       />
@@ -131,6 +144,8 @@ export default function ProductsPage() {
         </form>
       </Card>
 
+      {query.store && <p className="mb-3 text-sm">Showing one store’s products. <button type="button" className="font-medium text-forest underline" onClick={() => setFilter('store', '')}>Show all stores</button></p>}
+      {canBulk && <BulkBar selection={selection} pageCount={rows.length} total={list.data?.count ?? 0} actions={bulkActions} onAction={setBulk} onSelectAll={() => setSelection((s) => ({ ...s, selectAll: true }))} onClear={() => setSelection(emptySelection())} />}
       <Card className="overflow-hidden">
         {list.isPending ? (
           <div role="status" aria-label="Loading products" className="divide-y divide-line">{Array.from({ length: 6 }, (_, i) => <RowSkeleton key={i} />)}</div>
@@ -140,7 +155,7 @@ export default function ProductsPage() {
           <EmptyState
             icon={PackageOpen}
             title={filtered ? 'No products match these filters' : 'No products yet'}
-            action={filtered ? <Button variant="secondary" onClick={() => { setSearch(''); setParams({}) }}>Clear filters</Button> : user?.permissions.add ? <Link to="/admin/products/new"><Button icon={Plus}>Add your first product</Button></Link> : undefined}
+            action={filtered ? <Button variant="outline" onClick={() => { setSearch(''); setParams({}) }}>Clear filters</Button> : user?.permissions.add ? <ButtonLink to="/admin/products/new" icon={Plus}>Add your first product</ButtonLink> : undefined}
           >
             {filtered ? 'Try a different search or clear the filters.' : 'Create a product, or import many at once from an Excel file.'}
           </EmptyState>
@@ -150,18 +165,21 @@ export default function ProductsPage() {
               <span /><span>Product</span><span>Category / store</span><span className="text-right">Store price</span><span>Status</span>
             </div>
             <ul className={`divide-y divide-line transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}>
-              {list.data.results.map((product) => <ProductRow key={product.id} product={product} />)}
+              {list.data.results.map((product) => <ProductRow key={product.id} product={product} selectable={canBulk} selected={selection.selectAll || selection.ids.has(product.id)} onSelect={(on) => toggle(product.id, on)} />)}
             </ul>
             <nav aria-label="Pagination" className="flex items-center justify-between gap-3 border-t border-line p-3">
+              {canBulk && <label className="flex items-center gap-2 text-sm text-muted"><SelectCheckbox label="Select all products on this page" checked={allOnPage || selection.selectAll} indeterminate={!allOnPage && rows.some((r) => selection.ids.has(r.id))} onChange={togglePage} />Select page</label>}
               <p className="text-sm text-muted">{list.data.count} product{list.data.count === 1 ? '' : 's'} · page {page} of {totalPages}</p>
               <div className="flex gap-2">
-                <Button variant="secondary" icon={ChevronLeft} disabled={page <= 1} onClick={() => goToPage(page - 1)} aria-label="Previous page" />
-                <Button variant="secondary" icon={ChevronRight} disabled={page >= totalPages} onClick={() => goToPage(page + 1)} aria-label="Next page" />
+                <Button variant="outline" icon={ChevronLeft} disabled={page <= 1} onClick={() => goToPage(page - 1)} aria-label="Previous page" />
+                <Button variant="outline" icon={ChevronRight} disabled={page >= totalPages} onClick={() => goToPage(page + 1)} aria-label="Next page" />
               </div>
             </nav>
           </>
         )}
       </Card>
+      <BulkDialog module="products" def={bulk} selection={selection} filters={bulkFilters} total={list.data?.count ?? 0} onClose={() => setBulk(null)}
+        onDone={() => { setSelection(emptySelection()); void qc.invalidateQueries({ queryKey: ['products'] }); void qc.invalidateQueries({ queryKey: ['admin-counts'] }); void qc.invalidateQueries({ queryKey: ['admin-approvals'] }) }} />
     </>
   )
 }

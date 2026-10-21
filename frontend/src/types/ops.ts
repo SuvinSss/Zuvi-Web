@@ -86,7 +86,7 @@ export interface DashboardData {
 }
 export interface AdminCounts {
   orders_awaiting_confirmation: number; deliveries_needing_attention: number; partners_pending: number; stores_pending: number
-  products_pending: number; tickets_open: number; complaints_open: number
+  products_pending: number; tickets_open: number; complaints_open: number; stores_needs_info: number
 }
 export interface SearchHit { type: string; label: string; detail: string; path: string }
 export interface AdminCustomerRow {

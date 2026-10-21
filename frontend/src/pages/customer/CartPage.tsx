@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { QueryBoundary, useToast } from '@/components/kit'
-import { Alert, Button, Card, PageHeader } from '@/components/ui'
+import { Alert, Button, Card, PageHeader, ButtonLink } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { clearCart, getCart, removeCartItem, setCartQuantity } from '@/services/platform'
@@ -48,7 +48,7 @@ export default function CartPage() {
     <>
       <PageHeader title="Your cart" actions={data && data.items.length > 0 ? <Button variant="ghost" onClick={() => clear.mutate()} disabled={busy}>Empty cart</Button> : undefined} />
       <QueryBoundary query={cart} skeleton="detail" isEmpty={data?.items.length === 0}
-        empty={{ icon: ShoppingBag, title: 'Your cart is empty', text: 'Add something from a store and it will show up here.', action: <Link to="/shop"><Button>Start shopping</Button></Link> }}>
+        empty={{ icon: ShoppingBag, title: 'Your cart is empty', text: 'Add something from a store and it will show up here.', action: <ButtonLink to="/shop">Start shopping</ButtonLink> }}>
         {data && (
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
             <Card className="px-4"><ul className="divide-y divide-line">{data.items.map((l) => <Line key={l.id} line={l} busy={busy} onQty={(q) => qty.mutate({ id: l.id, q })} onRemove={() => remove.mutate(l.id)} />)}</ul></Card>
@@ -57,7 +57,7 @@ export default function CartPage() {
               <div className="flex justify-between text-sm"><span className="text-muted">Items ({data.item_count})</span><span className="font-semibold tabular-nums">{formatMoney(data.subtotal)}</span></div>
               <p className="text-xs text-muted">Delivery charges and the final total are calculated by our server at checkout.</p>
               {data.has_issues && <Alert tone="warn">Some items need attention before you can check out.</Alert>}
-              {data.has_issues ? <Button disabled className="w-full">Check out</Button> : <Link to="/checkout" className="block"><Button className="w-full">Check out</Button></Link>}
+              {data.has_issues ? <Button disabled className="w-full">Check out</Button> : <ButtonLink to="/checkout" className="w-full">Check out</ButtonLink>}
             </Card>
           </div>
         )}

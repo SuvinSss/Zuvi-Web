@@ -3,7 +3,7 @@ import { Package, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DataTable, Modal, Pagination, QueryBoundary, Segmented, Status, useToast } from '@/components/kit'
-import { Alert, Button, Field, Input, PageHeader, Select } from '@/components/ui'
+import { Alert, Button, Field, Input, PageHeader, Select, ButtonLink } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useUrlState } from '@/hooks/useUrlState'
 import { errorMessage, fieldErrors } from '@/lib/api'
@@ -24,13 +24,13 @@ export default function StoreProducts({ mode }: { mode: 'products' | 'stock' }) 
   return (
     <>
       <PageHeader title={title} subtitle={mode === 'stock' ? 'Record stock received, removed or corrected. Every change is logged.' : 'New products are reviewed by Zuuvi before customers can see them.'}
-        actions={mode === 'products' && canEdit && <Link to="/store/products/new"><Button icon={Plus}>New product</Button></Link>} />
+        actions={mode === 'products' && canEdit && <ButtonLink to="/store/products/new" icon={Plus}>New product</ButtonLink>} />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Segmented label="Stock filter" value={values.low_stock} onChange={(v) => set({ low_stock: v })} options={[{ value: '', label: 'All' }, { value: '1', label: 'Low stock' }]} />
         <label className="text-sm">Status<Select className="mt-1" value={values.status} onChange={(e) => set({ status: e.target.value })}><option value="">Any</option>{Object.entries(PRODUCT_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
         <label className="min-w-[12rem] flex-1 text-sm sm:max-w-xs">Search<Input className="mt-1" type="search" defaultValue={values.q} placeholder="Name, SKU or code" onKeyDown={(e) => e.key === 'Enter' && set({ q: e.currentTarget.value })} onBlur={(e) => e.target.value !== values.q && set({ q: e.target.value })} /></label>
       </div>
-      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Package, title: 'No products found', text: values.q || values.status || values.low_stock ? 'Try different filters.' : 'Add your first product to start selling.', action: canEdit && !values.q ? <Link to="/store/products/new"><Button>Add a product</Button></Link> : undefined }}>
+      <QueryBoundary query={q} isEmpty={q.data?.count === 0} empty={{ icon: Package, title: 'No products found', text: values.q || values.status || values.low_stock ? 'Try different filters.' : 'Add your first product to start selling.', action: canEdit && !values.q ? <ButtonLink to="/store/products/new">Add a product</ButtonLink> : undefined }}>
         <DataTable caption={title} rows={q.data?.results ?? []} rowKey={(p) => p.id}
           columns={[
             { key: 'n', header: 'Product', primary: true, cell: (p) => <Link className="inline-flex min-h-11 items-center font-semibold text-forest hover:underline" to={`/store/products/${p.id}`}>{p.name}</Link> },
@@ -40,7 +40,7 @@ export default function StoreProducts({ mode }: { mode: 'products' | 'stock' }) 
             { key: 'pr', header: 'Your price', className: 'text-right tabular-nums', cell: (p) => formatMoney(p.store_price) },
             { key: 'fp', header: 'Selling price', className: 'text-right tabular-nums', cell: (p) => (p.final_price ? formatMoney(p.final_price) : 'Set on approval') },
             { key: 'ex', header: 'Expires', cell: (p) => formatDate(p.expiry_date) },
-            { key: 'a', header: 'Actions', cell: (p) => canEdit && <Button variant="secondary" className="min-h-9" onClick={() => setAdjust(p)}>Adjust stock</Button> },
+            { key: 'a', header: 'Actions', cell: (p) => canEdit && <Button size="sm" variant="outline" onClick={() => setAdjust(p)}>Adjust stock</Button> },
           ]} />
         <Pagination page={page} count={q.data?.count ?? 0} onPage={(n) => set({ page: n })} />
       </QueryBoundary>
@@ -67,7 +67,7 @@ function StockDialog({ product, onClose }: { product: StoreProductRow; onClose: 
         <Field label="Quantity" required error={fe.quantity}>{(p) => <Input {...p} inputMode="decimal" value={v.quantity} onChange={(e) => setV({ ...v, quantity: e.target.value })} />}</Field>
         <Field label="Reason" required error={fe.reason} hint="For example: new delivery from supplier.">{(p) => <Input {...p} maxLength={255} value={v.reason} onChange={(e) => setV({ ...v, reason: e.target.value })} />}</Field>
         <Field label="Notes (optional)" error={fe.notes}>{(p) => <Input {...p} maxLength={500} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} />}</Field>
-        <div className="flex justify-end gap-2 pt-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" loading={save.isPending}>Record change</Button></div>
+        <div className="flex justify-end gap-2 pt-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" loading={save.isPending}>Record change</Button></div>
       </form>
     </Modal>
   )

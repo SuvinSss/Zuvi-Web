@@ -1,24 +1,50 @@
 import { AlertCircle, CheckCircle2, Loader2, X, type LucideIcon } from 'lucide-react'
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Link } from 'react-router-dom'
+import { forwardRef, useId, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ')
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
-const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-forest text-white hover:bg-deep active:bg-deep shadow-sm',
-  secondary: 'bg-white text-forest ring-1 ring-inset ring-line hover:bg-pale',
-  ghost: 'text-forest hover:bg-pale',
-  danger: 'bg-white text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger-bg',
-}
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
+export type ButtonSize = 'sm' | 'md' | 'lg'
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant
+const VARIANTS: Record<ButtonVariant, string> = {
+  primary: 'bg-forest text-white hover:bg-deep active:bg-deep shadow-sm',
+  secondary: 'bg-pale text-forest hover:bg-line active:bg-line',
+  outline: 'bg-white text-forest ring-1 ring-inset ring-line hover:bg-pale',
+  ghost: 'text-forest hover:bg-pale',
+  destructive: 'bg-white text-danger ring-1 ring-inset ring-danger/30 hover:bg-danger-bg',
+}
+/** One height scale for every button in the app; md is the 44px touch target. */
+const SIZES: Record<ButtonSize, string> = {
+  sm: 'min-h-9 px-3 text-xs',
+  md: 'min-h-11 px-4 text-sm',
+  lg: 'min-h-12 px-6 text-base',
+}
+const ICON_ONLY: Record<ButtonSize, string> = { sm: 'size-9 !px-0', md: 'size-11 !px-0', lg: 'size-12 !px-0' }
+
+interface StyleOptions { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; className?: string | undefined }
+export const buttonClass = ({ variant = 'primary', size = 'md', iconOnly = false, className }: StyleOptions) =>
+  cx(
+    'inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-colors',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald',
+    'disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
+    VARIANTS[variant], SIZES[size], iconOnly && ICON_ONLY[size], className,
+  )
+
+interface BaseButtonProps {
+  variant?: ButtonVariant
+  size?: ButtonSize
   loading?: boolean
   icon?: LucideIcon
 }
+/** An icon-only button must say what it does: the label is required and doubles as the tooltip. */
+type ButtonProps = BaseButtonProps & ButtonHTMLAttributes<HTMLButtonElement> & (
+  | { iconOnly?: false }
+  | { iconOnly: true; 'aria-label': string }
+)
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', loading = false, icon: Icon, className, children, disabled, type = 'button', ...rest },
+  { variant = 'primary', size = 'md', loading = false, icon: Icon, iconOnly = false, className, children, disabled, type = 'button', ...rest },
   ref,
 ) {
   return (
@@ -27,18 +53,31 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={cx(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-control px-4 text-sm font-semibold transition-colors',
-        'disabled:cursor-not-allowed disabled:opacity-60',
-        VARIANTS[variant],
-        className,
-      )}
+      title={iconOnly ? (rest['aria-label'] as string) : rest.title}
+      className={buttonClass({ variant, size, iconOnly, className })}
       {...rest}
     >
       {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : Icon ? <Icon className="size-4" aria-hidden="true" /> : null}
-      {children}
+      {iconOnly ? null : children}
     </button>
   )
+})
+
+interface ButtonLinkProps extends BaseButtonProps, Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
+  to?: string
+  href?: string
+  disabled?: boolean
+}
+/** Navigation that looks like a button: a real link (router `to`, or `href` for downloads), never a button inside a link. */
+export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(function ButtonLink(
+  { to, href, variant = 'primary', size = 'md', icon: Icon, loading: _loading, disabled, className, children, ...rest },
+  ref,
+) {
+  const content = <>{Icon ? <Icon className="size-4" aria-hidden="true" /> : null}{children}</>
+  const cls = buttonClass({ variant, size, className })
+  if (disabled || (!to && !href)) return <span aria-disabled="true" className={cls}>{content}</span>
+  if (to) return <Link ref={ref} to={to} className={cls} {...rest}>{content}</Link>
+  return <a ref={ref} href={href} className={cls} {...rest}>{content}</a>
 })
 
 export const controlClass =

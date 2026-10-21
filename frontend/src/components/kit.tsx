@@ -30,7 +30,7 @@ const TONES: Record<Tone, string> = {
 }
 const TONE_OF: Record<string, Tone> = {
   COMPLETED: 'good', DELIVERED: 'good', APPROVED: 'good', ACTIVE: 'good', RESOLVED: 'good', PUBLISHED: 'good', REPLIED: 'good', SENT: 'good', PAID: 'good', COLLECTED: 'good', READY: 'good',
-  PENDING: 'warn', PENDING_ASSIGNMENT: 'warn', OFFERED: 'warn', INFO_REQUESTED: 'warn', WAITING_CUSTOMER: 'warn', ESCALATED: 'warn', PLACED: 'warn', UNPAID: 'warn', SUBMITTED: 'warn', NEW: 'warn', OPEN: 'warn',
+  PENDING: 'warn', NEEDS_INFO: 'warn', INCOMPLETE: 'warn', UNVERIFIED: 'neutral', VERIFIED: 'good', PENDING_ASSIGNMENT: 'warn', OFFERED: 'warn', INFO_REQUESTED: 'warn', WAITING_CUSTOMER: 'warn', ESCALATED: 'warn', PLACED: 'warn', UNPAID: 'warn', SUBMITTED: 'warn', NEW: 'warn', OPEN: 'warn',
   CANCELLED: 'bad', REJECTED: 'bad', FAILED: 'bad', SUSPENDED: 'bad', HIDDEN: 'bad', EXPIRED: 'bad', REVOKED: 'bad', INACTIVE: 'neutral', DRAFT: 'neutral', CLOSED: 'neutral',
   ACCEPTED: 'info', PROCESSING: 'info', AT_STORE: 'info', IN_TRANSIT: 'info', ARRIVED: 'info', IN_PROGRESS: 'info', IN_REVIEW: 'info', UNDER_REVIEW: 'info',
 }
@@ -135,8 +135,8 @@ export function ConfirmDialog({
       title={title}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} loading={busy}>{confirmLabel}</Button>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant={danger ? 'destructive' : 'primary'} onClick={onConfirm} loading={busy}>{confirmLabel}</Button>
         </>
       }
     >
@@ -155,8 +155,8 @@ export function Pagination({ page, count, pageSize = 20, onPage }: { page: numbe
     <nav aria-label="Pagination" className="mt-4 flex items-center justify-between gap-3">
       <p className="text-sm text-muted" aria-live="polite">Page {page} of {pages} · {count} total</p>
       <div className="flex gap-2">
-        <Button variant="secondary" icon={ChevronLeft} disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">Prev</Button>
-        <Button variant="secondary" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
+        <Button variant="outline" icon={ChevronLeft} disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">Prev</Button>
+        <Button variant="outline" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
           Next<ChevronRight className="size-4" aria-hidden="true" />
         </Button>
       </div>

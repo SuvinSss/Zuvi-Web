@@ -36,8 +36,8 @@ export default function AddressesPage() {
               <p className="text-xs uppercase tracking-wide text-muted">{a.label}</p>
               <address className="mt-2 text-sm not-italic">{a.line1}{a.line2 ? `, ${a.line2}` : ''}{a.landmark ? ` (${a.landmark})` : ''}<br />{a.city}, {a.state} {a.postal_code}<br />{a.phone_number}</address>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => setEditing(a)}>Edit</Button>
-                {!a.is_default && <Button variant="secondary" onClick={() => def.mutate(a.id)} loading={def.isPending && def.variables === a.id}>Make default</Button>}
+                <Button variant="outline" onClick={() => setEditing(a)}>Edit</Button>
+                {!a.is_default && <Button variant="outline" onClick={() => def.mutate(a.id)} loading={def.isPending && def.variables === a.id}>Make default</Button>}
                 <Button variant="ghost" onClick={() => setRemoving(a)}>Remove</Button>
               </div>
             </Card></li>
@@ -96,11 +96,11 @@ function AddressDialog({ address, onClose, onSaved }: { address: Address | null;
             <Field label="Latitude" required error={fe.latitude}>{(p) => <Input {...p} inputMode="decimal" {...bind('latitude')} />}</Field>
             <Field label="Longitude" required error={fe.longitude}>{(p) => <Input {...p} inputMode="decimal" {...bind('longitude')} />}</Field>
           </div>
-          <Button variant="secondary" className="mt-2" onClick={locate}>Use my current location</Button>
+          <Button variant="outline" className="mt-2" onClick={locate}>Use my current location</Button>
           {geoMessage && <p role="status" className="mt-2 text-sm text-muted">{geoMessage}</p>}
         </fieldset>
         <Field label="Delivery instructions" error={fe.delivery_instructions}>{(p) => <Textarea {...p} rows={2} maxLength={500} {...bind('delivery_instructions')} />}</Field>
-        <div className="flex justify-end gap-2 pt-2"><Button variant="secondary" onClick={() => onClose()}>Cancel</Button><Button type="submit" loading={save.isPending}>Save address</Button></div>
+        <div className="flex justify-end gap-2 pt-2"><Button variant="outline" onClick={() => onClose()}>Cancel</Button><Button type="submit" loading={save.isPending}>Save address</Button></div>
       </form>
     </Modal>
   )

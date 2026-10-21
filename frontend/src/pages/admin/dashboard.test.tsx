@@ -36,7 +36,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   localStorage.clear()
   vi.mocked(auth.fetchSession).mockResolvedValue(adminSession as never)
-  vi.mocked(ops.adminCounts).mockResolvedValue({ orders_awaiting_confirmation: 2, deliveries_needing_attention: 0, partners_pending: 1, stores_pending: 0, products_pending: 0, tickets_open: 0, complaints_open: 0 })
+  vi.mocked(ops.adminCounts).mockResolvedValue({ orders_awaiting_confirmation: 2, deliveries_needing_attention: 0, partners_pending: 1, stores_pending: 0, products_pending: 0, tickets_open: 0, complaints_open: 0, stores_needs_info: 0 })
 })
 
 describe('admin dashboard', () => {

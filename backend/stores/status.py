@@ -4,7 +4,9 @@ from .models import StoreStatus
 
 # Explicit allow-list of status transitions.
 ALLOWED_STATUS_TRANSITIONS = {
-    StoreStatus.PENDING: frozenset({StoreStatus.ACTIVE, StoreStatus.REJECTED}),
+    StoreStatus.DRAFT: frozenset({StoreStatus.PENDING, StoreStatus.NEEDS_INFO, StoreStatus.ACTIVE}),
+    StoreStatus.NEEDS_INFO: frozenset({StoreStatus.PENDING, StoreStatus.REJECTED}),
+    StoreStatus.PENDING: frozenset({StoreStatus.ACTIVE, StoreStatus.REJECTED, StoreStatus.NEEDS_INFO}),
     StoreStatus.REJECTED: frozenset({StoreStatus.PENDING}),
     StoreStatus.ACTIVE: frozenset({StoreStatus.SUSPENDED}),
     StoreStatus.SUSPENDED: frozenset({StoreStatus.ACTIVE}),
@@ -40,6 +42,10 @@ def permission_for_transition(current_status, new_status):
         return None
     if new_status == StoreStatus.SUSPENDED:
         return "stores.suspend_store"
+    if new_status in {StoreStatus.PENDING, StoreStatus.NEEDS_INFO} and current_status in {
+        StoreStatus.DRAFT, StoreStatus.NEEDS_INFO,
+    }:
+        return "stores.change_store"
     return "stores.approve_store"
 
 

@@ -41,7 +41,7 @@ export function ReviewList({ reviews }: { reviews: PublicReview[] }) {
         ))}
       </ul>
       <Modal open={reporting !== null} onClose={() => setReporting(null)} title="Report this review"
-        footer={<><Button variant="secondary" onClick={() => setReporting(null)}>Cancel</Button><Button loading={report.isPending} onClick={() => report.mutate()}>Send report</Button></>}>
+        footer={<><Button variant="outline" onClick={() => setReporting(null)}>Cancel</Button><Button loading={report.isPending} onClick={() => report.mutate()}>Send report</Button></>}>
         <div className="space-y-3">
           <Field label="Why are you reporting it?">{(p) => <Select {...p} value={reason} onChange={(e) => setReason(e.target.value)}>{REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>}</Field>
           <Field label="Details (optional)">{(p) => <Textarea {...p} rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />}</Field>

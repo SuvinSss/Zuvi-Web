@@ -3,6 +3,7 @@
 ``analyse`` is used for the preview and again, against fresh database state,
 at commit time. Lookups are batched so 1000 rows cost a handful of queries.
 """
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -10,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import ValidationError
 from django.db.models.functions import Lower
 from django.utils import timezone
+from django.utils.text import slugify
 
 from catalog.models import Brand, Product, ProductCategory, ProductImportBatch, ProductUnit, Tag
 from catalog.pricing import quantize_money
@@ -34,17 +36,33 @@ class RowResult:
     tag_ids: list = field(default_factory=list)
     image_ref: str = ""
     image_alt: str = ""
+    generated: dict = field(default_factory=dict)   # values the system filled in (marked in the UI and on the product)
+    normalized: dict = field(default_factory=dict)  # {column: [before, after]} deterministic clean-ups
+    values: dict = field(default_factory=dict)      # what the user sees / can correct, after overrides
 
     @property
     def valid(self):
         return not self.errors
 
+    @property
+    def recoverable(self):
+        """Only missing or unresolved values: the user can supply them and retry."""
+        return bool(self.errors) and all(
+            m == "This field is required." or "was not found" in m or "is ambiguous" in m for _c, m in self.errors
+        )
+
+    @property
+    def kind(self):
+        if not self.errors:
+            return "skip" if self.action == "skip" else "valid"
+        return "incomplete" if self.recoverable else "invalid"
+
     def public(self):
-        status = "invalid" if self.errors else ("skip" if self.action == "skip" else "valid")
         return {
-            "row": self.number, "status": status, "action": self.action or None,
+            "row": self.number, "status": self.kind, "action": self.action or None,
             "store_code": self.store_code, "sku": self.sku, "name": self.name,
-            "duplicate": self.duplicate, "image": self.image,
+            "duplicate": self.duplicate, "image": self.image, "values": self.values,
+            "generated": sorted(self.generated), "normalized": self.normalized,
             "errors": [{"column": c, "message": m} for c, m in self.errors],
         }
 
@@ -60,6 +78,8 @@ class Analysis:
             "total": len(self.rows),
             "valid": sum(1 for r in self.rows if r.valid),
             "invalid": sum(1 for r in self.rows if not r.valid),
+            "incomplete": sum(1 for r in self.rows if r.kind == "incomplete"),
+            "hard_invalid": sum(1 for r in self.rows if r.kind == "invalid"),
             "duplicates": sum(1 for r in self.rows if r.duplicate),
             "create": sum(1 for r in self.rows if r.valid and r.action == "create"),
             "update": sum(1 for r in self.rows if r.valid and r.action == "update"),
@@ -124,6 +144,13 @@ def _date(value, column, errors):
         return None
 
 
+UNIT_SYNONYMS = {
+    "pc": "PIECE", "pcs": "PIECE", "piece": "PIECE", "pieces": "PIECE", "nos": "PIECE", "kgs": "KG", "kilogram": "KG",
+    "g": "GRAM", "gm": "GRAM", "gms": "GRAM", "grams": "GRAM", "l": "LITER", "ltr": "LITER", "litre": "LITER",
+    "liter": "LITER", "ml": "ML", "m": "METER", "mtr": "METER", "pkt": "PACK", "packet": "PACK",
+}
+
+
 class Lookups:
     """Batched reference data for one file."""
 
@@ -146,25 +173,59 @@ class Lookups:
         }
         self.units = {u.lower(): u for u in ProductUnit.values} | {
             label.lower(): value for value, label in ProductUnit.choices
-        }
+        } | UNIT_SYNONYMS
 
 
-def analyse(raw_rows, ignored_columns, *, mode, allow_image_urls, zip_images: ZipImages, check_urls=True) -> Analysis:
+DISPLAY_KEYS = ("store_code", "sku", "name", "category", "store_price", "brand", "unit", "unit_value", "description")
+_CURRENCY = re.compile(r"^(?:rs\.?|inr|₹|\$)\s*|\s*(?:/-|only)$", re.IGNORECASE)
+
+
+def analyse(raw_rows, ignored_columns, *, mode, allow_image_urls, zip_images: ZipImages, check_urls=True,
+            defaults=None, overrides=None, generate_sku=True) -> Analysis:
+    """Validate every row.
+
+    ``defaults`` fills a required column the file lacks (a user choice such as the store). ``overrides``
+    ({row: {column: value}}) are the user's per-row corrections. The only automatic changes are the
+    deterministic ones recorded in ``normalized`` / ``generated``; prices, tax, stock and legal data are
+    never invented.
+    """
+    defaults = {k: v for k, v in (defaults or {}).items() if v}
+    overrides = overrides or {}
+    for raw in raw_rows:
+        fixes = overrides.get(str(raw.number), {})
+        for column, value in fixes.items():
+            raw.values[column] = value if value not in ("",) else None
+            raw.errors[:] = [(c, m) for c, m in raw.errors if c != column]
+        for column, value in defaults.items():
+            if not raw.values.get(column):
+                raw.values[column] = value
     lookups = Lookups(raw_rows)
     seen = {}
     results = []
     for raw in raw_rows:
         result = RowResult(raw.number, errors=list(raw.errors))
-        _validate_row(raw, result, lookups, mode, allow_image_urls, zip_images, seen, check_urls)
+        _validate_row(raw, result, lookups, mode, allow_image_urls, zip_images, seen, check_urls, generate_sku)
+        result.values = {key: _text(raw.values.get(key)) for key in DISPLAY_KEYS}
         results.append(result)
     return Analysis(results, ignored_columns)
 
 
-def _validate_row(raw, result, lookups, mode, allow_image_urls, zip_images, seen, check_urls):
+def _validate_row(raw, result, lookups, mode, allow_image_urls, zip_images, seen, check_urls, generate_sku=True):
     v, errors = raw.values, result.errors
     result.store_code = _text(v.get("store_code"))
     result.sku = _text(v.get("sku"))
     result.name = _text(v.get("name"))
+    if not result.sku and result.name and generate_sku:
+        # Deterministic, reversible and flagged: a slug of the name. Not a barcode.
+        result.sku = ("AUTO-" + slugify(result.name).upper())[:64]
+        v["sku"] = result.sku
+        result.generated["sku"] = result.sku
+    price = v.get("store_price")
+    if isinstance(price, str):
+        cleaned = _CURRENCY.sub("", price.strip()).strip()
+        if cleaned != price:
+            result.normalized["store_price"] = [price, cleaned]
+            v["store_price"] = cleaned
     data = {}
 
     for column, length in (("sku", 64), ("name", 200)):

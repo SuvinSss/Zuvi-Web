@@ -10,6 +10,7 @@ from .models import (
     Product,
     ProductCategory,
     ProductImage,
+    ProductImportBatch,
     ProductPriceHistory,
     ProductStatusHistory,
     Tag,
@@ -188,6 +189,8 @@ class ProductAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
         "approved_by",
         "approved_at",
         "rejection_reason",
+        "generated_fields",
+        "import_batch",
         "created_at",
         "updated_at",
     )
@@ -363,4 +366,27 @@ class ProductPriceHistoryAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ProductImportBatch)
+class ProductImportBatchAdmin(admin.ModelAdmin):
+    """Read-only inspection of bulk import jobs. Imports are run from the React admin."""
+
+    list_display = ("id", "source_name", "status", "mode", "total_rows", "valid_rows",
+                    "invalid_rows", "duplicate_rows", "attempts", "created_by", "created_at", "committed_at")
+    list_filter = ("status", "mode", "created_at")
+    search_fields = ("source_name", "source_hash", "created_by__email", "created_by__username")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    list_select_related = ("created_by",)
+    readonly_fields = [f.name for f in ProductImportBatch._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

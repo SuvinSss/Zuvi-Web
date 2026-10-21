@@ -79,13 +79,13 @@ export function ImageManager({ product, canChange, maxImages, scope = 'admin' }:
               <p className="truncate text-xs text-muted" title={image.alt_text}>{image.width && image.height ? `${image.width}×${image.height} · ` : ''}{formatBytes(image.file_size)}</p>
               {canChange && scope === 'admin' && (confirmId === image.id ? (
                 <div className="flex gap-1.5">
-                  <Button variant="danger" className="min-h-9 flex-1 px-2 text-xs" loading={remove.isPending} onClick={() => remove.mutate(image.id)}>Confirm remove</Button>
-                  <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={() => setConfirmId(null)}>Cancel</Button>
+                  <Button size="sm" variant="destructive" className="flex-1" loading={remove.isPending} onClick={() => remove.mutate(image.id)}>Confirm remove</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmId(null)}>Cancel</Button>
                 </div>
               ) : (
                 <div className="flex gap-1.5">
-                  {!image.is_primary && <Button variant="secondary" className="min-h-9 flex-1 px-2 text-xs" loading={primary.isPending && primary.variables === image.id} onClick={() => primary.mutate(image.id)}>Make primary</Button>}
-                  <Button variant="danger" className="min-h-9 px-2 text-xs" icon={Trash2} aria-label={`Remove photo ${image.id}`} onClick={() => setConfirmId(image.id)} />
+                  {!image.is_primary && <Button size="sm" variant="outline" className="flex-1" loading={primary.isPending && primary.variables === image.id} onClick={() => primary.mutate(image.id)}>Make primary</Button>}
+                  <Button size="sm" variant="destructive" icon={Trash2} aria-label={`Remove photo ${image.id}`} onClick={() => setConfirmId(image.id)} />
                 </div>
               ))}
             </li>

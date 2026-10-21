@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { AuthShell } from '@/components/AuthShell'
-import { Alert, Button, Field, Input, Select } from '@/components/ui'
+import { Alert, Button, Field, Input, Select, ButtonLink } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { errorMessage, fieldErrors } from '@/lib/api'
 import * as auth from '@/services/auth'
@@ -55,7 +55,7 @@ export default function RegisterPage({ partner = false }: { partner?: boolean })
     return (
       <AuthShell title="Application received">
         <Alert tone="success" title="Thanks for applying">Your delivery partner account is waiting for approval. You can sign in once our team approves it.</Alert>
-        <Link to="/login"><Button className="mt-4 w-full">Go to sign in</Button></Link>
+        <ButtonLink to="/login" className="mt-4 w-full">Go to sign in</ButtonLink>
       </AuthShell>
     )
   }

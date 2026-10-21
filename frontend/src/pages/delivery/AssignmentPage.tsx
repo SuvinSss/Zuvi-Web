@@ -53,12 +53,12 @@ export default function AssignmentPage() {
             </Section>
 
             <div className="sticky bottom-16 z-10 -mx-4 flex flex-wrap gap-2 border-t border-line bg-white/95 p-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0">
-              {d.status === 'OFFERED' && <><Button className="min-h-12 flex-1" loading={act.isPending && act.variables?.action === 'accept'} onClick={() => act.mutate({ action: 'accept' })}>Accept delivery</Button><Button className="min-h-12" variant="secondary" onClick={() => setRejecting(true)}>Decline</Button></>}
-              {d.status === 'ACCEPTED' && <Button className="min-h-12 flex-1" loading={act.isPending} onClick={() => act.mutate({ action: 'arrive-store' })}>I have reached the store</Button>}
-              {d.status === 'AT_STORE' && <Button className="min-h-12 flex-1" onClick={() => setMode('pickup')}>Confirm pickup</Button>}
-              {d.status === 'IN_TRANSIT' && <Button className="min-h-12 flex-1" loading={act.isPending} onClick={() => act.mutate({ action: 'arrive' })}>I have reached the customer</Button>}
-              {d.status === 'ARRIVED' && <><Button className="min-h-12 flex-1" onClick={() => setMode('complete')}>Complete delivery</Button><Button className="min-h-12" variant="danger" onClick={() => setMode('fail')}>Could not deliver</Button></>}
-              {['ACCEPTED', 'AT_STORE', 'IN_TRANSIT'].includes(d.status) && <Button className="min-h-12" variant="ghost" onClick={() => setMode('fail')}>Report a problem</Button>}
+              {d.status === 'OFFERED' && <><Button size="lg" className="flex-1" loading={act.isPending && act.variables?.action === 'accept'} onClick={() => act.mutate({ action: 'accept' })}>Accept delivery</Button><Button size="lg" variant="outline" onClick={() => setRejecting(true)}>Decline</Button></>}
+              {d.status === 'ACCEPTED' && <Button size="lg" className="flex-1" loading={act.isPending} onClick={() => act.mutate({ action: 'arrive-store' })}>I have reached the store</Button>}
+              {d.status === 'AT_STORE' && <Button size="lg" className="flex-1" onClick={() => setMode('pickup')}>Confirm pickup</Button>}
+              {d.status === 'IN_TRANSIT' && <Button size="lg" className="flex-1" loading={act.isPending} onClick={() => act.mutate({ action: 'arrive' })}>I have reached the customer</Button>}
+              {d.status === 'ARRIVED' && <><Button size="lg" className="flex-1" onClick={() => setMode('complete')}>Complete delivery</Button><Button size="lg" variant="destructive" onClick={() => setMode('fail')}>Could not deliver</Button></>}
+              {['ACCEPTED', 'AT_STORE', 'IN_TRANSIT'].includes(d.status) && <Button size="lg" variant="ghost" onClick={() => setMode('fail')}>Report a problem</Button>}
             </div>
 
             {['AT_STORE', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED', 'FAILED'].includes(d.status) && <Section title="Proof"><EvidencePanel deliveryId={d.id} /></Section>}
@@ -128,13 +128,13 @@ function EvidenceDialog({ kind, delivery, onClose, onDone }: { kind: 'pickup' | 
         {Object.entries(fe).filter(([k]) => !['notes', 'recipient_name', 'otp'].includes(k)).map(([k, m]) => <Alert key={k}>{m}</Alert>)}
         <p className="text-sm text-muted">{kind === 'pickup' ? 'Take a photo of the packed order.' : 'A photo of the delivered order is required.'} Your current location is recorded with it.</p>
         {photos.map((p, i) => <FilePicker key={i} label={`Photo ${i + 1}${i === 0 ? ' *' : ''}`} capture="environment" file={p} onFile={(f) => setPhotos(photos.map((x, j) => (j === i ? f : x)))} />)}
-        {photos.length < 3 && have === photos.length && <Button variant="secondary" onClick={() => setPhotos([...photos, null])}>Add another photo</Button>}
+        {photos.length < 3 && have === photos.length && <Button variant="outline" onClick={() => setPhotos([...photos, null])}>Add another photo</Button>}
         {kind === 'complete' && <>
           <Field label="Delivery code from the customer" error={fe.otp} hint="Ask the customer for the code shown in their order page.">{(p) => <Input {...p} inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={v.otp} onChange={(e) => setV({ ...v, otp: e.target.value })} />}</Field>
           <Field label="Received by" error={fe.recipient_name}>{(p) => <Input {...p} value={v.recipient_name} onChange={(e) => setV({ ...v, recipient_name: e.target.value })} />}</Field>
         </>}
         <Field label="Notes (optional)" error={fe.notes}>{(p) => <Textarea {...p} rows={2} maxLength={2000} value={v.notes} onChange={(e) => setV({ ...v, notes: e.target.value })} />}</Field>
-        <div className="flex justify-end gap-2 pt-2"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" loading={save.isPending} disabled={have === 0}>{kind === 'pickup' ? 'Confirm pickup' : 'Complete delivery'}</Button></div>
+        <div className="flex justify-end gap-2 pt-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" loading={save.isPending} disabled={have === 0}>{kind === 'pickup' ? 'Confirm pickup' : 'Complete delivery'}</Button></div>
       </form>
     </Modal>
   )
@@ -157,7 +157,7 @@ function FailDialog({ delivery, onClose, onDone }: { delivery: DeliveryRecord; o
         <Field label="What happened?" error={fe.reason}>{(p) => <Select {...p} value={v.reason} onChange={(e) => setV({ ...v, reason: e.target.value })}>{FAIL_REASONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>}</Field>
         <Field label="Details" error={fe.note} required={v.reason === 'OTHER'}>{(p) => <Textarea {...p} rows={3} maxLength={2000} value={v.note} onChange={(e) => setV({ ...v, note: e.target.value })} />}</Field>
         <p className="text-sm text-muted">This ends the current attempt. An admin decides whether to retry.</p>
-        <div className="flex justify-end gap-2 pt-2"><Button variant="secondary" onClick={onClose}>Back</Button><Button type="submit" variant="danger" loading={save.isPending}>Report problem</Button></div>
+        <div className="flex justify-end gap-2 pt-2"><Button variant="outline" onClick={onClose}>Back</Button><Button type="submit" variant="destructive" loading={save.isPending}>Report problem</Button></div>
       </form>
     </Modal>
   )

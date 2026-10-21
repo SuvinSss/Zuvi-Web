@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { Link } from 'react-router-dom'
-import { Button, ErrorState, Spinner } from '@/components/ui'
+import { ButtonLink, ErrorState, Spinner } from '@/components/ui'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { homePath } from '@/lib/roles'
 import type { Role } from '@/types/api'
@@ -11,7 +10,7 @@ export function AccessDenied() {
     <div className="mx-auto max-w-md px-4 py-20 text-center">
       <h1 className="text-2xl font-semibold text-forest">You don’t have access to this page</h1>
       <p className="mt-2 text-sm text-muted">Your account type can’t open this area. If you think this is a mistake, contact support.</p>
-      <Link to={homePath(user)}><Button className="mt-5">Go to my home</Button></Link>
+      <ButtonLink to={homePath(user)} className="mt-5">Go to my home</ButtonLink>
     </div>
   )
 }

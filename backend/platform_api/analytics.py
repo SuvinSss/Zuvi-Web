@@ -230,6 +230,7 @@ class CountsView(APIView):
             "products_pending": Product.objects.filter(status="PENDING").count(),
             "tickets_open": Ticket.objects.filter(OPEN_TICKET).count(),
             "complaints_open": Complaint.objects.filter(OPEN_COMPLAINT).count(),
+            "stores_needs_info": Store.objects.filter(status="NEEDS_INFO").count(),
         })
 
 

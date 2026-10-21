@@ -387,6 +387,7 @@ REST_FRAMEWORK = {
         'user': env('API_THROTTLE_USER', default='600/min'),
         'login': env('API_THROTTLE_LOGIN', default='10/min'),
         'import': env('API_THROTTLE_IMPORT', default='30/hour'),
+        'bulk': env('API_THROTTLE_BULK', default='60/hour'),
         'location': env('API_THROTTLE_LOCATION', default='120/min'),
         'register': env('API_THROTTLE_REGISTER', default='10/hour'),
     },

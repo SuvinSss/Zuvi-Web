@@ -36,7 +36,7 @@ export default function StoreOrderPage() {
                 {canManage && o.actions.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {o.actions.map((a) => a === 'reject'
-                      ? <Button key={a} variant="danger" onClick={() => setRejecting(true)}>{ACTION_LABEL[a]}</Button>
+                      ? <Button key={a} variant="destructive" onClick={() => setRejecting(true)}>{ACTION_LABEL[a]}</Button>
                       : <Button key={a} loading={act.isPending && act.variables?.action === a} onClick={() => act.mutate({ action: a })}>{ACTION_LABEL[a] ?? label({}, a)}</Button>)}
                   </div>
                 )}

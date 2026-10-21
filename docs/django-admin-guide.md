@@ -89,3 +89,8 @@ Each card links to the matching filtered list; a card is hidden if you cannot vi
 * Complaint escalation, resolve and reject, ticket replies and status changes are not offered as bulk actions; use the support area of the app.
 * Order status changes are not in the admin (they remain in the app so the lifecycle rules apply).
 * Model plural names are Django defaults ("Delivery evidences").
+
+## 11. Stores and imports (added)
+* **Stores:** list shows verification and ordering state with matching filters; workflow fields (status, verification, approver, `ordering_enabled`, missing requirements) are read-only. Actions *Approve selected stores* (enforces requirements, needs `stores.approve_store`) and *Mark as verified* go through the same services as the React admin. Uploaded documents appear read-only.
+* **Products:** `generated_fields` (values filled by the import) and `import_batch` are shown read-only.
+* **Product import batches:** new read-only list/detail (status, counts, mapping, row notes, errors) for inspecting jobs. Imports are run from the React admin.

@@ -19,7 +19,10 @@ from rest_framework.views import APIView
 
 from catalog.decorators import user_has_catalog_permission
 from catalog.models import Brand, Product, ProductCategory, ProductImage, ProductImportBatch, ProductStatus, ProductUnit, Tag
-from catalog.product_import import reports, service as import_service
+import json
+
+from catalog.product_import import columns as import_columns, reports, service as import_service
+from catalog.product_import.parser import MappingNeeded, inspect_headers
 from catalog.product_import.template import build_template
 from catalog.services import (
     add_product_image, create_product, delete_product_image, set_primary_product_image, update_product,
@@ -263,12 +266,15 @@ def batch_payload(batch, analysis=None):
         "source_name": batch.source_name, "created_at": batch.created_at, "committed_at": batch.committed_at,
         "counts": {"total": batch.total_rows, "valid": batch.valid_rows, "invalid": batch.invalid_rows,
                    "duplicates": batch.duplicate_rows},
-        "summary": batch.summary, "errors": batch.errors,
+        "summary": batch.summary, "errors": batch.errors, "mapping": batch.mapping, "defaults": batch.defaults,
+        "generate_sku": batch.generate_sku, "attempts": batch.attempts, "row_notes": batch.row_notes,
+        "created_by": batch.created_by.get_username() if batch.created_by_id else None,
+        "retryable": bool(batch.status != "PREVIEWED" and batch.workbook_path and (batch.summary or {}).get("failed")),
         "already_imported": import_service.already_imported(batch) if batch.status == "PREVIEWED" else False,
     }
     if analysis is not None:
         data["counts"].update(analysis.counts)
-        data["rows"] = [row.public() for row in analysis.rows]
+        data["rows"] = [row.public() for row in analysis.rows][:1000]
         data["ignored_columns"] = analysis.ignored_columns
     return data
 
@@ -305,6 +311,14 @@ class ImportPreviewView(APIView):
             return Response({"file": ["Choose an .xlsx or .csv file."]}, status=400)
         mode = request.data.get("mode") or ProductImportBatch.Mode.CREATE
         allow_urls = _flag(request.data.get("allow_image_urls"))
+        try:
+            mapping = json.loads(request.data.get("mapping") or "{}")
+            if not isinstance(mapping, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in mapping.items()):
+                raise ValueError
+        except ValueError:
+            return Response({"mapping": ["Mapping must be a JSON object of header to column."]}, status=400)
+        default_store = (request.data.get("default_store_code") or "").strip()[:32]
+        defaults = {"store_code": default_store} if default_store else {}
         # Updating existing products and fetching URLs are change-level actions.
         if (mode == ProductImportBatch.Mode.UPDATE or allow_urls) and not user_has_catalog_permission(
             request.user, "catalog.change_product"
@@ -315,13 +329,69 @@ class ImportPreviewView(APIView):
                 user=request.user, workbook=workbook, images_zip=request.FILES.get("images_zip"), mode=mode,
                 all_or_nothing=_flag(request.data.get("all_or_nothing"), True),
                 initial_status=request.data.get("initial_status") or ProductStatus.DRAFT,
-                allow_image_urls=allow_urls,
+                allow_image_urls=allow_urls, mapping=mapping, defaults=defaults,
+                generate_sku=_flag(request.data.get("generate_sku"), True),
             )
+        except MappingNeeded as exc:
+            # Not an error the user must fix in the file: show the mapping screen instead.
+            workbook.seek(0)
+            return Response({"needs_mapping": True, "detail": str(exc.messages[0]), **exc.info,
+                             "columns": import_columns_payload()}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
         except DjangoValidationError as exc:
             raise to_drf_error(exc) from exc
         except STORAGE_ERRORS:
             return _storage_unavailable()
         return Response(batch_payload(batch, analysis), status=status.HTTP_201_CREATED)
+
+
+def import_columns_payload():
+    return [{"key": c.key, "required": c.required, "description": c.description, "example": c.example,
+             "aliases": list(import_columns.ALIASES.get(c.key, ()))} for c in import_columns.COLUMNS]
+
+
+def _view_mode(batch):
+    """After a commit, rows already imported must read as "skip", not as duplicates of themselves."""
+    return None if batch.status == ProductImportBatch.Status.PREVIEWED else ProductImportBatch.Mode.SKIP
+
+
+def _with_rows(batch, request):
+    """Batch payload plus freshly analysed rows while the staged files still exist."""
+    if not batch.workbook_path:
+        return batch_payload(batch)
+    try:
+        analysis = import_service.reanalyse(batch, mode=_view_mode(batch))
+    except import_service.ImportBlocked:
+        return batch_payload(batch)
+    wanted = request.query_params.get("status")
+    if wanted in {"valid", "incomplete", "invalid", "skip"}:
+        analysis.rows = [r for r in analysis.rows if r.kind == wanted]
+    return batch_payload(batch, analysis)
+
+
+class ImportColumnsView(APIView):
+    permission_classes = [CatalogManagementPermission]
+    required_permission = "catalog.add_product"
+
+    @extend_schema(responses=dict)
+    def get(self, request):
+        return Response({"columns": import_columns_payload()})
+
+
+class ImportListView(APIView):
+    """Import jobs: your own, or everyone's for a super admin."""
+    permission_classes = [CatalogManagementPermission]
+    required_permission = "catalog.add_product"
+
+    @extend_schema(responses=dict)
+    def get(self, request):
+        qs = ProductImportBatch.objects.select_related("created_by")
+        if not request.user.is_superuser:
+            qs = qs.filter(created_by=request.user)
+        if request.query_params.get("status") in ProductImportBatch.Status.values:
+            qs = qs.filter(status=request.query_params["status"])
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        return paginator.get_paginated_response([batch_payload(b) | {"errors": b.errors[:3]} for b in page])
 
 
 class ImportDetailView(APIView):
@@ -330,7 +400,69 @@ class ImportDetailView(APIView):
 
     @extend_schema(responses=dict)
     def get(self, request, batch_id):
-        return Response(batch_payload(_batch_for(request, batch_id)))
+        return Response(_with_rows(_batch_for(request, batch_id), request))
+
+
+class ImportRowView(APIView):
+    """Correct one row of a previewed or partly failed import. Corrections are re-validated, never trusted."""
+    permission_classes = [CatalogManagementPermission]
+    required_permission = "catalog.add_product"
+    parser_classes = [JSONParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "import"
+
+    @extend_schema(request=dict, responses=dict)
+    def patch(self, request, batch_id, row):
+        batch = _batch_for(request, batch_id)
+        if not batch.workbook_path or (batch.status == ProductImportBatch.Status.COMMITTED and not (batch.summary or {}).get("failed")):
+            return Response({"detail": "This import can no longer be edited."}, status=status.HTTP_409_CONFLICT)
+        values = request.data.get("values")
+        if not isinstance(values, dict) or not values:
+            return Response({"values": ["Send the corrected values."]}, status=400)
+        clean = {}
+        for column, value in values.items():
+            if column not in import_columns.KEYS or column in {"image_file", "image_url"}:
+                return Response({"values": [f"'{column}' cannot be corrected here."]}, status=400)
+            text = "" if value is None else str(value).strip()
+            if len(text) > 500:
+                return Response({column: ["Too long."]}, status=400)
+            if column in import_columns.TEXT_KEYS and text.startswith(("=", "@")):
+                return Response({column: ["Text may not start with '=' or '@'."]}, status=400)
+            clean[column] = text
+        overrides = dict(batch.overrides or {})
+        overrides[str(row)] = {**overrides.get(str(row), {}), **clean}
+        batch.overrides = overrides
+        try:
+            analysis = import_service.reanalyse(batch, mode=_view_mode(batch))
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        if batch.status == ProductImportBatch.Status.PREVIEWED:
+            import_service._record_counts(batch, analysis)
+            batch.save(update_fields=["overrides", "total_rows", "valid_rows", "invalid_rows", "duplicate_rows", "errors", "row_notes"])
+        else:
+            batch.save(update_fields=["overrides"])
+        match = next((r for r in analysis.rows if r.number == row), None)
+        if match is None:
+            return Response({"detail": "Row not found."}, status=404)
+        return Response({"row": match.public(), "counts": analysis.counts})
+
+
+class ImportRetryView(APIView):
+    permission_classes = [CatalogManagementPermission]
+    required_permission = "catalog.add_product"
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "import"
+
+    @extend_schema(request=None, responses=dict)
+    def post(self, request, batch_id):
+        batch = _batch_for(request, batch_id)
+        try:
+            batch = import_service.commit(batch.pk, user=request.user, request=request, retry=True)
+        except import_service.ImportBlocked as exc:
+            return Response({"detail": str(exc), "code": exc.code}, status=status.HTTP_409_CONFLICT)
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(batch_payload(batch))
 
 
 class ImportCommitView(APIView):
