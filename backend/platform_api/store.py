@@ -8,7 +8,13 @@ from rest_framework import generics, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from catalog.models import Product
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+
+from catalog.api.serializers import ProductDetailSerializer, ProductImageSerializer, ProductWriteSerializer, to_drf_error
+from catalog.models import Product, ProductStatus
+from catalog.services import add_product_image, create_product, update_product
 from core.pagination import StandardPagination
 from core.permissions import IsStoreOrderManager, IsStoreUser, get_store_membership
 from inventory import services as inventory
@@ -103,10 +109,33 @@ class StoreOrderActionView(APIView):
         return Response(store_order_payload(_own_store_order(request, pk), detail=True))
 
 
-class StoreProductsView(generics.ListAPIView):
+class StoreProductsView(generics.ListCreateAPIView):
     permission_classes = [IsStoreUser]
     pagination_class = StandardPagination
     serializer_class = serializers.Serializer
+    parser_classes = [JSONParser]
+
+    @extend_schema(request=ProductWriteSerializer, responses={201: ProductDetailSerializer})
+    def create(self, request, *args, **kwargs):
+        """New products always belong to the caller's own store and wait for admin approval."""
+        membership = get_store_membership(request.user)
+        if not membership.can_manage_inventory:
+            raise PermissionDenied("You do not have permission to manage products for this store.")
+        data = ProductWriteSerializer(data={**request.data, "store": membership.store_id})
+        data.is_valid(raise_exception=True)
+        values = dict(data.validated_data)
+        values.pop("store")
+        tags = values.pop("tags", [])
+        draft = values.pop("save_as_draft", False)
+        values.pop("is_featured", None)  # featuring is a management privilege
+        if values.get("brand") is None:
+            values.pop("brand", None)
+        try:
+            product = create_product(store=membership.store, product_data=values, created_by=request.user, tag_ids=[t.pk for t in tags],
+                                     initial_status=ProductStatus.DRAFT if draft else ProductStatus.PENDING, request=request._request)
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(ProductDetailSerializer(product).data, status=201)
 
     def list(self, request, *args, **kwargs):
         qs = Product.objects.filter(store=_store(request)).select_related("category").order_by("name")
@@ -158,3 +187,61 @@ class StoreStockView(APIView):
                                  reason=v["reason"], notes=v.get("notes", ""), request=request._request)
         product.refresh_from_db()
         return Response({"id": product.pk, "stock_quantity": str(product.stock_quantity)})
+
+
+def _own_product(request, pk):
+    return get_object_or_404(Product.objects.select_related("store", "category", "brand").prefetch_related("tags", "images"),
+                             pk=pk, store=_store(request))
+
+
+class StoreProductDetailView(APIView):
+    permission_classes = [IsStoreUser]
+    parser_classes = [JSONParser]
+
+    @extend_schema(responses=ProductDetailSerializer)
+    def get(self, request, pk):
+        return Response(ProductDetailSerializer(_own_product(request, pk)).data)
+
+    @extend_schema(request=ProductWriteSerializer, responses=ProductDetailSerializer)
+    def patch(self, request, pk):
+        membership = get_store_membership(request.user)
+        if not membership.can_manage_inventory:
+            raise PermissionDenied("You do not have permission to manage products for this store.")
+        product = _own_product(request, pk)
+        payload = {k: v for k, v in request.data.items() if k not in {"store", "is_featured", "status", "stock_quantity"}}
+        data = ProductWriteSerializer(product, data=payload, partial=True)
+        data.is_valid(raise_exception=True)
+        values = dict(data.validated_data)
+        values.pop("save_as_draft", None)
+        tags = values.pop("tags", None)
+        try:
+            update_product(product=product, product_data=values, updated_by=request.user,
+                           tag_ids=None if tags is None else [t.pk for t in tags], request=request._request)
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(ProductDetailSerializer(_own_product(request, pk)).data)
+
+
+class StoreProductImagesView(APIView):
+    """Store photos use the same image pipeline as every other upload path."""
+
+    permission_classes = [IsStoreUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(request={"multipart/form-data": {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}}},
+                   responses={201: ProductImageSerializer})
+    def post(self, request, pk):
+        membership = get_store_membership(request.user)
+        if not membership.can_manage_inventory:
+            raise PermissionDenied("You do not have permission to manage products for this store.")
+        product = _own_product(request, pk)
+        upload = request.FILES.get("image")
+        if upload is None:
+            return Response({"image": ["Choose an image file."]}, status=400)
+        try:
+            image = add_product_image(product=product, image=upload, alt_text=(request.data.get("alt_text") or "")[:200],
+                                      is_primary=str(request.data.get("is_primary", "")).lower() in {"1", "true", "on", "yes"},
+                                      changed_by=request.user, request=request._request)
+        except DjangoValidationError as exc:
+            raise to_drf_error(exc) from exc
+        return Response(ProductImageSerializer(image).data, status=201)

@@ -477,3 +477,55 @@ class AdminApiTests(ApiTestBase):
         events = self.as_(self.admin).get("/api/v1/admin/audit-events/?action=user.suspend").json()
         self.assertEqual(events["count"], 1)
         self.assertEqual(events["results"][0]["actor"], self.admin.username)
+
+
+class StoreProductManagementTests(ApiTestBase):
+    def payload(self, **extra):
+        from catalog.models import ProductCategory
+        category = ProductCategory.objects.first() or ProductCategory.objects.create(name="General")
+        data = {"name": "Store Made Rice", "sku": "SM-RICE-1", "category": category.pk, "store_price": "100.00", "unit": "KG", "unit_value": "1"}
+        data.update(extra)
+        return data
+
+    def test_store_creates_pending_product_in_its_own_store_with_server_side_price(self):
+        api = self.as_(self.store_user)
+        other = self.create_store(name="Not Mine")
+        response = api.post("/api/v1/store/products/", self.payload(store=other.pk, final_price="1.00", selling_price="1.00",
+                                                                     stock_quantity="500", status="APPROVED", is_featured=True), format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        product = Product.objects.get(sku="SM-RICE-1")
+        self.assertEqual(product.store_id, self.store.pk)
+        self.assertEqual(product.status, "PENDING")
+        self.assertEqual(product.stock_quantity, Decimal("0"))
+        self.assertFalse(product.is_featured)
+        self.assertNotEqual(product.final_price, Decimal("1.00"))  # client-sent price is ignored
+        self.assertNotEqual(product.selling_price, Decimal("1.00"))
+        self.assertEqual(APIClient().get("/api/v1/public/products/?q=Store Made").json()["count"], 0)  # not public until approved
+
+    def test_store_cannot_edit_other_stores_products_or_privileged_fields(self):
+        api = self.as_(self.store_user)
+        created = api.post("/api/v1/store/products/", self.payload(), format="json").json()
+        rival = self.create_store_user(store=self.create_store(name="Rival P"), username="rival-p")
+        self.assertEqual(self.as_(rival).patch(f"/api/v1/store/products/{created['id']}/", {"name": "Hijack"}, format="json").status_code, 404)
+        ok = api.patch(f"/api/v1/store/products/{created['id']}/", {"name": "Renamed", "status": "APPROVED", "stock_quantity": "999"}, format="json")
+        self.assertEqual(ok.status_code, 200, ok.content)
+        product = Product.objects.get(pk=created["id"])
+        self.assertEqual(product.name, "Renamed")
+        self.assertNotEqual(product.status, "APPROVED")
+        self.assertEqual(product.stock_quantity, Decimal("0"))
+
+    def test_store_image_upload_uses_pipeline_and_rejects_non_images(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from deliveries.tests import jpeg
+
+        api = self.as_(self.store_user)
+        created = api.post("/api/v1/store/products/", self.payload(), format="json").json()
+        ok = api.post(f"/api/v1/store/products/{created['id']}/images/", {"image": jpeg("p.jpg")}, format="multipart")
+        self.assertEqual(ok.status_code, 201, ok.content)
+        bad = api.post(f"/api/v1/store/products/{created['id']}/images/", {"image": SimpleUploadedFile("x.jpg", b"not-an-image", content_type="image/jpeg")}, format="multipart")
+        self.assertEqual(bad.status_code, 400)
+
+    def test_inventory_permission_required_for_product_changes(self):
+        from stores.models import StoreUser
+        StoreUser.objects.filter(user=self.store_user).update(can_manage_inventory=False)
+        self.assertEqual(self.as_(self.store_user).post("/api/v1/store/products/", self.payload(), format="json").status_code, 403)
