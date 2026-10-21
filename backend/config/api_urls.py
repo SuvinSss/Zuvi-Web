@@ -13,5 +13,8 @@ urlpatterns = [
     path("docs/", SpectacularSwaggerView.as_view(url_name="api_schema", permission_classes=[IsAuthenticated]), name="api_docs"),
     path("", include("notifications.urls")),
     path("", include("deliveries.urls")),
+    path("", include("reviews.urls")),
+    path("", include("support.urls")),
+    path("", include("feedback.urls")),
     path("", include("catalog.api.urls")),
 ]
