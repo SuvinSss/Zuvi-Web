@@ -4,10 +4,12 @@ Visibility is enforced only here (and in views that consume these helpers).
 Templates must never be the sole gate for what customers can see.
 """
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.postgres.search import TrigramWordSimilarity
 from django.db.models import Case, IntegerField, Prefetch, Q, Value, When, F, Count, Subquery
+from django.db.models.functions import Greatest
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
@@ -21,6 +23,7 @@ from stores.models import StoreStatus
 
 from .models import Product, ProductCategory, ProductImage, ProductStatus
 from .pricing import DiscountType
+from .search_synonyms import expand_terms, is_short_ascii
 
 PUBLIC_PAGE_SIZE = 12
 
@@ -107,7 +110,16 @@ def apply_public_search(queryset, query):
         | Q(brand__name__icontains=query)
         | Q(tags__name__icontains=query)
         | Q(store__name__icontains=query)
+        | Q(search_keywords__icontains=query)
     )
+    # English / Manglish / Malayalam synonyms, e.g. "dal" also finds "Parippu".
+    for term in expand_terms(query)[1:]:
+        if is_short_ascii(term):
+            lookup, value = "iregex", rf"\y{re.escape(term)}\y"
+        else:
+            lookup, value = "icontains", term
+        for field in ("name", "category__name", "tags__name", "search_keywords"):
+            exact |= Q(**{f"{field}__{lookup}": value})
     # A matching tag must not multiply product rows or change their ranking.
     exact = Q(pk__in=queryset.filter(exact).order_by().values("pk"))
     queryset = queryset.annotate(
@@ -116,7 +128,10 @@ def apply_public_search(queryset, query):
             When(name__istartswith=query, then=Value(2)),
             When(exact, then=Value(1)), default=Value(0), output_field=IntegerField(),
         ),
-        search_score=TrigramWordSimilarity(query, "name"),
+        search_score=Greatest(
+            TrigramWordSimilarity(query, "name"),
+            TrigramWordSimilarity(query, "search_keywords"),
+        ),
     )
     # Very short queries are too ambiguous for reliable spelling recovery.
     threshold = 0.3 if len(query) >= 5 else 0.4
