@@ -201,6 +201,11 @@ class Product(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, blank=True)
     description = models.TextField(blank=True)
+    search_keywords = models.TextField(
+        blank=True,
+        help_text="Other names shoppers may search for, e.g. English, Manglish "
+        "or Malayalam (comma-separated). Not shown on the shop.",
+    )
     sku = models.CharField(max_length=64)
     product_code = models.CharField(
         max_length=32,

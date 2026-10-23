@@ -163,6 +163,7 @@ class ProductAdmin(ImageAdminErrorMixin, admin.ModelAdmin):
         "store__name",
         "store__store_code",
         "description",
+        "search_keywords",
     )
     autocomplete_fields = (
         "store",
