@@ -98,3 +98,6 @@ Delivery fees are measured from the store's pin, so a wrong pin means a wrong fe
 By default an unconfirmed pin is only flagged. Set `STORE_PIN_CONFIRMATION_REQUIRED=True` to make unconfirmed stores unserviceable (they disappear from delivery lists and quotes) once every active store has been confirmed. Confirm the existing stores first or they will stop taking delivery orders.
 
 See also [troubleshooting](google-maps-troubleshooting.md), [location and address system](location-and-address-system.md) and [delivery pricing](delivery-pricing-algorithm.md).
+
+## Where maps appear on the website
+Address picker (header "Delivering to" and Saved addresses), the Saved addresses overview, the checkout "Deliver to" pin, order tracking, the public store page, the rider job page, admin store pages and Delivery operations. Other pages (home, shop, product, cart) have no map. If a map is OpenStreetMap instead of Google, the build has no `VITE_GOOGLE_MAPS_BROWSER_KEY`: Admin → Google Maps status shows which one this build uses.

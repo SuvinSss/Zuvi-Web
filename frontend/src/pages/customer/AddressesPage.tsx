@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog, QueryBoundary, useToast } from '@/components/kit'
 import { AddressDialog } from '@/components/location/AddressDialog'
+import { MapView } from '@/components/location/MapView'
 import { useDeliveryLocation } from '@/features/location/DeliveryLocation'
 import { Button, Card, PageHeader } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
@@ -22,6 +23,7 @@ export default function AddressesPage() {
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['addresses'] }); void qc.invalidateQueries({ queryKey: ['checkout-preview'] }) }
   const def = useMutation({ mutationFn: (id: number) => setDefaultAddress(id), onSuccess: () => { refresh(); toast('success', 'Default address updated.') }, onError: (e) => toast('error', errorMessage(e)) })
   const del = useMutation({ mutationFn: (id: number) => deleteAddress(id), onSuccess: () => { refresh(); setRemoving(null); toast('success', 'Address removed.') }, onError: (e) => toast('error', errorMessage(e)) })
+  const pinned = (list.data ?? []).filter((a) => Number(a.latitude) || Number(a.longitude)).map((a) => ({ lat: Number(a.latitude), lon: Number(a.longitude), label: a.short_label ?? a.label, color: '#0f5132' }))
   const close = (saved?: Address) => {
     setEditing(null)
     if (saved) location.selectAddress(saved)
@@ -31,6 +33,7 @@ export default function AddressesPage() {
     <>
       <PageHeader title="Saved addresses" subtitle="Pin each address on the map so riders find you and delivery is priced correctly." actions={<Button icon={Plus} onClick={() => setEditing('new')}>Add address</Button>} />
       <QueryBoundary query={list} isEmpty={list.data?.length === 0} empty={{ icon: MapPin, title: 'No saved addresses', text: 'Add an address to check out for delivery.', action: <Button onClick={() => setEditing('new')}>Add address</Button> }}>
+        {pinned.length > 0 && <div className="mb-4"><MapView height={220} label="Your saved addresses" markers={pinned} fitToMarkers zoom={15} /></div>}
         <ul className="grid gap-3 md:grid-cols-2">
           {list.data?.map((a) => (
             <li key={a.id}><Card className="p-4">

@@ -84,3 +84,12 @@ describe('store pin confirmation', () => {
     expect(screen.queryByText(/Pin not confirmed/)).not.toBeInTheDocument()
   })
 })
+
+describe('website map provider', () => {
+  it('says plainly when this build has no web key and is using OpenStreetMap', async () => {
+    vi.mocked(delivery.mapsStatus).mockResolvedValue(status() as never)
+    wrap(<MapsStatusPage />)
+    expect(await screen.findByTestId('website-map')).toHaveTextContent(/OpenStreetMap/)
+    expect(screen.getByText(/VITE_GOOGLE_MAPS_BROWSER_KEY/)).toBeInTheDocument()
+  })
+})

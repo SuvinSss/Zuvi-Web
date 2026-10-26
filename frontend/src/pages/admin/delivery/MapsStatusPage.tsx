@@ -3,6 +3,7 @@ import { QueryBoundary, Status, useToast } from '@/components/kit'
 import { Alert, Button, Card, PageHeader } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { GOOGLE_MAP_ID, MAP_PROVIDER } from '@/components/location/mapTypes'
 import { mapsStatus, runMapsHealthCheck, type MapsCheck, type MapsService } from '@/services/delivery'
 
 const SERVICES: { key: MapsService; name: string; note: string }[] = [
@@ -55,6 +56,11 @@ export default function MapsStatusPage() {
               {(c.geocoder !== 'google' || c.router !== 'google') && (
                 <Alert tone="warn">Google is not fully switched on. Set GOOGLE_MAPS_SERVER_KEY, LOCATION_GEOCODER=google and LOCATION_ROUTER=google. Until then distances are labelled estimates.</Alert>
               )}
+            </Card>
+            <Card className="space-y-1 p-4">
+              <h2 className="text-lg font-semibold text-forest">Website map (this build)</h2>
+              <p className="text-sm" data-testid="website-map">{MAP_PROVIDER === 'google' ? `Google Maps${GOOGLE_MAP_ID ? ' with a Map ID (Advanced Markers)' : ' (classic markers; add VITE_GOOGLE_MAPS_MAP_ID for Advanced Markers)'}` : 'OpenStreetMap. This build has no web key, so Google Maps is not used on the website.'}</p>
+              {MAP_PROVIDER !== 'google' && <Alert tone="warn">Set VITE_GOOGLE_MAPS_BROWSER_KEY in frontend/.env and rebuild (or restart npm run dev). The key is read when the site is built, not at runtime.</Alert>}
             </Card>
             <div className="flex items-center gap-3">
               <Button onClick={() => run.mutate()} disabled={run.isPending}>{run.isPending ? 'Checking…' : 'Run health check'}</Button>

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QueryBoundary } from '@/components/kit'
 import { AddressDialog } from '@/components/location/AddressDialog'
+import { MapView } from '@/components/location/MapView'
 import { Alert, Button, Card, Field, PageHeader, Textarea, ButtonLink } from '@/components/ui'
 import { useDeliveryLocation } from '@/features/location/DeliveryLocation'
 import { errorMessage } from '@/lib/api'
@@ -62,6 +63,7 @@ export default function CheckoutPage() {
   const usable = (data?.addresses ?? []).filter((a) => Number(a.latitude) || Number(a.longitude))
   const chosen = addressId ?? (location.selected?.addressId && usable.some((a) => a.id === location.selected?.addressId) ? location.selected.addressId : null)
     ?? usable.find((a) => a.is_default)?.id ?? usable[0]?.id ?? null
+  const chosenAddress = usable.find((a) => a.id === chosen) ?? null
   const cartKey = data?.store_groups.map((g) => g.items.map((i) => `${i.id}:${i.quantity}:${i.unit_price}`).join(',')).join('|')
   const quote = useQuery({
     queryKey: ['checkout-quote', type, chosen, cartKey],
@@ -126,6 +128,7 @@ export default function CheckoutPage() {
                           <span><span className="font-semibold">{a.short_label ?? a.label}</span> · {a.recipient_name} · {a.phone_number}<br />{[a.line1, a.line2, a.landmark && `near ${a.landmark}`, a.city, a.postal_code].filter(Boolean).join(', ')}
                             {a.is_default && <span className="ml-2 text-xs text-emerald">Default</span>}</span>
                         </label>))}</div>
+                      {chosenAddress && <div className="mt-3"><MapView height={180} label="Your delivery location" value={{ lat: Number(chosenAddress.latitude), lon: Number(chosenAddress.longitude) }} zoom={16} /><p className="mt-1 text-xs text-muted">Check the pin is exactly at your door so your order finds you.</p></div>}
                       <Link to="/account/addresses" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-forest hover:underline">Manage addresses</Link>
                     </fieldset>
                   )}
