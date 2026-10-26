@@ -195,8 +195,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Browser key: restrict to allowed website referrers and Maps JavaScript API.
-GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY', default='')
-GOOGLE_MAPS_MAP_ID = env('GOOGLE_MAPS_MAP_ID', default='DEMO_MAP_ID' if DEBUG else '')
+# Google Maps keys: GOOGLE_MAPS_SERVER_KEY (below, server-only). The browser map key is a frontend setting
+# (VITE_GOOGLE_MAPS_BROWSER_KEY in frontend/.env). See docs/google-maps-setup.md.
 
 
 # Database

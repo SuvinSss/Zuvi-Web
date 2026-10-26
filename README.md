@@ -274,34 +274,15 @@ secrets are used by these CI checks.
 
 ## Google Maps location selection
 
-Store creation/editing, customer address forms, and the delivery-location modal
-use Google Maps with click-to-place and draggable pins. Coordinates are saved to
-the existing latitude/longitude fields. Browser geolocation remains available
-even if Google Maps cannot load.
+Address search, pin-to-address lookup and road distance for delivery fees run on the backend; the map is drawn
+in the browser. Without keys the app uses OpenStreetMap and clearly labelled estimated distances.
 
-Enable billing and **Maps JavaScript API** in your Google Cloud project, create
-a browser API key, and set `GOOGLE_MAPS_API_KEY` in your local `.env` or hosted
-environment. Restrict the key to your website's HTTP referrers (including local
-development URLs when needed) and to Maps JavaScript API. Browser keys are
-necessarily visible in the page; do not reuse a server API key.
+- `backend/.env`: `GOOGLE_MAPS_SERVER_KEY` (server key: IP-restricted; Places API (New), Geocoding API, Routes API),
+  `LOCATION_GEOCODER=google`, `LOCATION_ROUTER=google`.
+- `frontend/.env`: `VITE_GOOGLE_MAPS_BROWSER_KEY` (browser key: referrer-restricted; Maps JavaScript API only) and,
+  optionally, `VITE_GOOGLE_MAPS_MAP_ID`.
 
-Set `GOOGLE_MAPS_MAP_ID` to a JavaScript map ID from the same project. Local
-debug mode defaults to `DEMO_MAP_ID` for testing; hosted environments need an
-explicit map ID. Restart Django after configuring these values.
-
-The address selector uses **Places API (New)** for search suggestions and
-**Geocoding API** for address names and address-field suggestions. Enable both
-in the same Google Cloud project and include them in the browser key's API
-restrictions. Map pins and saved-address selection remain available when search
-or address lookup is unavailable. Current location is reviewed on the map before
-confirmation; saving a delivery address requires an active Customer login.
-
-See Google's [setup guide](https://developers.google.com/maps/documentation/javascript/advanced-markers/start)
-and [API key restrictions](https://developers.google.com/maps/api-security-best-practices).
-
-Run offline map interaction checks with
-`node --test locations/tests_js/*.test.cjs`.
-
+Full steps, including Android/iOS keys for mobile apps: [docs/google-maps-setup.md](docs/google-maps-setup.md).
 
 ## October customer experience release
 
@@ -322,10 +303,8 @@ before publication; complex backgrounds are not automatically removed. Existing
 images can be processed with `python manage.py optimize_product_images --limit 100`.
 The command only fills missing derivatives and preserves originals.
 
-Google login requires GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET. Add
-https://<host>/customer/login/google/callback/ as an authorized callback in Google for
-each environment. Existing password accounts are never linked by email alone.
-Password recovery requires EMAIL_HOST plus valid SMTP credentials and a verified
+Google sign-in belonged to the removed server-rendered site and is not available in the
+current API/React app (the OAuth settings are unused). Password recovery requires EMAIL_HOST plus valid SMTP credentials and a verified
 DEFAULT_FROM_EMAIL; see .env.example. Do not reuse production secrets in UAT.
 
 The installable customer/store web app uses a network-only service worker. Orders,

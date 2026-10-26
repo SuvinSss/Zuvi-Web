@@ -46,6 +46,7 @@ export default function GoogleMap({ value, onPinChange, markers = [], polygon, o
       await google.maps.importLibrary('marker')
       const m = new Map(el.current, {
         center: value ? { lat: value.lat, lng: value.lon } : { lat: KERALA_CENTER[0], lng: KERALA_CENTER[1] }, zoom: value ? zoom : 8,
+        ...(import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ? { mapId: import.meta.env.VITE_GOOGLE_MAPS_MAP_ID } : {}),
         gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: false, fullscreenControl: false, clickableIcons: false,
       })
       m.addListener('click', (e: google.maps.MapMouseEvent) => {
