@@ -6,6 +6,7 @@ import { EvidencePanel } from '@/components/evidence'
 import { FilePicker, Modal, QueryBoundary, ReasonDialog, Section, Status, useToast } from '@/components/kit'
 import { Alert, Button, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
 import { errorMessage, fieldErrors } from '@/lib/api'
+import { googleMapsDirections, MapView } from '@/components/location/MapView'
 import { currentPosition, mapsLink, type Fix } from '@/lib/geo'
 import { label } from '@/lib/labels'
 import { completeDelivery, confirmPickupWithPhotos, deliveryAction, failDelivery, getDelivery, pingLocation } from '@/services/ops'
@@ -41,6 +42,21 @@ export default function AssignmentPage() {
                 <div><p className="text-xs text-muted">You earn</p><p className="font-semibold tabular-nums text-forest">₹{Number(d.trip.estimated_payout).toFixed(0)}</p></div>
                 <div><p className="text-xs text-muted">Time</p><p className="font-semibold tabular-nums">{d.trip.eta_minutes ? `~${d.trip.eta_minutes} min` : '—'}</p></div>
                 <p className="col-span-3 text-xs text-muted">Pay is fixed when the customer orders and recorded when you complete the delivery.</p>
+              </Card>
+            )}
+
+            {(d.pickup.latitude !== null || d.dropoff.latitude !== null) && (
+              <Card className="space-y-2 p-3">
+                <MapView height={220} label="Store and customer on the map" fitToMarkers markers={[
+                  ...(d.pickup.latitude !== null && d.pickup.longitude !== null ? [{ lat: d.pickup.latitude, lon: d.pickup.longitude, label: `Pickup: ${d.pickup.name}`, color: '#b45309' }] : []),
+                  ...(d.dropoff.latitude !== null && d.dropoff.longitude !== null ? [{ lat: d.dropoff.latitude, lon: d.dropoff.longitude, label: 'Drop-off', color: '#0f5132' }] : []),
+                ]} />
+                {d.pickup.latitude !== null && d.pickup.longitude !== null && d.dropoff.latitude !== null && d.dropoff.longitude !== null && (
+                  <a className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-control bg-forest px-4 font-semibold text-white" target="_blank" rel="noreferrer"
+                    href={googleMapsDirections([d.dropoff.latitude, d.dropoff.longitude], [d.pickup.latitude, d.pickup.longitude])}>
+                    <Navigation className="size-4" aria-hidden="true" />Full route in Google Maps
+                  </a>
+                )}
               </Card>
             )}
 

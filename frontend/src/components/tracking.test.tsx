@@ -4,6 +4,7 @@ import { renderWithClient } from '@/test/utils'
 import { OrderTrackingPanel } from './tracking'
 
 vi.mock('@/services/platform', () => ({ getTracking: vi.fn() }))
+vi.mock('@/components/location/MapView', () => ({ MapView: ({ label }: { label: string }) => <div role="img" aria-label={label} />, googleMapsPlace: (a: number, b: number) => `https://www.google.com/maps/search/?api=1&query=${a},${b}` }))
 import * as platform from '@/services/platform'
 
 const base = { delivery_id: 1, status: 'IN_TRANSIT', status_label: 'On the way', attempt_number: 1, partner: { id: 2, first_name: 'Ravi', vehicle_type: 'SCOOTER' }, eta: null, dropoff: null, timeline: [], store_order_number: 'S1', store_name: 'Fresh Mart' }
@@ -15,14 +16,15 @@ describe('order tracking', () => {
     renderWithClient(<OrderTrackingPanel orderId={1} active />)
     expect(await screen.findByText(/has not updated recently/i)).toBeInTheDocument()
     expect(screen.getByText(/estimates are not available/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /open in maps/i })).toHaveAttribute('href', expect.stringContaining('12.9'))
+    expect(screen.getByRole('link', { name: /open in google maps/i })).toHaveAttribute('href', expect.stringContaining('12.9'))
+    expect(screen.getByRole('img', { name: /delivery partner, store and your address/i })).toBeInTheDocument()
   })
 
   it('says live location is missing instead of faking a position', async () => {
     vi.mocked(platform.getTracking).mockResolvedValue({ order_id: 1, order_number: 'ZV1', order_status: 'IN_PROGRESS', deliveries: [{ ...base, location: null }] })
     renderWithClient(<OrderTrackingPanel orderId={1} active />)
     expect(await screen.findByText(/live location has not been shared yet/i)).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /open in maps/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /open in google maps/i })).not.toBeInTheDocument()
   })
 
   it('shows the delivery code only when the API provides it', async () => {

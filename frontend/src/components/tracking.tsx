@@ -4,6 +4,7 @@ import { Card, Alert } from '@/components/ui'
 import { Status, Timeline } from '@/components/kit'
 import { DELIVERY_STATUS, label } from '@/lib/labels'
 import { errorMessage } from '@/lib/api'
+import { googleMapsPlace, MapView } from '@/components/location/MapView'
 import { getTracking } from '@/services/platform'
 import type { TrackingDelivery } from '@/types/platform'
 
@@ -35,11 +36,19 @@ function DeliveryCard({ d }: { d: TrackingDelivery }) {
       {d.otp && <p className="mt-2 rounded-control bg-pale p-3 text-sm">Delivery code: <strong className="text-lg tracking-widest">{d.otp}</strong><br /><span className="text-muted">Share it with the partner only when you receive your order.</span></p>}
       {hasPos && !TERMINAL.has(d.status) && (
         <div className="mt-3 rounded-control bg-canvas p-3 text-sm">
+          <div className="mb-2">
+            <MapView height={220} label="Delivery partner, store and your address on a map" fitToMarkers markers={[
+              { lat: loc.latitude!, lon: loc.longitude!, label: 'Delivery partner', color: '#1d4ed8' },
+              ...(d.dropoff ? [{ lat: d.dropoff.latitude, lon: d.dropoff.longitude, label: 'Your address', color: '#0f5132' }] : []),
+              ...(d.pickup ? [{ lat: d.pickup.latitude, lon: d.pickup.longitude, label: d.store_name, color: '#b45309' }] : []),
+            ]} />
+            <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted"><span><span className="inline-block size-2 rounded-full bg-[#1d4ed8]" aria-hidden="true" /> Partner</span><span><span className="inline-block size-2 rounded-full bg-[#0f5132]" aria-hidden="true" /> You</span>{d.pickup && <span><span className="inline-block size-2 rounded-full bg-[#b45309]" aria-hidden="true" /> Store</span>}</p>
+          </div>
           <p className="flex items-center gap-2"><MapPin className="size-4" aria-hidden="true" />Last known position: {loc.latitude!.toFixed(4)}, {loc.longitude!.toFixed(4)}</p>
           <p className="mt-1 flex items-center gap-2 text-muted"><Clock className="size-4" aria-hidden="true" />Updated {ageText(loc.age_seconds)}</p>
           {loc.is_stale && <p role="status" className="mt-2 font-medium text-warn">The partner's location has not updated recently, so this position may be out of date.</p>}
           <a className="mt-2 inline-flex min-h-11 items-center gap-2 font-semibold text-forest underline" target="_blank" rel="noreferrer"
-            href={`https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}#map=16/${loc.latitude}/${loc.longitude}`}><Navigation className="size-4" aria-hidden="true" />Open in maps</a>
+            href={googleMapsPlace(loc.latitude!, loc.longitude!)}><Navigation className="size-4" aria-hidden="true" />Open in Google Maps</a>
         </div>
       )}
       {!hasPos && !TERMINAL.has(d.status) && d.status !== 'PENDING_ASSIGNMENT' && d.status !== 'OFFERED' && <p className="mt-3 text-sm text-muted">Live location has not been shared yet.</p>}

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { googleMapsPlace, MapView } from '@/components/location/MapView'
 import { Download, Pencil, Plus, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
@@ -148,7 +149,10 @@ export default function StoreDetailPage() {
             </div>
           )}
           {tab === 'business' && <Card className="p-4"><KeyValue rows={[['Store type', s.store_type.replace('_', ' ').toLowerCase()], ['Category', s.category], ['Business name', s.business_name || '—'], ['GSTIN', s.gstin || '—'], ['Phone', s.contact_phone || '—'], ['Alternative phone', s.alternative_phone || '—'], ['Email', s.email || '—'], ['Description', s.description || '—']]} /></Card>}
-          {tab === 'address' && <Card className="p-4"><KeyValue rows={[['Address', [s.address.line1, s.address.line2, s.address.landmark].filter(Boolean).join(', ')], ['City', s.address.city], ['District', s.address.district || '—'], ['State', s.address.state], ['Postal code', s.address.postal_code], ['Country', s.address.country], ['Coordinates', Number(s.address.latitude) || Number(s.address.longitude) ? `${s.address.latitude}, ${s.address.longitude}` : 'Not set']]} /></Card>}
+          {tab === 'address' && <Card className="space-y-4 p-4"><KeyValue rows={[['Address', [s.address.line1, s.address.line2, s.address.landmark].filter(Boolean).join(', ')], ['City', s.address.city], ['District', s.address.district || '—'], ['State', s.address.state], ['Postal code', s.address.postal_code], ['Country', s.address.country], ['Coordinates', Number(s.address.latitude) || Number(s.address.longitude) ? `${s.address.latitude}, ${s.address.longitude}` : 'Not set']]} />
+            {Number(s.address.latitude) || Number(s.address.longitude)
+              ? <><MapView height={260} label={`${s.name} map pin`} markers={[{ lat: Number(s.address.latitude), lon: Number(s.address.longitude), label: s.name, color: '#b45309' }]} fitToMarkers zoom={16} /><a className="inline-flex min-h-11 items-center text-sm font-medium text-forest underline" target="_blank" rel="noreferrer" href={googleMapsPlace(s.address.latitude, s.address.longitude)}>Check this pin in Google Maps</a></>
+              : <Alert tone="warn">No map pin yet. Edit the store and place the pin so delivery can be priced.</Alert>}</Card>}
           {tab === 'staff' && <StaffTab store={s} canChange={can.change} />}
           {tab === 'products' && (
             <Section title="Products & inventory" actions={<ButtonLink variant="outline" to={`/admin/products?store=${s.id}`}>Open product list</ButtonLink>}>

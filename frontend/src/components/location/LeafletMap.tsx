@@ -18,7 +18,7 @@ const pinIcon = (color: string) => L.divIcon({
  * Small Leaflet wrapper. A draggable pin (``value``/``onPinChange``), extra read-only markers,
  * an optional polygon and click handling (for drawing zones).
  */
-export default function LeafletMap({ value, onPinChange, markers = [], polygon, onMapClick, height = 280, label = 'Map', zoom = 15 }: MapProps) {
+export default function LeafletMap({ value, onPinChange, markers = [], polygon, onMapClick, height = 280, label = 'Map', zoom = 15, fitToMarkers = false }: MapProps) {
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const pin = useRef<L.Marker | null>(null)
@@ -63,7 +63,13 @@ export default function LeafletMap({ value, onPinChange, markers = [], polygon, 
     if (!group) return
     group.clearLayers()
     markers.forEach((mk) => L.marker([mk.lat, mk.lon], { icon: pinIcon(mk.color ?? '#b45309'), title: mk.label }).bindTooltip(mk.label ?? '').addTo(group))
-  }, [markers])
+    const m = map.current
+    if (fitToMarkers && m) {
+      const pts: L.LatLngExpression[] = [...markers.map((mk) => [mk.lat, mk.lon] as [number, number]), ...(value ? [[value.lat, value.lon] as [number, number]] : [])]
+      if (pts.length === 1) m.setView(pts[0]!, zoom, { animate: false })
+      else if (pts.length > 1) m.fitBounds(L.latLngBounds(pts), { padding: [32, 32], animate: false })
+    }
+  }, [markers, fitToMarkers, value, zoom])
 
   useEffect(() => {
     const m = map.current

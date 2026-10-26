@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import LeafletMap from './LeafletMap'
 import { MAP_PROVIDER, type MapProps } from './mapTypes'
 
-export { KERALA_CENTER, MAP_PROVIDER, type MapMarker } from './mapTypes'
+export { googleMapsDirections, googleMapsPlace, KERALA_CENTER, MAP_PROVIDER, type MapMarker } from './mapTypes'
 
 const GoogleMap = lazy(() => import('./GoogleMap'))
 

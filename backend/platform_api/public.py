@@ -88,7 +88,17 @@ class PublicStoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Store
-        fields = ["id", "name", "description", "city", "image", "rating"]
+        fields = ["id", "name", "description", "city", "image", "rating", "location"]
+
+    location = serializers.SerializerMethodField()
+
+    def get_location(self, obj):
+        """A shop's public address and map pin (for a map and directions). None until the pin is set."""
+        a = obj.address
+        if a is None or a.latitude is None or (not a.latitude and not a.longitude):
+            return None
+        return {"latitude": float(a.latitude), "longitude": float(a.longitude),
+                "address": ", ".join(x for x in (a.line1, a.line2, a.city, a.state, a.postal_code) if x)}
 
     def get_image(self, obj):
         return _url(obj.image)

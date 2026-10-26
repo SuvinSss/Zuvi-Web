@@ -41,6 +41,29 @@ VITE_GOOGLE_MAPS_BROWSER_KEY=your-web-key
 ```
 Restart Django. `GET /api/v1/geo/config/` should now report `"geocoder": "google", "router": "google", "map": "google"`. Without keys everything keeps working on OpenStreetMap with estimated distances.
 
+## Website: where Google Maps appears
+| Page | What it shows |
+|---|---|
+| Header "Delivering to" and Saved addresses | Search with Google suggestions ("Powered by Google"), use my location, drag-the-pin map (one-finger panning on phones) |
+| Checkout | Road distance from Google Routes in the delivery fee |
+| Order page (customer) | Map with the rider's last position, your address and the store; "Open in Google Maps" |
+| Store page (public) | Shop location map and "Get directions" |
+| Rider job page | Store and drop-off on one map; "Full route in Google Maps" (two-wheeler) and per-stop navigate links |
+| Admin store wizard / store Address tab | Place or check the store pin |
+| Admin delivery zones | Draw zones on the map |
+
+Links that open Google Maps (directions, "open in Google Maps") need no key and work even without the keys below.
+
+### Optional: Map ID (styled map, Google's newer pins)
+Google Maps Platform → **Map Management** → Create Map ID → type **JavaScript**, **Vector** → copy the ID into `frontend/.env` as `VITE_GOOGLE_MAPS_MAP_ID=...` and rebuild. With a Map ID the site uses Advanced Markers; you can then style the map under **Map Styles** and link the style to that Map ID. Without it the standard Google map and classic pins are used.
+
+### Website checklist
+1. `frontend/.env`: `VITE_GOOGLE_MAPS_BROWSER_KEY=<website key>` (and optional `VITE_GOOGLE_MAPS_MAP_ID`).
+2. Vite reads these **at build time**: restart `npm run dev`, and run `npm run build` again for production.
+3. The website key's referrers must include every address the site is opened from (`https://zuuvi.in/*`, `https://www.zuuvi.in/*`, any staging domain, `http://localhost:5173/*`).
+4. If you later add a Content-Security-Policy on your web server, allow `https://maps.googleapis.com` and `https://maps.gstatic.com` (scripts, images, connections) and `https://*.googleapis.com` for connections.
+5. Check: open Saved addresses → Add address. You should see a Google map, suggestions with "Powered by Google", and no "could not load" message. If the map shows "could not load", open the browser console: Google prints the exact reason (e.g. `RefererNotAllowedMapError`, `ApiNotActivatedMapError`, `BillingNotEnabledMapError`).
+
 ## 3. Mobile apps (Android / iOS)
 Apps use the same REST API with token authentication (`POST /api/v1/auth/token/`, then `Authorization: Token …`).
 1. On start, call `GET /api/v1/geo/config/` to learn whether search and road distance are on and which attribution to show.

@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { Package, Store } from 'lucide-react'
+import { MapPin, Navigation, Package, Store } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Pagination, QueryBoundary, Section, Stars } from '@/components/kit'
 import { ProductCard } from '@/components/shop'
 import { ReviewList } from '@/components/reviews'
+import { googleMapsDirections, MapView } from '@/components/location/MapView'
 import { Card, PageHeader } from '@/components/ui'
 import { getPublicStore, listPublicProducts, listStoreReviews } from '@/services/platform'
 
@@ -28,6 +29,18 @@ export default function StorePage() {
               <Pagination page={page} count={products.data?.count ?? 0} onPage={setPage} />
             </QueryBoundary>
           </Section>
+          {s.location && (
+            <Section title="Location">
+              <Card className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_16rem]">
+                <MapView height={240} label={`${s.name} on the map`} markers={[{ lat: s.location.latitude, lon: s.location.longitude, label: s.name, color: '#b45309' }]} fitToMarkers zoom={16} />
+                <div className="space-y-3 text-sm">
+                  <p className="flex gap-2"><MapPin className="mt-0.5 size-4 shrink-0 text-emerald" aria-hidden="true" />{s.location.address}</p>
+                  <a className="inline-flex min-h-11 items-center gap-2 font-semibold text-forest underline" target="_blank" rel="noreferrer"
+                    href={googleMapsDirections([s.location.latitude, s.location.longitude], null, 'driving')}><Navigation className="size-4" aria-hidden="true" />Get directions</a>
+                </div>
+              </Card>
+            </Section>
+          )}
           <Section title="Store reviews">
             <QueryBoundary query={reviews} skeleton="detail" isEmpty={reviews.data?.count === 0} empty={{ icon: Package, title: 'No reviews yet', text: 'Customers can review a store after their order is completed.' }}>
               <Card className="p-4"><ReviewList reviews={reviews.data?.results ?? []} /><Pagination page={reviewPage} count={reviews.data?.count ?? 0} onPage={setReviewPage} /></Card>

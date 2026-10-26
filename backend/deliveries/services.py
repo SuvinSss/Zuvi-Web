@@ -654,6 +654,9 @@ def tracking_snapshot(delivery: Delivery, *, for_customer=False) -> dict:
         data["location"] = {"is_stale": True, "recorded_at": None, "age_seconds": None}
     if delivery.dropoff_latitude is not None:
         data["dropoff"] = {"latitude": float(delivery.dropoff_latitude), "longitude": float(delivery.dropoff_longitude)}
+    # The store is a public place; its pin helps the customer read the tracking map.
+    data["pickup"] = ({"latitude": float(delivery.pickup_latitude), "longitude": float(delivery.pickup_longitude)}
+                      if delivery.pickup_latitude is not None and (delivery.pickup_latitude or delivery.pickup_longitude) else None)
     if for_customer and policy.require_otp() and delivery.status in (D.IN_TRANSIT, D.ARRIVED):
         data["otp"] = delivery_otp(delivery)
     return data

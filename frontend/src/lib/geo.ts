@@ -13,4 +13,4 @@ export function currentPosition(): Promise<Fix> {
 }
 
 export const mapsLink = (lat: number | string | null | undefined, lon: number | string | null | undefined) =>
-  lat === null || lat === undefined || lon === null || lon === undefined ? null : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`
+  lat === null || lat === undefined || lon === null || lon === undefined ? null : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=two-wheeler`

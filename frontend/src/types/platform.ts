@@ -21,7 +21,7 @@ export interface PublicProduct {
 export interface PublicProductDetail extends PublicProduct {
   images: { url: string | null; thumbnail: string | null; alt: string; is_primary: boolean }[]
 }
-export interface PublicStore { id: number; name: string; description: string; city: string; image: string | null; rating: Rating }
+export interface PublicStore { id: number; name: string; description: string; city: string; image: string | null; rating: Rating; location?: { latitude: number; longitude: number; address: string } | null }
 export interface Category { id: number; name: string }
 
 export interface PublicReview {
@@ -150,6 +150,7 @@ export interface TrackingDelivery {
   location: { latitude?: number; longitude?: number; accuracy_m?: number | null; recorded_at: string | null; age_seconds: number | null; is_stale: boolean } | null
   eta: string | null
   dropoff: { latitude: number; longitude: number } | null
+  pickup?: { latitude: number; longitude: number } | null
   timeline: { status: string; at: string; note: string }[]
   store_order_number: string
   store_name: string

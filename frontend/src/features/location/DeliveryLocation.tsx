@@ -138,7 +138,7 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
           <Button variant="secondary" icon={busy ? Loader2 : Crosshair} loading={busy} onClick={() => void locate()}>Use my current location</Button>
           {error && <Alert tone="error">{error}</Alert>}
           {warn && <Alert tone="warn">{warn}</Alert>}
-          <MapView value={pin} height={220} label="Tap or drag the pin to choose a place" onPinChange={(lat, lon) => { setPin({ lat, lon }); void choosePoint(lat, lon, 'Pinned location') }} />
+          <MapView gesture="greedy" value={pin} height={220} label="Tap or drag the pin to choose a place" onPinChange={(lat, lon) => { setPin({ lat, lon }); void choosePoint(lat, lon, 'Pinned location') }} />
           {pin && <Button onClick={onClose}>Done</Button>}
         </div>
       </div>

@@ -146,7 +146,7 @@ export function AddressPicker({ initial, saving, errors = {}, onSave, onCancel, 
             {opening && <p className="mt-1 text-xs text-muted" role="status">Opening place…</p>}
           </div>
           <p className="text-sm text-muted">Or tap the map where you are:</p>
-          <MapView value={pin} onPinChange={(lat, lon) => { movePin(lat, lon, 'PIN'); setStep('details') }} label="Tap to place your delivery pin" />
+          <MapView gesture="greedy" value={pin} onPinChange={(lat, lon) => { movePin(lat, lon, 'PIN'); setStep('details') }} label="Tap to place your delivery pin" />
         </div>
       )}
 
@@ -160,7 +160,7 @@ export function AddressPicker({ initial, saving, errors = {}, onSave, onCancel, 
               <p className="text-sm font-medium">Check the pin. Drag it to your exact gate or building.</p>
               <Button size="sm" variant="ghost" onClick={() => setStep('locate')}>Change location</Button>
             </div>
-            <MapView value={pin} onPinChange={(lat, lon) => movePin(lat, lon, 'PIN')} label="Delivery pin. Drag to adjust." />
+            <MapView gesture="greedy" value={pin} onPinChange={(lat, lon) => movePin(lat, lon, 'PIN')} label="Delivery pin. Drag to adjust." />
             {pin && <p className="mt-1 text-xs text-muted">Pin at {v.latitude}, {v.longitude}{v.location_accuracy_m ? ` · device accuracy about ${v.location_accuracy_m} m` : ''}</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
