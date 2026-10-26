@@ -440,5 +440,8 @@ LOCATION_GEOCODER_USER_AGENT = env('LOCATION_GEOCODER_USER_AGENT', default='Zuuv
 LOCATION_ROUTER = env('LOCATION_ROUTER', default='none')
 LOCATION_ROUTER_URL = env('LOCATION_ROUTER_URL', default='')
 LOCATION_PROVIDER_TIMEOUT = env.float('LOCATION_PROVIDER_TIMEOUT', default=5.0)
+# Google Maps Platform (server-side only; never sent to browsers or apps). See docs/google-maps-setup.md.
+GOOGLE_MAPS_SERVER_KEY = env('GOOGLE_MAPS_SERVER_KEY', default='')
+GOOGLE_ROUTES_TRAVEL_MODE = env('GOOGLE_ROUTES_TRAVEL_MODE', default='TWO_WHEELER')
 BUSINESS_TIME_ZONE = env('BUSINESS_TIME_ZONE', default='Asia/Kolkata')
 CHECKOUT_QUOTE_TTL_SECONDS = env.int('CHECKOUT_QUOTE_TTL_SECONDS', default=600)

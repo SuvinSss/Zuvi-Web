@@ -5,7 +5,7 @@ import { Alert, Button, Field, Input, Select, Textarea } from '@/components/ui'
 import { useDebounced } from '@/hooks/useDebounced'
 import { errorMessage } from '@/lib/api'
 import { currentPosition } from '@/lib/geo'
-import { reversePlace, searchPlaces } from '@/services/delivery'
+import { placeDetails, reversePlace, searchPlaces } from '@/services/delivery'
 import type { Place } from '@/types/delivery'
 import type { Address, AddressInput } from '@/types/platform'
 import { MapView } from './MapView'
@@ -41,9 +41,12 @@ export function AddressPicker({ initial, saving, errors = {}, onSave, onCancel, 
   const [confirmed, setConfirmed] = useState(Boolean(initial?.latitude))
   const [touched, setTouched] = useState<Set<string>>(new Set())
   const lookupSeq = useRef(0)
+  // One autocomplete session per search (typing + one selection), so the provider bills it once. Same token on web and apps.
+  const [session, setSession] = useState(() => crypto.randomUUID())
+  const [opening, setOpening] = useState(false)
 
   const q = useDebounced(query.trim(), 400)
-  const results = useQuery({ queryKey: ['geo-search', q], queryFn: () => searchPlaces(q), enabled: q.length >= 3, staleTime: 5 * 60_000, retry: false })
+  const results = useQuery({ queryKey: ['geo-search', q, session], queryFn: () => searchPlaces(q, session, v.latitude && v.longitude ? { lat: v.latitude, lon: v.longitude } : null), enabled: q.length >= 3 && query.trim() === q, staleTime: 5 * 60_000, retry: false })
   const pin = v.latitude && v.longitude ? { lat: Number(v.latitude), lon: Number(v.longitude) } : null
 
   const set = (changes: Partial<AddressInput>) => setV((cur) => ({ ...cur, ...changes }))
@@ -87,7 +90,18 @@ export function AddressPicker({ initial, saving, errors = {}, onSave, onCancel, 
     } finally { setLocating(false) }
   }
 
-  const choose = (p: Place) => {
+  const choose = async (picked: Place) => {
+    let p = picked
+    setQuery('')  // close suggestions first so a new session token never triggers another (billed) search
+    if (p.needs_details || !p.latitude) {
+      // Google suggestions carry no coordinates: fetch them with the same session token.
+      setOpening(true)
+      try {
+        const r = await placeDetails(p.place_id, session)
+        if (!r.result) { setMessage({ tone: 'info', text: r.detail ?? "We couldn't open that suggestion. Tap the map instead." }); return }
+        p = r.result
+      } catch { setMessage({ tone: 'info', text: "We couldn't open that suggestion. Tap the map instead." }); return } finally { setOpening(false); setSession(crypto.randomUUID()) }
+    }
     set({ latitude: p.latitude, longitude: p.longitude, location_source: 'SEARCH', location_accuracy_m: null })
     applyPlace(p); setConfirmed(false); setQuery(''); setStep('details')
   }
@@ -120,13 +134,16 @@ export function AddressPicker({ initial, saving, errors = {}, onSave, onCancel, 
               <ul role="listbox" aria-label="Address suggestions" className="mt-1 divide-y divide-line rounded-control border border-line bg-white">
                 {results.data.results.map((p) => (
                   <li key={`${p.place_id}-${p.latitude}`} role="option" aria-selected="false">
-                    <button type="button" onClick={() => choose(p)} className="flex min-h-11 w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-pale">
-                      <MapPin className="mt-0.5 size-4 shrink-0 text-emerald" aria-hidden="true" /><span>{p.label}</span>
+                    <button type="button" disabled={opening} onClick={() => void choose(p)} className="flex min-h-11 w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-pale disabled:opacity-60">
+                      <MapPin className="mt-0.5 size-4 shrink-0 text-emerald" aria-hidden="true" />
+                      <span>{p.secondary ? <><span className="font-medium">{p.line1}</span><span className="block text-xs text-muted">{p.secondary}</span></> : p.label}</span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
+            {results.data?.attribution && results.data.results.length > 0 && <p className="mt-1 text-right text-[0.7rem] text-muted">{results.data.attribution}</p>}
+            {opening && <p className="mt-1 text-xs text-muted" role="status">Opening place…</p>}
           </div>
           <p className="text-sm text-muted">Or tap the map where you are:</p>
           <MapView value={pin} onPinChange={(lat, lon) => { movePin(lat, lon, 'PIN'); setStep('details') }} label="Tap to place your delivery pin" />

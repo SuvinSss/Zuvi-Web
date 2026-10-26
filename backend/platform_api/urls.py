@@ -35,6 +35,8 @@ urlpatterns = [
     # location and delivery pricing
     path("geo/search/", logistics_api.GeoSearchView.as_view(), name="api_geo_search"),
     path("geo/reverse/", logistics_api.GeoReverseView.as_view(), name="api_geo_reverse"),
+    path("geo/place/", logistics_api.GeoPlaceView.as_view(), name="api_geo_place"),
+    path("geo/config/", logistics_api.GeoConfigView.as_view(), name="api_geo_config"),
     path("delivery/stores/", logistics_api.ServiceableStoresView.as_view(), name="api_serviceable_stores"),
     path("delivery/earnings/", logistics_api.PartnerEarningsView.as_view(), name="api_partner_earnings"),
     path("store/finance/", logistics_api.StoreFinanceView.as_view(), name="api_store_finance"),

@@ -14,10 +14,12 @@
 ## Providers (`backend/logistics/providers.py`)
 | Setting | Values | Default |
 |---|---|---|
-| `LOCATION_GEOCODER` | `none`, `nominatim` | `none` |
+| `LOCATION_GEOCODER` | `none`, `nominatim`, `google` | `none` |
 | `LOCATION_GEOCODER_URL` | base URL of a Nominatim-compatible server you may use | empty |
 | `LOCATION_GEOCODER_USER_AGENT` | identifying UA (required by Nominatim policy) | `Zuuvi/1.0 (ops@zuuvi.in)` |
-| `LOCATION_ROUTER` | `none`, `osrm` | `none` |
+| `LOCATION_ROUTER` | `none`, `osrm`, `google` | `none` |
+| `GOOGLE_MAPS_SERVER_KEY` | server-only Google key (see [google-maps-setup.md](google-maps-setup.md)) | empty |
+| `VITE_GOOGLE_MAPS_BROWSER_KEY` (frontend) | referrer-restricted key; switches the map to Google | empty |
 | `LOCATION_ROUTER_URL` | base URL of an OSRM server | empty |
 | `LOCATION_PROVIDER_TIMEOUT` | seconds | 5 |
 | `VITE_MAP_TILE_URL`, `VITE_MAP_ATTRIBUTION` (frontend) | map tile template and attribution | OpenStreetMap standard tiles |

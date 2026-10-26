@@ -2,8 +2,10 @@
 
 | Method & path | Who | Purpose |
 |---|---|---|
-| `GET geo/search/?q=` | anyone (throttled) | Address suggestions. `{results, available}`; `available:false` when no provider/failure. |
+| `GET geo/search/?q=&session=&lat=&lon=` | anyone (throttled) | Address suggestions. `{results, available, attribution}`; `available:false` when no provider/failure. `session` groups a typing session for billing; lat/lon bias results. |
 | `GET geo/reverse/?lat=&lon=` | anyone (throttled) | Address for a point. 400 for invalid coordinates. |
+| `GET geo/place/?id=&session=` | anyone (throttled) | Coordinates and address parts for a suggestion with `needs_details: true` (Google). |
+| `GET geo/config/` | anyone | Which providers are on (`map`, `search_available`, `road_distance`, `attribution`, `suggestions_need_details`). No keys. For web and mobile apps. |
 | `GET delivery/stores/?lat=&lon=` | anyone (throttled) | Active stores with `serviceable`, `reasons`, `distance_km`, `distance_source`, indicative `fee` (before order-size offers), `eta_minutes`. |
 | `POST checkout/quote/` `{fulfillment_type, delivery_address_id}` | customer | Server totals: per-store customer delivery view, `delivery_total`, `grand_total`, `quote_token` (expires after `CHECKOUT_QUOTE_TTL_SECONDS`, default 600). |
 | `POST checkout/` (+ `quote_token`, `Idempotency-Key` header) | customer | Places the order. Fees are recalculated server-side; client totals are ignored. If the total, cart, address or quote validity changed: **409** `{quote_token: ["The total changed from ₹X to ₹Y. Store: delivery ₹a → ₹b (offer no longer applies)"], price_changed: true}` and nothing is created. Same Idempotency-Key = same order. |

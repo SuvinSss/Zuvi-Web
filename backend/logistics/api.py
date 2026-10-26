@@ -64,12 +64,68 @@ class GeoSearchView(APIView):
         q = (request.query_params.get("q") or "").strip()
         if len(q) < 3:
             return Response({"results": [], "available": True})
+        session = _session(request.query_params.get("session"))
+        near = None
+        if request.query_params.get("lat") and request.query_params.get("lon"):
+            try:
+                near = _point(request.query_params)
+            except serializers.ValidationError:
+                near = None
+        geocoder = get_geocoder()
         try:
-            places = get_geocoder().search(q[:120])
+            places = geocoder.search(q[:120], session=session, near=near)
         except ProviderUnavailable:
             return Response({"results": [], "available": False,
                              "detail": "Address search is unavailable right now. Place the pin on the map or type the address."})
-        return Response({"results": [p.as_dict() for p in places], "available": True})
+        return Response({"results": [p.as_dict() for p in places], "available": True, "attribution": geocoder.attribution})
+
+
+def _session(value):
+    """Autocomplete session token from the client (web or app): groups typing + selection into one billed session."""
+    value = str(value or "")[:64]
+    return value if value and all(ch.isalnum() or ch in "-_" for ch in value) else ""
+
+
+class GeoPlaceView(APIView):
+    """Coordinates and address parts for a suggestion that came without them (Google suggestions)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "geo"
+
+    def get(self, request):
+        place_id = str(request.query_params.get("id") or "")[:255]
+        if not place_id:
+            raise serializers.ValidationError({"id": "Choose a suggestion."})
+        geocoder = get_geocoder()
+        try:
+            place = geocoder.details(place_id, session=_session(request.query_params.get("session")))
+        except ProviderUnavailable:
+            return Response({"result": None, "available": False,
+                             "detail": "We couldn't open that suggestion. Place the pin on the map instead."})
+        return Response({"result": place.as_dict(), "available": True, "attribution": geocoder.attribution})
+
+
+class GeoConfigView(APIView):
+    """What location features are switched on, for web and mobile clients. Contains no keys."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        from django.conf import settings
+        from .providers import get_router
+        geocoder, router = get_geocoder(), get_router()
+        return Response({
+            "geocoder": geocoder.name, "router": router.name,
+            "search_available": geocoder.name != "none", "road_distance": router.name != "none",
+            "map": "google" if geocoder.name == "google" else "osm",
+            "attribution": geocoder.attribution,
+            "suggestions_need_details": geocoder.name == "google",
+            "region": "IN", "default_center": {"latitude": 10.1632, "longitude": 76.6413},
+            "business_time_zone": getattr(settings, "BUSINESS_TIME_ZONE", "Asia/Kolkata"),
+        })
 
 
 class GeoReverseView(APIView):
@@ -107,7 +163,7 @@ class ServiceableStoresView(APIView):
                    "distance_km": None, "fee": None, "eta_minutes": None}
             if svc["serviceable"]:
                 try:
-                    q = quote_for_store(store, lat, lon, check_service=False)
+                    q = quote_for_store(store, lat, lon, check_service=False, estimate_only=True)
                     row.update(distance_km=q["distance_km"], distance_source=q["distance_source"], fee=q["customer_fee_before_discount"],
                                eta_minutes=q["eta_minutes"])
                 except DjangoValidationError as exc:

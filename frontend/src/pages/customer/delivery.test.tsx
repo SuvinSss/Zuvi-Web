@@ -21,7 +21,7 @@ vi.mock('@/components/location/MapView', () => ({
 vi.mock('@/services/auth', () => ({ fetchSession: vi.fn(), login: vi.fn(), logout: vi.fn() }))
 vi.mock('@/services/ops', () => ({ adminCounts: vi.fn(), adminSearch: vi.fn() }))
 vi.mock('@/services/delivery', () => ({
-  searchPlaces: vi.fn(), reversePlace: vi.fn(), serviceableStores: vi.fn(), checkoutQuote: vi.fn(), pricingVersions: vi.fn(),
+  searchPlaces: vi.fn(), reversePlace: vi.fn(), placeDetails: vi.fn(), serviceableStores: vi.fn(), checkoutQuote: vi.fn(), pricingVersions: vi.fn(),
   createPricingVersion: vi.fn(), simulate: vi.fn(), myEarnings: vi.fn(), storeFinance: vi.fn(), zones: vi.fn(), deliveryOperations: vi.fn(), adminEarnings: vi.fn(),
 }))
 vi.mock('@/services/platform', async (orig) => ({
@@ -87,6 +87,22 @@ describe('address picker', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /pin is at the right place/i }))
     await userEvent.click(save)
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ line1: 'Rose Villa', city: 'Paravur', location_source: 'SEARCH', location_confirmed: true, postal_code: '', latitude: '8.893200' }))
+  })
+
+  it('Google-style suggestions fetch coordinates with the same session token and show attribution', async () => {
+    vi.mocked(delivery.searchPlaces).mockResolvedValue({ available: true, attribution: 'Powered by Google',
+      results: [{ ...place, latitude: '', longitude: '', line1: 'Paravur Market', secondary: 'Paravur, Kerala', place_id: 'ChIJabc', needs_details: true }] })
+    vi.mocked(delivery.placeDetails).mockResolvedValue({ available: true, result: { ...place, place_id: 'ChIJabc' } })
+    wrap(<AddressPicker onSave={vi.fn()} />)
+    await userEvent.type(screen.getByLabelText(/search for your area/i), 'Paravur')
+    expect(await screen.findByText('Powered by Google')).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /Paravur Market/ }))
+    await waitFor(() => expect(delivery.placeDetails).toHaveBeenCalled())
+    const searchSession = vi.mocked(delivery.searchPlaces).mock.calls.at(-1)![1]
+    expect(new Set(vi.mocked(delivery.searchPlaces).mock.calls.map((c) => c[1])).size).toBe(1)  // no extra search after picking
+    expect(vi.mocked(delivery.placeDetails).mock.calls[0]).toEqual(['ChIJabc', searchSession])
+    expect(await screen.findByTestId('pin')).toHaveTextContent('8.8932,76.6141')
+    expect(screen.getByLabelText(/pin code/i)).toHaveValue('691301')
   })
 
   it('search being unavailable is explained, map pin still works', async () => {

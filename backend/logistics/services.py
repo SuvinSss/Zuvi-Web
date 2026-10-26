@@ -220,7 +220,7 @@ def serviceability(store, lat, lon, now=None) -> dict:
             "straight_line_km": None if straight is None else str(straight.quantize(Decimal("0.01")))}
 
 
-def quote_for_store(store, lat, lon, *, items_subtotal=Decimal("0"), now=None, heavy=False, check_service=True) -> dict:
+def quote_for_store(store, lat, lon, *, items_subtotal=Decimal("0"), now=None, heavy=False, check_service=True, estimate_only=False) -> dict:
     """Full delivery quote for one store and destination, or a ValidationError explaining why not."""
     if not valid_coordinates(lat, lon) or (not Decimal(str(lat)) and not Decimal(str(lon))):
         raise ValidationError({"address": "This address has no valid map location. Pin it on the map."})
@@ -231,8 +231,14 @@ def quote_for_store(store, lat, lon, *, items_subtotal=Decimal("0"), now=None, h
     zone = zone_for_point(lat, lon)
     version = active_version(zone=zone, now=now)
     try:
-        km, source, note = travel_distance(store_point(store), (lat, lon), fallback_factor=version.road_fallback_factor,
-                                           allow_estimate=version.allow_estimated_distance)
+        if estimate_only:
+            # Browsing lists use the straight-line estimate so every store shown does not cost a paid routing call.
+            straight = straight_line_km(store_point(store), (lat, lon))
+            km = (straight * Decimal(str(version.road_fallback_factor))).quantize(Decimal("0.001"))
+            source, note = "estimated", ""
+        else:
+            km, source, note = travel_distance(store_point(store), (lat, lon), fallback_factor=version.road_fallback_factor,
+                                               allow_estimate=version.allow_estimated_distance)
     except ProviderUnavailable:
         raise ValidationError({"detail": "We can't work out the road distance right now, so delivery can't be priced. Try again shortly or choose pickup."}) from None
     ctx = engine.TripContext(distance_km=km, items_subtotal=Decimal(items_subtotal), is_peak=is_peak(version, now),

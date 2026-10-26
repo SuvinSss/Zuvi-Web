@@ -1,6 +1,6 @@
 export interface Place {
   label: string; latitude: string; longitude: string; line1: string; locality: string; city: string; district: string
-  state: string; postal_code: string; country: string; place_id: string
+  state: string; postal_code: string; country: string; place_id: string; secondary?: string; needs_details?: boolean
 }
 export interface CustomerDelivery {
   distance_km: string; distance_source: 'road' | 'estimated' | 'manual'; customer_fee_before_discount: string; delivery_discount: string
