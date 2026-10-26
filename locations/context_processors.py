@@ -14,7 +14,7 @@ def delivery_location(request):
         ),
         "delivery_location": request.session.get("delivery_location"),
         "google_maps_config": {
-            "apiKey": settings.GOOGLE_MAPS_API_KEY,
+            "apiKey": settings.GOOGLE_MAPS_BROWSER_API_KEY,
             "mapId": settings.GOOGLE_MAPS_MAP_ID,
         },
     }

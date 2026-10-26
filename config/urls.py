@@ -36,6 +36,7 @@ urlpatterns = [
     path("", include("inventory.urls")),
     path("", include("customers.urls")),
     path("", include("locations.urls")),
+    path("api/v1/", include("geo.api.urls")),
 ]
 
 if settings.DEBUG:

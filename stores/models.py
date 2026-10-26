@@ -90,6 +90,23 @@ class Store(models.Model):
         validators=[validate_store_image],
     )
     is_active = models.BooleanField(default=True)
+    # Straight-line pre-filter radius. The final road distance comes from Google Routes.
+    delivery_radius_km = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("10.00"),
+        validators=[MinValueValidator(Decimal("0.5")), MaxValueValidator(Decimal("100"))],
+    )
+    # A store may take delivery orders (when quotes are enforced) only after its
+    # pin has been explicitly confirmed by the store or an administrator.
+    location_confirmed_at = models.DateTimeField(null=True, blank=True)
+    location_confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

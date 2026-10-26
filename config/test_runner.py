@@ -23,4 +23,10 @@ class IsolatedMediaTestRunner(DiscoverRunner):
                 'botocore.httpsession.URLLib3Session.send',
                 side_effect=AssertionError('AWS HTTP requests are forbidden in the normal test suite.'),
             ))
+            # Ordinary tests must never reach Google. Tests that exercise the client
+            # install their own fake transport with geo.google_client.set_transport().
+            stack.enter_context(patch(
+                'geo.google_client.requests.request',
+                side_effect=AssertionError('Google HTTP requests are forbidden in the normal test suite.'),
+            ))
             return super().run_tests(test_labels, **kwargs)

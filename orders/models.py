@@ -240,6 +240,16 @@ class Order(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0"))],
     )
+    # Delivery pricing evidence. The snapshot is written once at checkout and is
+    # never recomputed, so later pricing changes cannot rewrite historical charges.
+    delivery_quote = models.OneToOneField(
+        "geo.DeliveryQuote",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="order",
+    )
+    delivery_pricing_snapshot = models.JSONField(default=dict, blank=True)
     customer_notes = models.TextField(blank=True)
     cancellation_reason = models.TextField(blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -720,3 +730,50 @@ class StoreOrderStatusHistory(models.Model):
             self.store_order.store_order_number if self.store_order_id else "—"
         )
         return f"{number}: {old} → {self.new_status}"
+
+
+class DeliveryAssignmentStatus(models.TextChoices):
+    ASSIGNED = "ASSIGNED", "Assigned"
+    PICKED_UP = "PICKED_UP", "Picked up"
+    ARRIVED = "ARRIVED", "Arrived at drop-off"
+    CANCELLED = "CANCELLED", "Cancelled"
+
+
+class DeliveryAssignment(models.Model):
+    """A Delivery Partner assigned to deliver one StoreOrder.
+
+    Order and StoreOrder status changes still go through the existing status
+    services; this model only tracks the partner's progress and authorises what
+    the partner may see.
+    """
+
+    store_order = models.OneToOneField(
+        StoreOrder, on_delete=models.PROTECT, related_name="delivery_assignment"
+    )
+    agent = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="delivery_assignments"
+    )
+    status = models.CharField(
+        max_length=16, choices=DeliveryAssignmentStatus.choices, default=DeliveryAssignmentStatus.ASSIGNED
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    picked_up_at = models.DateTimeField(null=True, blank=True)
+    arrived_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-assigned_at"]
+        indexes = [models.Index(fields=["agent", "status"])]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+        if self.agent_id and self.agent.role != "DELIVERY_AGENT":
+            raise ValidationError({"agent": "Only Delivery Agent users can be assigned."})
+
+    def __str__(self):
+        return f"{self.store_order} -> {self.agent_id} ({self.status})"

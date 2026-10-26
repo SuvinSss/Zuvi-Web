@@ -11,6 +11,7 @@ from __future__ import annotations
 from decimal import Decimal
 from itertools import groupby
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
@@ -213,6 +214,8 @@ def _create_order_row(
     grand_total,
     customer_notes,
     delivery_address,
+    delivery_quote=None,
+    delivery_pricing_snapshot=None,
 ):
     """
     Insert the Order row.
@@ -232,6 +235,8 @@ def _create_order_row(
         "discount_total": discount_total,
         "grand_total": grand_total,
         "customer_notes": (customer_notes or "").strip(),
+        "delivery_quote": delivery_quote,
+        "delivery_pricing_snapshot": delivery_pricing_snapshot or {},
     }
     if fulfillment_type == FulfillmentType.DELIVERY:
         order_kwargs.update(_delivery_snapshot_fields(delivery_address))
@@ -264,6 +269,7 @@ def place_customer_order(
     customer_notes="",
     actor=None,
     request=None,
+    delivery_quote_id=None,
 ):
     """
     Place one multi-store Order from the authenticated Customer's cart.
@@ -323,6 +329,32 @@ def place_customer_order(
     ).quantize(Decimal("0.01"))
     delivery_charge = Decimal("0.00")
     discount_total = Decimal("0.00")
+    quote = None
+    quote_snapshot = None
+    legs_by_store_id = {}
+    if fulfillment_type == FulfillmentType.DELIVERY and (
+        delivery_quote_id or settings.DELIVERY_QUOTES_ENFORCED
+    ):
+        # The delivery fee is only ever taken from a server-calculated quote that
+        # is revalidated here against the live cart and address. No amount sent
+        # by the browser is read.
+        from geo import quotes as delivery_quotes
+        from geo.errors import MapsError
+
+        if not delivery_quote_id:
+            raise ValidationError(
+                {"delivery_quote": "Review your delivery fee before placing the order."}
+            )
+        try:
+            quote = delivery_quotes.lock_valid_quote(
+                customer, delivery_quote_id, delivery_address
+            )
+        except MapsError as exc:
+            raise ValidationError({"delivery_quote": exc.public_message}) from exc
+        quote_snapshot = delivery_quotes.build_order_snapshot(quote)
+        legs_by_store_id = {leg.store_id: leg for leg in quote.legs.all()}
+        delivery_charge = quote.delivery_fee_before_discount
+        discount_total = quote.delivery_discount
     grand_total = (items_subtotal + delivery_charge - discount_total).quantize(
         Decimal("0.01")
     )
@@ -338,11 +370,16 @@ def place_customer_order(
         grand_total=grand_total,
         customer_notes=customer_notes,
         delivery_address=delivery_address,
+        delivery_quote=quote,
+        delivery_pricing_snapshot=quote_snapshot,
     )
     if already_placed:
         # Another concurrent request with the same token won. Do not mutate
         # stock or cart again — the winner already completed checkout.
         return order
+
+    if quote is not None:
+        delivery_quotes.consume_quote(quote, order)
 
     ip_address = _client_ip(request)
     OrderStatusHistory.objects.create(
@@ -378,7 +415,11 @@ def place_customer_order(
             store_name=store.name,
             store_code=store.store_code,
             items_subtotal=store_subtotal,
-            delivery_charge=Decimal("0.00"),
+            delivery_charge=(
+                legs_by_store_id[store_id].fee_after_discount
+                if store_id in legs_by_store_id
+                else Decimal("0.00")
+            ),
             store_total=store_subtotal,
         )
         store_order.full_clean()

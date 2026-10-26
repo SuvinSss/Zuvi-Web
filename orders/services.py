@@ -498,6 +498,7 @@ def place_order(
     customer_notes="",
     actor=None,
     request=None,
+    delivery_quote_id=None,
 ):
     """
     Compatibility wrapper around the dedicated checkout service.
@@ -516,4 +517,5 @@ def place_order(
         customer_notes=customer_notes,
         actor=actor,
         request=request,
+        delivery_quote_id=delivery_quote_id,
     )

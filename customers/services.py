@@ -6,6 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.utils import timezone
 
 from accounts.audit_ip import get_client_ip
 from accounts.models import AdminAuditLog, Role
@@ -400,6 +401,13 @@ def _apply_location_fields(address, data):
     address.postal_code = data["postal_code"]
     address.latitude = data["latitude"]
     address.longitude = data["longitude"]
+    # Optional Google-derived metadata. Only the Place ID is kept, never Place content.
+    if "google_place_id" in data:
+        address.google_place_id = data.get("google_place_id") or ""
+    if data.get("location_source"):
+        address.location_source = data["location_source"]
+    if data.get("location_confirmed"):
+        address.location_confirmed_at = timezone.now()
 
 
 def _resolve_is_default_for_customer(*, customer, want_default, exclude_pk=None):

@@ -145,6 +145,7 @@ INSTALLED_APPS = [
     'inventory',
     'customers',
     'cart',
+    'geo',
     'orders',
 ]
 
@@ -180,9 +181,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Browser key: restrict to allowed website referrers and Maps JavaScript API.
+# Google Maps Platform. Two separate keys; never reuse one for both roles.
+#  * Browser key: restricted by HTTP referrer and to Maps JavaScript API + Places API (New).
+#    GOOGLE_MAPS_API_KEY is the legacy name and is still honoured as the browser key.
+#  * Server key: used only by Django for Geocoding, Routes and Address Validation. It is
+#    restricted by outbound IP / deployment environment and by API. It is never sent to a
+#    browser, written to a response or logged.
 GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY', default='')
+GOOGLE_MAPS_BROWSER_API_KEY = env('GOOGLE_MAPS_BROWSER_API_KEY', default=GOOGLE_MAPS_API_KEY)
+GOOGLE_MAPS_SERVER_API_KEY = env('GOOGLE_MAPS_SERVER_API_KEY', default='')
 GOOGLE_MAPS_MAP_ID = env('GOOGLE_MAPS_MAP_ID', default='DEMO_MAP_ID' if DEBUG else '')
+GOOGLE_MAPS_REGION = env('GOOGLE_MAPS_REGION', default='IN')
+GOOGLE_MAPS_LANGUAGE = env('GOOGLE_MAPS_LANGUAGE', default='en')
+# Routes API behaviour. TWO_WHEELER or DRIVE. Verify availability for your region in
+# the current Routes API documentation before changing.
+GOOGLE_ROUTES_TRAVEL_MODE = env('GOOGLE_ROUTES_TRAVEL_MODE', default='TWO_WHEELER')
+if GOOGLE_ROUTES_TRAVEL_MODE not in {'DRIVE', 'TWO_WHEELER'}:
+    raise ImproperlyConfigured('GOOGLE_ROUTES_TRAVEL_MODE must be DRIVE or TWO_WHEELER.')
+GOOGLE_HTTP_TIMEOUT_SECONDS = env.float('GOOGLE_HTTP_TIMEOUT_SECONDS', default=5.0)
+# Short-lived duplicate-request suppression only. 0 disables it. Google's service
+# terms limit what route content may be cached; see docs/google-maps-platform-setup.md.
+GOOGLE_ROUTES_CACHE_TTL_SECONDS = env.int('GOOGLE_ROUTES_CACHE_TTL_SECONDS', default=600)
+GOOGLE_ADDRESS_VALIDATION_ENABLED = env.bool('GOOGLE_ADDRESS_VALIDATION_ENABLED', default=False)
+
+# Delivery quotes. When enforced, delivery orders require a valid, unexpired,
+# server-calculated quote and store eligibility rules are applied at checkout.
+# Defaults to off so existing checkout behaviour is unchanged until it is enabled.
+DELIVERY_QUOTES_ENFORCED = env.bool('DELIVERY_QUOTES_ENFORCED', default=False)
+DELIVERY_QUOTE_TTL_SECONDS = env.int('DELIVERY_QUOTE_TTL_SECONDS', default=900)
+if DELIVERY_QUOTE_TTL_SECONDS < 60:
+    raise ImproperlyConfigured('DELIVERY_QUOTE_TTL_SECONDS must be at least 60.')
 
 
 # Database
@@ -332,6 +360,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
+    'DEFAULT_THROTTLE_CLASSES': [],
+    'DEFAULT_THROTTLE_RATES': {
+        # Paid Google calls are throttled per authenticated user.
+        'geo_geocode': env('THROTTLE_GEO_GEOCODE', default='30/min'),
+        'geo_route': env('THROTTLE_GEO_ROUTE', default='30/min'),
+        'geo_quote': env('THROTTLE_GEO_QUOTE', default='20/min'),
+        'geo_admin': env('THROTTLE_GEO_ADMIN', default='20/min'),
+        'geo_public': env('THROTTLE_GEO_PUBLIC', default='60/min'),
+        'auth_login': env('THROTTLE_AUTH_LOGIN', default='10/min'),
+    },
+    'EXCEPTION_HANDLER': 'geo.api.errors.api_exception_handler',
 }
 
 # Customer authentication integrations. Secrets are supplied separately per environment.

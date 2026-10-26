@@ -4,6 +4,13 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+class LocationSource(models.TextChoices):
+    MANUAL = "MANUAL", "Entered manually"
+    PLACE_SEARCH = "PLACE_SEARCH", "Chosen from search"
+    CURRENT_LOCATION = "CURRENT_LOCATION", "Device location"
+    MAP_PIN = "MAP_PIN", "Adjusted on the map"
+
+
 class Address(models.Model):
     line1 = models.CharField(max_length=255)
     line2 = models.CharField(max_length=255, blank=True)
@@ -15,6 +22,14 @@ class Address(models.Model):
     country = models.CharField(max_length=100, default="India")
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    # Google Place IDs may be stored indefinitely under Google's terms; other Place
+    # content (names, photos, reviews) is deliberately not stored.
+    google_place_id = models.CharField(max_length=255, blank=True)
+    location_source = models.CharField(
+        max_length=20, choices=LocationSource.choices, default=LocationSource.MANUAL
+    )
+    # Set when the user confirmed the pin position on the map.
+    location_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
