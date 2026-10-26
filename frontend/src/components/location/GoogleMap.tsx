@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { GOOGLE_BROWSER_KEY, GOOGLE_MAP_ID, KERALA_CENTER, type MapProps } from './mapTypes'
+import { googleKey, googleMapId, KERALA_CENTER, type MapProps } from './mapTypes'
 
 let loader: Promise<void> | null = null
 
@@ -11,7 +11,7 @@ function loadGoogle(): Promise<void> {
     const cb = '__zuuviGoogleMapsReady'
     ;(window as unknown as Record<string, () => void>)[cb] = () => resolve()
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_BROWSER_KEY)}&v=weekly&loading=async&region=IN&language=en&callback=${cb}`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleKey())}&v=weekly&loading=async&region=IN&language=en&callback=${cb}`
     s.async = true
     s.onerror = () => { loader = null; reject(new Error('Google Maps could not load.')) }
     // Google calls this when the key is rejected (wrong referrer, API not enabled, billing off).
@@ -27,7 +27,7 @@ const PIN_PATH = 'M12 2C8 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3-7-7-7z'
 interface Handle { setPosition: (p: google.maps.LatLngLiteral) => void; remove: () => void; onDragEnd: (fn: (p: google.maps.LatLngLiteral) => void) => void }
 
 function makeMarker(map: google.maps.Map, position: google.maps.LatLngLiteral, color: string, title: string, draggable: boolean): Handle {
-  if (GOOGLE_MAP_ID && google.maps.marker?.AdvancedMarkerElement) {
+  if (googleMapId() && google.maps.marker?.AdvancedMarkerElement) {
     const pin = new google.maps.marker.PinElement({ background: color, borderColor: '#ffffff', glyphColor: '#ffffff', scale: 1.15 })
     const m = new google.maps.marker.AdvancedMarkerElement({ map, position, title, content: pin.element, gmpDraggable: draggable })
     return {
@@ -69,7 +69,7 @@ export default function GoogleMap({ value, onPinChange, markers = [], polygon, o
       await google.maps.importLibrary('marker')
       const m = new Map(el.current, {
         center: value ? { lat: value.lat, lng: value.lon } : { lat: KERALA_CENTER[0], lng: KERALA_CENTER[1] }, zoom: value ? zoom : 8,
-        ...(GOOGLE_MAP_ID ? { mapId: GOOGLE_MAP_ID } : {}),
+        ...(googleMapId() ? { mapId: googleMapId() } : {}),
         // "greedy" = one finger moves the map (picking a pin on a phone); "cooperative" = page scrolls, two fingers move the map.
         gestureHandling: gesture, streetViewControl: false, mapTypeControl: false, fullscreenControl: false, clickableIcons: false,
       })

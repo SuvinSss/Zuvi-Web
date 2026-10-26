@@ -3,7 +3,7 @@ import { QueryBoundary, Status, useToast } from '@/components/kit'
 import { Alert, Button, Card, PageHeader } from '@/components/ui'
 import { errorMessage } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-import { GOOGLE_MAP_ID, MAP_PROVIDER } from '@/components/location/mapTypes'
+import { GOOGLE_BROWSER_KEY, GOOGLE_MAP_ID } from '@/components/location/mapTypes'
 import { mapsStatus, runMapsHealthCheck, type MapsCheck, type MapsService } from '@/services/delivery'
 
 const SERVICES: { key: MapsService; name: string; note: string }[] = [
@@ -34,6 +34,7 @@ export default function MapsStatusPage() {
     onError: (e) => toast('error', errorMessage(e)),
   })
   const c = q.data?.configuration
+  const websiteGoogle = Boolean(GOOGLE_BROWSER_KEY || c?.browser_key_present)
   return (
     <div className="space-y-5">
       <PageHeader title="Google Maps status" subtitle="Whether the Google services behind address search, maps and delivery distance are set up and answering." />
@@ -47,6 +48,7 @@ export default function MapsStatusPage() {
               <h2 className="text-lg font-semibold text-forest">Configuration</h2>
               <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                 <div className="flex justify-between"><dt className="text-muted">Server key</dt><dd>{c.server_key_present ? 'Present' : 'Missing'}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted">Website map key</dt><dd>{c.browser_key_present || GOOGLE_BROWSER_KEY ? 'Present' : 'Missing'}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Address search / lookup</dt><dd>{c.geocoder}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Road distance</dt><dd>{c.router}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted">Travel mode</dt><dd>{c.travel_mode}</dd></div>
@@ -59,8 +61,8 @@ export default function MapsStatusPage() {
             </Card>
             <Card className="space-y-1 p-4">
               <h2 className="text-lg font-semibold text-forest">Website map (this build)</h2>
-              <p className="text-sm" data-testid="website-map">{MAP_PROVIDER === 'google' ? `Google Maps${GOOGLE_MAP_ID ? ' with a Map ID (Advanced Markers)' : ' (classic markers; add VITE_GOOGLE_MAPS_MAP_ID for Advanced Markers)'}` : 'OpenStreetMap. This build has no web key, so Google Maps is not used on the website.'}</p>
-              {MAP_PROVIDER !== 'google' && <Alert tone="warn">Set VITE_GOOGLE_MAPS_BROWSER_KEY in frontend/.env and rebuild (or restart npm run dev). The key is read when the site is built, not at runtime.</Alert>}
+              <p className="text-sm" data-testid="website-map">{websiteGoogle ? `Google Maps${GOOGLE_MAP_ID || c.map_id_present ? ' with a Map ID (Advanced Markers)' : ' (classic markers; add a Map ID for Advanced Markers)'}` : 'OpenStreetMap. No website map key is set, so Google Maps is not used on the website.'}</p>
+              {!websiteGoogle && <Alert tone="warn">Set GOOGLE_MAPS_BROWSER_KEY in backend/.env and restart Django (no frontend rebuild needed). Or set VITE_GOOGLE_MAPS_BROWSER_KEY in frontend/.env and rebuild.</Alert>}
             </Card>
             <div className="flex items-center gap-3">
               <Button onClick={() => run.mutate()} disabled={run.isPending}>{run.isPending ? 'Checking…' : 'Run health check'}</Button>

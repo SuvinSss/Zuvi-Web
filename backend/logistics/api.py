@@ -121,6 +121,9 @@ class GeoConfigView(APIView):
             "geocoder": geocoder.name, "router": router.name,
             "search_available": geocoder.name != "none", "road_distance": router.name != "none",
             "map": "google" if geocoder.name == "google" else "osm",
+            # The browser key is public by design (referrer-restricted). The server key is never returned.
+            "browser_key": getattr(settings, "GOOGLE_MAPS_BROWSER_KEY", ""),
+            "map_id": getattr(settings, "GOOGLE_MAPS_MAP_ID", ""),
             "attribution": geocoder.attribution,
             "suggestions_need_details": geocoder.name == "google",
             "region": "IN", "default_center": {"latitude": 10.1632, "longitude": 76.6413},

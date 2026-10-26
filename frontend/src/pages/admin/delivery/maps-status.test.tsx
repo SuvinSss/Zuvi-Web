@@ -14,7 +14,7 @@ import * as delivery from '@/services/delivery'
 const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><ToastProvider><MemoryRouter>{ui}</MemoryRouter></ToastProvider></QueryClientProvider>)
 
 const status = (over = {}) => ({
-  configuration: { server_key_present: true, geocoder: 'google', router: 'google', travel_mode: 'TWO_WHEELER', timeout_seconds: 5, store_pin_confirmation_required: false },
+  configuration: { server_key_present: true, browser_key_present: false, map_id_present: false, geocoder: 'google', router: 'google', travel_mode: 'TWO_WHEELER', timeout_seconds: 5, store_pin_confirmation_required: false },
   checks: { PLACES: { latest: null, last_success_at: null }, GEOCODING: { latest: null, last_success_at: null }, ROUTES: { latest: null, last_success_at: null } },
   ...over,
 })
@@ -34,7 +34,7 @@ describe('Google Maps status page', () => {
     vi.mocked(delivery.mapsStatus).mockResolvedValue(status({ configuration: { ...status().configuration, server_key_present: false, geocoder: 'none', router: 'none' } }) as never)
     wrap(<MapsStatusPage />)
     expect(await screen.findByText(/Google is not fully switched on/)).toBeInTheDocument()
-    expect(screen.getByText('Missing')).toBeInTheDocument()
+    expect(screen.getAllByText('Missing').length).toBeGreaterThan(0)
   })
 
   it('runs a health check and shows a rejected key in plain language', async () => {
@@ -90,6 +90,15 @@ describe('website map provider', () => {
     vi.mocked(delivery.mapsStatus).mockResolvedValue(status() as never)
     wrap(<MapsStatusPage />)
     expect(await screen.findByTestId('website-map')).toHaveTextContent(/OpenStreetMap/)
-    expect(screen.getByText(/VITE_GOOGLE_MAPS_BROWSER_KEY/)).toBeInTheDocument()
+    expect(screen.getByText(/GOOGLE_MAPS_BROWSER_KEY in backend/)).toBeInTheDocument()
+  })
+})
+
+describe('website map key from the backend', () => {
+  it('reports Google for the website when the backend supplies the browser key', async () => {
+    vi.mocked(delivery.mapsStatus).mockResolvedValue(status({ configuration: { ...status().configuration, browser_key_present: true, map_id_present: true } }) as never)
+    wrap(<MapsStatusPage />)
+    expect(await screen.findByTestId('website-map')).toHaveTextContent(/Google Maps with a Map ID/)
+    expect(screen.queryByText(/No website map key/)).not.toBeInTheDocument()
   })
 })

@@ -101,3 +101,6 @@ See also [troubleshooting](google-maps-troubleshooting.md), [location and addres
 
 ## Where maps appear on the website
 Address picker (header "Delivering to" and Saved addresses), the Saved addresses overview, the checkout "Deliver to" pin, order tracking, the public store page, the rider job page, admin store pages and Delivery operations. Other pages (home, shop, product, cart) have no map. If a map is OpenStreetMap instead of Google, the build has no `VITE_GOOGLE_MAPS_BROWSER_KEY`: Admin → Google Maps status shows which one this build uses.
+
+## Website map key without rebuilding
+Besides `VITE_GOOGLE_MAPS_BROWSER_KEY` (read when the frontend is built), the website also takes the key from the backend at run time. Set `GOOGLE_MAPS_BROWSER_KEY` (and optionally `GOOGLE_MAPS_MAP_ID`) in `backend/.env`, restart Django, and reload the site: maps switch from OpenStreetMap to Google with no frontend rebuild. `GET /api/v1/geo/config/` then returns `browser_key` and `map_id`. This is the **web key** only (Maps JavaScript API, referrer-restricted), which is public by design. The server key is never returned. A build-time key, if set, wins.

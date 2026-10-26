@@ -54,6 +54,8 @@ def maps_status() -> dict:
         # "present" only means a value is set; the checks below show whether Google accepts it.
         "configuration": {
             "server_key_present": bool(getattr(settings, "GOOGLE_MAPS_SERVER_KEY", "")),
+            "browser_key_present": bool(getattr(settings, "GOOGLE_MAPS_BROWSER_KEY", "")),
+            "map_id_present": bool(getattr(settings, "GOOGLE_MAPS_MAP_ID", "")),
             "geocoder": geocoder.name,
             "router": router.name,
             "travel_mode": getattr(settings, "GOOGLE_ROUTES_TRAVEL_MODE", "TWO_WHEELER"),

@@ -443,6 +443,10 @@ LOCATION_ROUTER_URL = env('LOCATION_ROUTER_URL', default='')
 LOCATION_PROVIDER_TIMEOUT = env.float('LOCATION_PROVIDER_TIMEOUT', default=5.0)
 # Google Maps Platform (server-side only; never sent to browsers or apps). See docs/google-maps-setup.md.
 GOOGLE_MAPS_SERVER_KEY = env('GOOGLE_MAPS_SERVER_KEY', default='')
+# Public browser key (Maps JavaScript API only, restricted to your site's referrers). Served to the website
+# by /api/v1/geo/config/ so it can be changed without rebuilding the frontend. NEVER put the server key here.
+GOOGLE_MAPS_BROWSER_KEY = env('GOOGLE_MAPS_BROWSER_KEY', default='')
+GOOGLE_MAPS_MAP_ID = env('GOOGLE_MAPS_MAP_ID', default='')
 GOOGLE_ROUTES_TRAVEL_MODE = env('GOOGLE_ROUTES_TRAVEL_MODE', default='TWO_WHEELER')
 # When True, a store can only take delivery orders after a manager confirms its map pin.
 STORE_PIN_CONFIRMATION_REQUIRED = env.bool('STORE_PIN_CONFIRMATION_REQUIRED', default=False)

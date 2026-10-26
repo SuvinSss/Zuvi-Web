@@ -107,6 +107,13 @@ class GoogleApiTests(Base):
         self.assertEqual((r["map"], r["suggestions_need_details"], r["attribution"]), ("google", True, "Powered by Google"))
         self.assertNotIn("test-key", str(r))
 
+    def test_config_serves_only_the_public_browser_key(self):
+        with override_settings(GOOGLE_MAPS_BROWSER_KEY="web-key", GOOGLE_MAPS_MAP_ID="MAPID"):
+            r = self.client.get("/api/v1/geo/config/").json()
+        self.assertEqual((r["browser_key"], r["map_id"]), ("web-key", "MAPID"))
+        self.assertNotIn("test-key", str(r))  # the server key never appears
+        self.assertEqual(self.client.get("/api/v1/geo/config/").json()["browser_key"], "")
+
     def test_search_then_details_flow(self):
         with mock.patch.object(providers, "_http_post_json", return_value=AUTOCOMPLETE):
             r = self.client.get("/api/v1/geo/search/?q=Paravur&session=abc-123&lat=8.9&lon=76.6").json()

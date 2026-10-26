@@ -4,7 +4,7 @@ import type { CheckoutQuote, Earning, Operations, Place, PricingBreakdown, Prici
 const get = async <T>(url: string, params?: object) => (await api.get<T>(url, { params })).data
 const post = async <T>(url: string, body?: unknown) => (await api.post<T>(url, body)).data
 
-export interface GeoConfig { geocoder: string; router: string; search_available: boolean; road_distance: boolean; map: 'google' | 'osm'; attribution: string; suggestions_need_details: boolean }
+export interface GeoConfig { browser_key?: string; map_id?: string; geocoder: string; router: string; search_available: boolean; road_distance: boolean; map: 'google' | 'osm'; attribution: string; suggestions_need_details: boolean }
 export const geoConfig = () => get<GeoConfig>('/geo/config/')
 export const searchPlaces = (q: string, session?: string, near?: { lat: string; lon: string } | null) =>
   get<{ results: Place[]; available: boolean; detail?: string; attribution?: string }>('/geo/search/', { q, ...(session ? { session } : {}), ...(near ? { lat: near.lat, lon: near.lon } : {}) })
@@ -27,7 +27,7 @@ export const markEarningsPaid = (ids: number[], payout_reference: string) => pos
 export interface MapsCheck { ok: boolean; error_code: string; message: string; latency_ms: number | null; checked_at: string }
 export type MapsService = 'PLACES' | 'GEOCODING' | 'ROUTES'
 export interface MapsStatus {
-  configuration: { server_key_present: boolean; geocoder: string; router: string; travel_mode: string; timeout_seconds: number; store_pin_confirmation_required: boolean }
+  configuration: { server_key_present: boolean; browser_key_present: boolean; map_id_present: boolean; geocoder: string; router: string; travel_mode: string; timeout_seconds: number; store_pin_confirmation_required: boolean }
   checks: Record<MapsService, { latest: MapsCheck | null; last_success_at: string | null }>
 }
 export const mapsStatus = () => get<MapsStatus>('/admin/maps/status/')
