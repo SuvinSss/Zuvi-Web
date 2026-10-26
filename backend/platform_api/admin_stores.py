@@ -22,6 +22,7 @@ from reviews.models import RatingAggregate, TargetType
 from stores import management as svc
 from stores.decorators import user_has_store_permission
 from stores.models import Store, StoreCategory, StoreDocument, StoreStatus, StoreType, StoreUser, VerificationStatus
+from logistics.services import store_location_problems
 from stores.status import allowed_next_statuses
 
 from .analytics import _safe
@@ -86,6 +87,8 @@ class AddressIn(serializers.Serializer):
     country = serializers.CharField(max_length=100, required=False)
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=-90, max_value=90, required=False)
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=-180, max_value=180, required=False)
+    # Not stored on the address: records that a manager checked the pin (see Store.location_confirmed_at).
+    confirm_location = serializers.BooleanField(required=False)
 
 
 class OwnerIn(serializers.Serializer):
@@ -178,6 +181,12 @@ class AdminStoreDetailView(APIView):
             "created_by": s.created_by.get_username() if s.created_by_id else None,
             "address": {k: (str(getattr(a, k)) if k in ("latitude", "longitude") else getattr(a, k)) for k in svc.ADDRESS_FIELDS},
             "operational_gaps": svc.operational_gaps(s),
+            "location": {
+                "confirmed": s.location_confirmed_at is not None,
+                "confirmed_at": s.location_confirmed_at,
+                "confirmed_by": s.location_confirmed_by.get_username() if s.location_confirmed_by_id else None,
+                "problems": store_location_problems(s),
+            },
             "next_statuses": sorted(allowed_next_statuses(s.status)),
             "counts": {"products": sum(products.values()), "products_by_status": products,
                        "orders": orders.count(),

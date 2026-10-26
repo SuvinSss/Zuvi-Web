@@ -142,6 +142,11 @@ class Store(models.Model):
     # Serviceability: a radius around the store, or a drawn zone (logistics.PricingZone polygon).
     service_mode = models.CharField(max_length=8, choices=[("RADIUS", "Radius around the store"), ("ZONE", "Drawn service zone")], default="RADIUS")
     service_zone = models.ForeignKey("logistics.PricingZone", null=True, blank=True, on_delete=models.SET_NULL, related_name="stores")
+    # Set when a manager confirms the map pin sits at the real pickup door; cleared if the pin moves.
+    location_confirmed_at = models.DateTimeField(null=True, blank=True)
+    location_confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+    )
     prep_time_minutes = models.PositiveSmallIntegerField(default=15, help_text="Typical time to have an order ready for pickup.")
     opening_hours = models.JSONField(default=dict, blank=True)
     closures = models.JSONField(default=list, blank=True)

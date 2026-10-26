@@ -166,6 +166,8 @@ def store_location_problems(store) -> list[str]:
         problems.append("Map location is invalid.")
     elif not (Decimal("8") <= Decimal(point[0]) <= Decimal("13") and Decimal("74") <= Decimal(point[1]) <= Decimal("78")):
         problems.append("Map location is outside Kerala. Check the latitude and longitude are not swapped.")
+    if getattr(settings, "STORE_PIN_CONFIRMATION_REQUIRED", False) and point is not None and not store.location_confirmed_at:
+        problems.append("The map pin has not been confirmed. Check it sits at the pickup door, then confirm it.")
     if store.offers_delivery:
         if store.service_mode == "ZONE":
             if not store.service_zone_id or len((store.service_zone.polygon if store.service_zone_id else []) or []) < 3:
@@ -209,6 +211,8 @@ def serviceability(store, lat, lon, now=None) -> dict:
     straight = None
     if origin is None:
         reasons.append("Store location is not set.")
+    elif getattr(settings, "STORE_PIN_CONFIRMATION_REQUIRED", False) and not store.location_confirmed_at:
+        reasons.append("Store location has not been confirmed yet.")
     else:
         straight = straight_line_km(origin, (lat, lon))
         if store.service_mode == "ZONE" and store.service_zone_id:

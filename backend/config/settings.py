@@ -393,6 +393,7 @@ REST_FRAMEWORK = {
         'register': env('API_THROTTLE_REGISTER', default='10/hour'),
         'geo': env('API_THROTTLE_GEO', default='30/min'),
         'quote': env('API_THROTTLE_QUOTE', default='60/min'),
+        'maps_check': env('API_THROTTLE_MAPS_CHECK', default='10/hour'),
     },
 }
 SPECTACULAR_SETTINGS = {
@@ -443,5 +444,7 @@ LOCATION_PROVIDER_TIMEOUT = env.float('LOCATION_PROVIDER_TIMEOUT', default=5.0)
 # Google Maps Platform (server-side only; never sent to browsers or apps). See docs/google-maps-setup.md.
 GOOGLE_MAPS_SERVER_KEY = env('GOOGLE_MAPS_SERVER_KEY', default='')
 GOOGLE_ROUTES_TRAVEL_MODE = env('GOOGLE_ROUTES_TRAVEL_MODE', default='TWO_WHEELER')
+# When True, a store can only take delivery orders after a manager confirms its map pin.
+STORE_PIN_CONFIRMATION_REQUIRED = env.bool('STORE_PIN_CONFIRMATION_REQUIRED', default=False)
 BUSINESS_TIME_ZONE = env('BUSINESS_TIME_ZONE', default='Asia/Kolkata')
 CHECKOUT_QUOTE_TTL_SECONDS = env.int('CHECKOUT_QUOTE_TTL_SECONDS', default=600)

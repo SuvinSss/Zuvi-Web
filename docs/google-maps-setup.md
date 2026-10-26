@@ -86,3 +86,15 @@ No Google server calls are needed from the app.
 | "Address search is unavailable" | `LOCATION_GEOCODER` not `google`, missing server key, Places API (New) not enabled, IP restriction doesn't match the server, quota/billing |
 | Map says "could not load" | Missing/blocked browser key, referrer not allowed, Maps JavaScript API not enabled |
 | Checkout says distance is estimated | Routes API not enabled or failing; see the Django log line "Routing unavailable" (keys are never logged) |
+
+## 5. Check that it works (admin diagnostics)
+Admin → Delivery operations → **Google Maps status** (`GET /api/v1/admin/maps/status/`) shows which provider each feature uses, whether the server key is set (never the key itself) and the last recorded check of each Google service.
+
+**Run health check** (`POST /api/v1/admin/maps/health-check/`, needs the delivery-pricing permission, limited to 10 per hour) makes one small live request each to Places, Geocoding and Routes and records the result: working, or why not (`KEY_REJECTED`, `QUOTA_EXCEEDED`, `TIMEOUT`, `NETWORK`, `BAD_RESPONSE`, `NOT_CONFIGURED`). It spends a little paid quota, so use it after changing keys or restrictions rather than on a timer. A key marked "present" is not proof Google accepts it; only a passing check is.
+
+## 6. Store map pins
+Delivery fees are measured from the store's pin, so a wrong pin means a wrong fee. Admin → Stores → a store → **Address** shows the pin and whether a manager has confirmed it. **Confirm this pin** records who and when; moving the pin clears the confirmation.
+
+By default an unconfirmed pin is only flagged. Set `STORE_PIN_CONFIRMATION_REQUIRED=True` to make unconfirmed stores unserviceable (they disappear from delivery lists and quotes) once every active store has been confirmed. Confirm the existing stores first or they will stop taking delivery orders.
+
+See also [troubleshooting](google-maps-troubleshooting.md), [location and address system](location-and-address-system.md) and [delivery pricing](delivery-pricing-algorithm.md).

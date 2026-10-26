@@ -18,6 +18,7 @@ const SetupAccountPage = L(() => import('@/pages/auth/SetupAccountPage'))
 const ProductWizard = L(() => import('@/pages/admin/products/ProductWizard'))
 const DeliveryPricingPage = L(() => import('@/pages/admin/delivery/DeliveryPricingPage'))
 const DeliveryOperationsPage = L(() => import('@/pages/admin/delivery/DeliveryOperationsPage'))
+const MapsStatusPage = L(() => import('@/pages/admin/delivery/MapsStatusPage'))
 const EarningsPage = L(() => import('@/pages/delivery/EarningsPage'))
 const StoreFinancePage = L(() => import('@/pages/store/StoreFinancePage'))
 const NotFoundPage = L(() => import('@/pages/NotFoundPage'))
@@ -207,6 +208,7 @@ export const routes: RouteObject[] = [
         { path: 'approvals', element: R(ApprovalCenter) },
         { path: 'delivery-pricing', element: page(<DeliveryPricingPage />) },
         { path: 'delivery-operations', element: page(<DeliveryOperationsPage />) },
+        { path: 'maps-status', element: page(<MapsStatusPage />) },
         { path: 'approvals/:module', element: R(ApprovalQueue) },
         { path: 'imports', element: R(ImportJobs) },
         { path: 'partners', element: R(AdminPartners) },

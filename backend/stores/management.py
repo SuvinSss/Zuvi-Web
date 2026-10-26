@@ -332,11 +332,23 @@ def update_managed_store(*, actor, store, data=None, address=None, request=None)
     if "name" in changed and store.creation_source == CreationSource.ADMIN:
         store.slug = unique_slug(store.name, exclude_pk=store.pk)
     if address:
+        address = dict(address)
+        confirm_location = bool(address.pop("confirm_location", False))
         addr = store.address
+        pin_before = (addr.latitude, addr.longitude)
         for key in ADDRESS_FIELDS:
             if key in address and getattr(addr, key) != address[key]:
                 setattr(addr, key, address[key])
                 changed.append(f"address.{key}")
+        if (addr.latitude, addr.longitude) != pin_before:
+            # A moved pin has not been checked by anyone yet.
+            store.location_confirmed_at, store.location_confirmed_by = None, None
+            changed.append("location_confirmation_cleared")
+        if confirm_location:
+            if not (addr.latitude or addr.longitude):
+                raise ValidationError({"address": "Place the pin on the map before confirming it."})
+            store.location_confirmed_at, store.location_confirmed_by = timezone.now(), actor
+            changed.append("location_confirmed")
         addr.full_clean(exclude=[f for f in ("line1", "city", "state", "postal_code") if not (getattr(addr, f) or "").strip()])
         addr.save()
     store.full_clean(exclude=["slug", "store_code"])

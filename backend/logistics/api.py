@@ -143,6 +143,32 @@ class GeoReverseView(APIView):
                              "detail": "We couldn't look up this point's address. Type the address details below."})
 
 
+# ------------------------------------------------------------------ admin: Google Maps diagnostics
+
+class MapsStatusView(APIView):
+    """Configuration presence (never the keys) and the last recorded check of each Google service."""
+
+    permission_classes = [IsManagement]
+
+    def get(self, request):
+        from .maps_health import maps_status
+        _need(request.user, "logistics.view_delivery_operations")
+        return Response(maps_status())
+
+
+class MapsHealthCheckView(APIView):
+    """Runs one small live request per Google service and records the outcome. Uses a little quota."""
+
+    permission_classes = [IsManagement]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "maps_check"
+
+    def post(self, request):
+        from .maps_health import run_health_checks
+        _need(request.user, "logistics.manage_delivery_pricing")
+        return Response(run_health_checks(request.user))
+
+
 # ------------------------------------------------------------------ store serviceability (public)
 
 class ServiceableStoresView(APIView):

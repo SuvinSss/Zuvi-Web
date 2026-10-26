@@ -185,6 +185,27 @@ class PartnerEarning(models.Model):
         ]
 
 
+class MapsHealthCheck(models.Model):
+    """Result of an admin-triggered live check of one Google service. Never stores keys or raw responses."""
+
+    class Service(models.TextChoices):
+        PLACES = "PLACES", "Places (address search)"
+        GEOCODING = "GEOCODING", "Geocoding (address from pin)"
+        ROUTES = "ROUTES", "Routes (road distance)"
+
+    service = models.CharField(max_length=16, choices=Service.choices)
+    ok = models.BooleanField()
+    error_code = models.CharField(max_length=24, blank=True)
+    message = models.CharField(max_length=200, blank=True)
+    latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    checked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    checked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-checked_at", "-id"]
+        indexes = [models.Index(fields=["service", "-checked_at"], name="mapscheck_service_time")]
+
+
 class LogisticsPermissions(models.Model):
     """Holder for permissions that are not tied to one model's add/change/delete."""
 

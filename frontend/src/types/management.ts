@@ -17,6 +17,7 @@ export interface StoreDetail extends StoreRow {
   min_order_amount: string | null; service_radius_km: string | null; opening_hours: Hours; closures: { date: string; reason: string }[]
   creation_source: string; approved_by: string | null; approved_at: string | null; verified_by: string | null; verified_at: string | null
   created_by: string | null; address: StoreAddress; operational_gaps: string[]; next_statuses: string[]
+  location?: { confirmed: boolean; confirmed_at: string | null; confirmed_by: string | null; problems: string[] }
   counts: { products: number; products_by_status: Record<string, number>; orders: number; staff: number; documents: number }
   history: { old: string; new: string; reason: string; by: string; at: string }[]
 }

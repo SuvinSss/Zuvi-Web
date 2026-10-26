@@ -25,9 +25,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import socket
 from dataclasses import dataclass
 from decimal import Decimal
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -41,7 +42,43 @@ CACHE_SECONDS = 24 * 3600
 
 
 class ProviderUnavailable(Exception):
-    """The provider is not configured, timed out or returned something unusable."""
+    """The provider is not configured, timed out or returned something unusable.
+
+    ``code`` says why, so operators and the admin health check can tell a rejected key from a
+    quota problem or a network failure. Customers still only see the friendly message.
+    """
+
+    NOT_CONFIGURED = "NOT_CONFIGURED"
+    KEY_REJECTED = "KEY_REJECTED"
+    QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
+    TIMEOUT = "TIMEOUT"
+    NETWORK = "NETWORK"
+    BAD_RESPONSE = "BAD_RESPONSE"
+    NO_RESULT = "NO_RESULT"
+
+    def __init__(self, message="", *, code="BAD_RESPONSE"):
+        super().__init__(message)
+        self.code = code
+
+
+def _code_for_http_status(status):
+    if status in (401, 403):
+        return ProviderUnavailable.KEY_REJECTED
+    if status == 429:
+        return ProviderUnavailable.QUOTA_EXCEEDED
+    return ProviderUnavailable.BAD_RESPONSE
+
+
+def _code_for_google_status(status):
+    """Map a Google API status string (REQUEST_DENIED, RESOURCE_EXHAUSTED, ...) to our code."""
+    status = str(status or "").upper()
+    if status in ("REQUEST_DENIED", "PERMISSION_DENIED", "UNAUTHENTICATED"):
+        return ProviderUnavailable.KEY_REJECTED
+    if status in ("OVER_QUERY_LIMIT", "OVER_DAILY_LIMIT", "RESOURCE_EXHAUSTED"):
+        return ProviderUnavailable.QUOTA_EXCEEDED
+    if status in ("ZERO_RESULTS", "NOT_FOUND"):
+        return ProviderUnavailable.NO_RESULT
+    return ProviderUnavailable.BAD_RESPONSE
 
 
 @dataclass
@@ -102,9 +139,18 @@ def _open(req, timeout):
     try:
         with urlopen(req, timeout=timeout or float(_setting("LOCATION_PROVIDER_TIMEOUT", 5))) as resp:  # noqa: S310 (fixed Google hosts)
             return json.loads(resp.read(2_000_000).decode("utf-8"))
-    except (URLError, TimeoutError, OSError, ValueError) as exc:
-        # Never log the URL: Geocoding API keys travel in the query string.
-        raise ProviderUnavailable(type(exc).__name__ + ": " + str(getattr(exc, "reason", "") or getattr(exc, "code", "") or "request failed")) from exc
+    except HTTPError as exc:
+        # Google answers key and quota problems with 4xx. Never log the URL: Geocoding keys travel in it.
+        raise ProviderUnavailable(f"HTTP {exc.code}", code=_code_for_http_status(exc.code)) from None
+    except (TimeoutError, socket.timeout) as exc:
+        raise ProviderUnavailable("Request timed out", code=ProviderUnavailable.TIMEOUT) from exc
+    except URLError as exc:
+        timed_out = isinstance(exc.reason, (TimeoutError, socket.timeout))
+        raise ProviderUnavailable("Request timed out" if timed_out else "Network error",
+                                  code=ProviderUnavailable.TIMEOUT if timed_out else ProviderUnavailable.NETWORK) from None
+    except (OSError, ValueError) as exc:
+        code = ProviderUnavailable.BAD_RESPONSE if isinstance(exc, ValueError) else ProviderUnavailable.NETWORK
+        raise ProviderUnavailable(type(exc).__name__ + ": request failed", code=code) from None
 
 
 def _key(*parts):
@@ -116,13 +162,13 @@ class Geocoder:
     attribution = ""
 
     def search(self, query: str, limit: int = 6, *, session: str = "", near=None) -> list[Place]:
-        raise ProviderUnavailable("Address search is not configured.")
+        raise ProviderUnavailable("Address search is not configured.", code=ProviderUnavailable.NOT_CONFIGURED)
 
     def details(self, place_id: str, *, session: str = "") -> Place:
-        raise ProviderUnavailable("Place details are not available.")
+        raise ProviderUnavailable("Place details are not available.", code=ProviderUnavailable.NOT_CONFIGURED)
 
     def reverse(self, latitude, longitude) -> Place:
-        raise ProviderUnavailable("Address lookup is not configured.")
+        raise ProviderUnavailable("Address lookup is not configured.", code=ProviderUnavailable.NOT_CONFIGURED)
 
 
 class NominatimGeocoder(Geocoder):
@@ -181,7 +227,7 @@ class Router:
     name = "none"
 
     def road_km(self, origin, destination) -> Decimal:
-        raise ProviderUnavailable("Road routing is not configured.")
+        raise ProviderUnavailable("Road routing is not configured.", code=ProviderUnavailable.NOT_CONFIGURED)
 
 
 class OSRMRouter(Router):
@@ -270,7 +316,8 @@ class GoogleGeocoder(Geocoder):
         if not isinstance(data, dict):
             raise ProviderUnavailable("Unexpected autocomplete response.")
         if "error" in data:
-            raise ProviderUnavailable(str(data["error"].get("status", "error")))
+            status = (data["error"] or {}).get("status", "error") if isinstance(data["error"], dict) else "error"
+            raise ProviderUnavailable(str(status), code=_code_for_google_status(status))
         places = []
         for s in data.get("suggestions") or []:
             p = (s or {}).get("placePrediction") if isinstance(s, dict) else None
@@ -292,7 +339,10 @@ class GoogleGeocoder(Geocoder):
         if session:
             params["sessionToken"] = session[:64]
         data = _http_get_json(f"{PLACES_URL}/places/{place_id}", params, self._headers("id,formattedAddress,location,addressComponents"))
-        if not isinstance(data, dict) or "error" in data:
+        if isinstance(data, dict) and "error" in data:
+            status = (data["error"] or {}).get("status", "error") if isinstance(data["error"], dict) else "error"
+            raise ProviderUnavailable("Place details failed.", code=_code_for_google_status(status))
+        if not isinstance(data, dict):
             raise ProviderUnavailable("Place details failed.")
         loc = data.get("location") or {}
         lat, lon = _coord(loc.get("latitude")), _coord(loc.get("longitude"))
@@ -306,7 +356,7 @@ class GoogleGeocoder(Geocoder):
         if not isinstance(data, dict):
             raise ProviderUnavailable("Unexpected geocoding response.")
         if data.get("status") != "OK" or not data.get("results"):
-            raise ProviderUnavailable(f"Geocoding: {data.get('status', 'no result')}")
+            raise ProviderUnavailable(f"Geocoding: {data.get('status', 'no result')}", code=_code_for_google_status(data.get("status")))
         best = data["results"][0]
         loc = ((best.get("geometry") or {}).get("location")) or {}
         lat, lon = _coord(loc.get("lat")), _coord(loc.get("lng"))
@@ -336,7 +386,7 @@ class GoogleRouter(Router):
         try:
             metres = Decimal(str(data["routes"][0]["distanceMeters"]))
         except (KeyError, IndexError, TypeError, ArithmeticError) as exc:
-            raise ProviderUnavailable("No road route found.") from exc
+            raise ProviderUnavailable("No road route found.", code=ProviderUnavailable.NO_RESULT) from exc
         if metres < 0 or metres > 1_000_000:
             raise ProviderUnavailable("Implausible route distance.")
         return (metres / 1000).quantize(Decimal("0.001"))

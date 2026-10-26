@@ -8,6 +8,7 @@ import { FilePicker, KeyValue, Modal, QueryBoundary, Section, Stat, Status, Time
 import { Alert, Button, ButtonLink, Card, Field, Input, PageHeader, Select } from '@/components/ui'
 import { errorMessage, fieldErrors } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { PinConfirmation } from './PinConfirmation'
 import { addStoreStaff, resendInvite, getStore, storeDocuments, storeMeta, storeStaff, uploadStoreDocument, verifyStore } from '@/services/management'
 import type { OwnerSetup, StoreDetail } from '@/types/management'
 
@@ -152,7 +153,8 @@ export default function StoreDetailPage() {
           {tab === 'address' && <Card className="space-y-4 p-4"><KeyValue rows={[['Address', [s.address.line1, s.address.line2, s.address.landmark].filter(Boolean).join(', ')], ['City', s.address.city], ['District', s.address.district || '—'], ['State', s.address.state], ['Postal code', s.address.postal_code], ['Country', s.address.country], ['Coordinates', Number(s.address.latitude) || Number(s.address.longitude) ? `${s.address.latitude}, ${s.address.longitude}` : 'Not set']]} />
             {Number(s.address.latitude) || Number(s.address.longitude)
               ? <><MapView height={260} label={`${s.name} map pin`} markers={[{ lat: Number(s.address.latitude), lon: Number(s.address.longitude), label: s.name, color: '#b45309' }]} fitToMarkers zoom={16} /><a className="inline-flex min-h-11 items-center text-sm font-medium text-forest underline" target="_blank" rel="noreferrer" href={googleMapsPlace(s.address.latitude, s.address.longitude)}>Check this pin in Google Maps</a></>
-              : <Alert tone="warn">No map pin yet. Edit the store and place the pin so delivery can be priced.</Alert>}</Card>}
+              : <Alert tone="warn">No map pin yet. Edit the store and place the pin so delivery can be priced.</Alert>}
+            <PinConfirmation store={s} canChange={can.change} /></Card>}
           {tab === 'staff' && <StaffTab store={s} canChange={can.change} />}
           {tab === 'products' && (
             <Section title="Products & inventory" actions={<ButtonLink variant="outline" to={`/admin/products?store=${s.id}`}>Open product list</ButtonLink>}>

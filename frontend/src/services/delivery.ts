@@ -24,5 +24,15 @@ export const deliveryOperations = (days = 30) => get<Operations>('/admin/deliver
 export const adminEarnings = (status?: string) => get<Earning[]>('/admin/partner-earnings/', status ? { status } : undefined)
 export const markEarningsPaid = (ids: number[], payout_reference: string) => post<{ updated: number }>('/admin/partner-earnings/', { ids, payout_reference })
 
+export interface MapsCheck { ok: boolean; error_code: string; message: string; latency_ms: number | null; checked_at: string }
+export type MapsService = 'PLACES' | 'GEOCODING' | 'ROUTES'
+export interface MapsStatus {
+  configuration: { server_key_present: boolean; geocoder: string; router: string; travel_mode: string; timeout_seconds: number; store_pin_confirmation_required: boolean }
+  checks: Record<MapsService, { latest: MapsCheck | null; last_success_at: string | null }>
+}
+export const mapsStatus = () => get<MapsStatus>('/admin/maps/status/')
+export const runMapsHealthCheck = () => post<Record<MapsService, MapsCheck>>('/admin/maps/health-check/')
+export const confirmStorePin = async (storeId: number) => (await api.patch(`/admin/stores/${storeId}/`, { address: { confirm_location: true } })).data
+
 export const myEarnings = () => get<{ summary: Record<string, string>; results: Earning[] }>('/delivery/earnings/')
 export const storeFinance = () => get<StoreFinance>('/store/finance/')
