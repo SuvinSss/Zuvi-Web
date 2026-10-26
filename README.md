@@ -272,6 +272,22 @@ The isolated static-build step writes under the runner's temporary directory and
 requires no database or media credentials. No AWS/Railway resources or production
 secrets are used by these CI checks.
 
+## Google Maps Platform and the React app
+
+ZuuVi now has a JSON API (`/api/v1/`, app `geo`) and a React + TypeScript app (`frontend/`, served at `/app/`)
+for location selection, saved addresses, delivery-fee quotes, order tracking, store pickup pins, delivery
+partner navigation and admin diagnostics. The existing Django pages keep working.
+
+```bash
+cd frontend && npm ci && npm run dev      # dev server on :5173, proxies /api to Django on :8000
+npm run lint && npm run typecheck && npm test && npm run build
+```
+
+Guides: [setup](docs/google-maps-platform-setup.md), [architecture](docs/google-maps-api-architecture.md),
+[location workflow](docs/location-and-address-workflow.md),
+[routes and pricing](docs/google-routes-delivery-pricing.md),
+[troubleshooting](docs/google-maps-troubleshooting.md).
+
 ## Google Maps location selection
 
 Store creation/editing, customer address forms, and the delivery-location modal

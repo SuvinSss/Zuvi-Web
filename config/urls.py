@@ -17,10 +17,11 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from accounts.views import management_permission_denied_view
 from .health import live, ready
+from .spa import spa_index
 
 handler403 = management_permission_denied_view
 
@@ -37,6 +38,7 @@ urlpatterns = [
     path("", include("customers.urls")),
     path("", include("locations.urls")),
     path("api/v1/", include("geo.api.urls")),
+    re_path(r"^app/(?P<path>.*)$", spa_index, name="react_app"),
 ]
 
 if settings.DEBUG:

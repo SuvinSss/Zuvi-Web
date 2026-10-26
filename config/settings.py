@@ -268,6 +268,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+# The React build (frontend/dist/app/assets/*) is served by WhiteNoise at /app/assets/.
+_FRONTEND_DIST = BASE_DIR / 'frontend' / 'dist'
+if _FRONTEND_DIST.is_dir():
+    WHITENOISE_ROOT = _FRONTEND_DIST
 STATIC_ROOT = Path(env('DJANGO_STATIC_ROOT', default=str(BASE_DIR / 'staticfiles')))
 if not STATIC_ROOT.is_absolute():
     STATIC_ROOT = BASE_DIR / STATIC_ROOT
