@@ -17,6 +17,7 @@
         {% endif %}
         {% if can_add_product %}
             <a href="{% url 'catalog:photo_import' %}" class="btn btn-outline-primary btn-sm">Import photos</a>
+            <a href="{% url 'catalog:bulk_import' %}" class="btn btn-outline-primary btn-sm">Bulk import</a>
             <a href="{% url 'catalog:product_create' %}" class="btn btn-primary btn-sm">Create Product</a>
         {% endif %}
     </div>

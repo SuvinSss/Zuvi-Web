@@ -1,0 +1,43 @@
+{% extends "management/base.html" %}{% load static %}
+{% block title %}Bulk import · ZuuVi{% endblock %}
+{% block content %}
+<div id="bulk-import" data-endpoint="{% url 'catalog:bulk_import_item' %}">
+  {% csrf_token %}
+  <div class="mb-3">
+    <a href="{% url 'catalog:product_list' %}">Products</a>
+    <h1 class="h4 mb-1">Bulk import products</h1>
+    <p class="text-muted mb-0">Choose a folder that contains <code>_manifest.csv</code> and one sub-folder of images per product. Each product is created as <strong>Pending</strong> with Store Price 0. Set the price and approve each product afterwards.</p>
+  </div>
+
+  <div class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small" for="bulk-store">Destination Store</label>
+        <select id="bulk-store" class="form-select">
+          <option value="">Choose a Store</option>
+          {% for store in stores %}<option value="{{ store.pk }}"{% if store.pk == default_store %} selected{% endif %}>{{ store.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="btn btn-outline-primary mb-0">Choose folder<input id="bulk-folder" type="file" webkitdirectory multiple hidden></label>
+      </div>
+      <div class="col-md-4 d-flex gap-2 justify-content-md-end">
+        <button id="bulk-start" class="btn btn-primary" type="button" disabled>Import</button>
+        <button id="bulk-stop" class="btn btn-outline-secondary" type="button" hidden>Stop</button>
+      </div>
+    </div>
+    {% if not can_add_category %}<p class="small text-warning mt-2 mb-0">Your account cannot create categories. Rows whose category doesn't exist yet will fail.</p>{% endif %}
+  </div>
+
+  <div id="bulk-notice" class="mb-2" role="status" aria-live="polite">Choose the product images folder to see a preview.</div>
+  <progress id="bulk-progress" class="w-100 mb-3" max="100" value="0" aria-label="Import progress" hidden></progress>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" id="bulk-table" hidden>
+      <thead><tr><th>Sl.No</th><th>Image</th><th>Name</th><th>Category</th><th>Flags</th><th>Result</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/bulk-import.js' %}" defer></script>{% endblock %}
