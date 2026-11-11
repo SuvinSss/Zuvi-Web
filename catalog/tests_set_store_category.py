@@ -91,3 +91,62 @@ class SetStoreProductCategoryTests(CatalogTestMixin, TestCase):
             self.run_command("--apply", actor=store_user)
         self.p1.refresh_from_db()
         self.assertEqual(self.p1.category, self.rice)
+
+
+class MoveZuuviGroceryMigrationTests(CatalogTestMixin, TestCase):
+    """The 0014 data migration, run against the real (current) models."""
+
+    def setUp(self):
+        from importlib import import_module
+
+        self.forward = import_module(
+            "catalog.migrations.0014_move_zuuvi_grocery_products_to_grocery"
+        ).forward
+        self.admin = User.objects.create_user(
+            username="mig-admin",
+            email="mig-admin@example.com",
+            password="secure-password-123",
+            role=Role.SUPER_ADMIN,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.rice = self.create_product_category(name="Appam / Idiyappam Podi")
+        self.other_store = self.create_store(name="Other Mart")
+        self.other = self.create_product(store=self.other_store, category=self.rice)
+
+    def run_forward(self):
+        from django.apps import apps
+
+        self.forward(apps, None)
+
+    def test_moves_only_zuuvi_grocery_products_and_keeps_status(self):
+        store = self.create_store(name="ZuuVi Grocery")
+        product = self.create_product(store=store, category=self.rice, status=ProductStatus.APPROVED)
+        self.run_forward()
+        grocery = ProductCategory.objects.get(name="Grocery", parent=None)
+        self.assertTrue(grocery.slug)
+        product.refresh_from_db()
+        self.assertEqual(product.category, grocery)
+        self.assertEqual(product.status, ProductStatus.APPROVED)
+        self.assertEqual(product.store_price, Decimal("100.00"))
+        self.other.refresh_from_db()
+        self.assertEqual(self.other.category, self.rice)
+        log = AdminAuditLog.objects.get()
+        self.assertEqual(log.actor, self.admin)
+        self.assertEqual(log.metadata["previous_category_by_product"], {str(product.pk): self.rice.pk})
+        self.run_forward()
+        self.assertEqual(AdminAuditLog.objects.count(), 1)
+
+    def test_reuses_existing_grocery_category(self):
+        grocery = self.create_product_category(name="Grocery")
+        store = self.create_store(name="Zuuvi Grocery")
+        product = self.create_product(store=store, category=self.rice)
+        self.run_forward()
+        product.refresh_from_db()
+        self.assertEqual(product.category, grocery)
+        self.assertEqual(ProductCategory.objects.filter(name__iexact="grocery").count(), 1)
+
+    def test_no_store_changes_nothing(self):
+        self.run_forward()
+        self.assertFalse(ProductCategory.objects.filter(name="Grocery").exists())
+        self.assertFalse(AdminAuditLog.objects.exists())
